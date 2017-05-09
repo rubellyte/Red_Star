@@ -1,4 +1,4 @@
-#Red Star Bot
+# Red Star Bot
 A Discord administration bot, intended to replace a variety of bots on a server I participate in.
 
 Features:
@@ -10,5 +10,5 @@ Planned features:
 - Music playing
 - Custom commands
 
-#Installation
+# Installation
 Don't.
