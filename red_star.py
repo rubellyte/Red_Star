@@ -71,6 +71,11 @@ class RedStar(discord.Client):
                 cmd = cnt[len(self.config["command_decorator"]):].split()[0]
                 if cmd in self.commands:
                     yield from self.commands[cmd](msg)
+                    
+    @asyncio.coroutine
+    def on_member_join(self, member):
+        msg = self.config["new_member_message"].replace("<joinername>", member.mention)
+        yield from self.send_message(self.primary_channel, msg)
 
     @asyncio.coroutine
     def cmd_update_avatar(self, data):
@@ -109,6 +114,8 @@ class RedStar(discord.Client):
             cnt = data.content.split()
             try:
                 count = int(cnt[1])
+                if count > 250:
+                    count = 250
             except ValueError:
                 count = 100
             yield from self.delete_message(data)
