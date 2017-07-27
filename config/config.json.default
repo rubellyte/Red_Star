@@ -1,7 +1,18 @@
 {
-  "command_decorator": "!",
-  "greeting_message": "**This is UFP Distributed Command AI Battleship Red Star. ANALYSIS: Establishing Protectorate presence in neutral space. MINE SHALL BE THE FINAL WORD.**",
-  "primary_channel": "INSERT MAIN CHANNEL ID HERE!",
+  "client_id": "INSERT CLIENT ID HERE!"
   "token": "INSERT TOKEN HERE!",
-  "plugin_path": "./plugins"
+  "plugin_path": "./plugins",
+  "plugins": {
+    "announcer": {
+      "greeting_enabled": true,
+      "greeting_message": "Sample message to be broadcasted on bot load.",
+      "greeting_channel": "CHANNEL ID AS STRING",
+      "new_member_announce_enabled": true,
+      "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention.",
+      "new_member_announce_channel": "CHANNEL ID AS STRING"
+    },
+    "command_dispatcher": {
+      "command_prefix": "!"
+    }
+  }
 }
