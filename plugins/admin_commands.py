@@ -16,6 +16,12 @@ class AdminCommands(BasePlugin):
     def _test_command(self, data):
         yield from respond(self.client, data, "**Test confirmed, <usermention>.**")
 
+    @Command("shutdown",
+             perms={"manage_server"})
+    def _shutdown(self, data):
+        yield from respond(self.client, data, "**Shutting down.**")
+        raise SystemExit
+
     @Command("update_avatar",
              syntax="(URL)",
              perms={"manage_server"})

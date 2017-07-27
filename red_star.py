@@ -170,7 +170,7 @@ if __name__ == "__main__":
     main_logger = logging.getLogger("MAIN")
     try:
         loop.run_until_complete(bot.start(bot.config.token))
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         main_logger.info("Interrupt caught, shutting down...")
         loop.run_until_complete(bot.logout())
         bot.config_manager.save_config()
