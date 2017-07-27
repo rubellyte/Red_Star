@@ -41,12 +41,113 @@ class RedStar(discord.Client):
             self.plugin_manager.activate_all()
 
     @asyncio.coroutine
+    def on_resumed(self):
+        yield from self.plugin_manager.hook_event("on_resumed")
+
+    @asyncio.coroutine
+    def on_error(self, event, *args, **kwargs):
+        raise
+
+    @asyncio.coroutine
     def on_message(self, msg):
         yield from self.plugin_manager.hook_event("on_message", msg)
 
     @asyncio.coroutine
+    def on_message_delete(self, msg):
+        yield from self.plugin_manager.hook_event("on_message_delete", msg)
+
+    @asyncio.coroutine
+    def on_message_edit(self, before, after):
+        yield from self.plugin_manager.hook_event("on_message_edit", msg)
+
+    @asyncio.coroutine
+    def on_reaction_add(self, reaction, user):
+        yield from self.plugin_manager.hook_event("on_reaction_add", reaction, user)
+
+    @asyncio.coroutine
+    def on_reaction_remove(self, reaction, user):
+        yield from self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
+
+    @asyncio.coroutine
+    def on_reaction_clear(self, message, reactions):
+        yield from self.plugin_manager.hook_event("on_reaction_clear", message, reactions)
+
+    @asyncio.coroutine
+    def on_channel_create(self, channel):
+        yield from self.plugin_manager.hook_event("on_channel_create", channel)
+
+    @asyncio.coroutine
+    def on_channel_delete(self, channel):
+        yield from self.plugin_manager.hook_event("on_channel_delete", channel)
+
+    @asyncio.coroutine
+    def on_channel_update(self, before, after):
+        yield from self.plugin_manager.hook_event("on_channel_update", before, after)
+
+    @asyncio.coroutine
     def on_member_join(self, member):
         yield from self.plugin_manager.hook_event("on_member_join", member)
+
+    @asyncio.coroutine
+    def on_member_remove(self, member):
+        yield from self.plugin_manager.hook_event("on_member_remove", member)
+
+    @asyncio.coroutine
+    def on_member_update(self, before, after):
+        yield from self.plugin_manager.hook_event("on_member_update", before, after)
+
+    @asyncio.coroutine
+    def on_server_join(self, server):
+        yield from self.plugin_manager.hook_event("on_server_join", server)
+
+    @asyncio.coroutine
+    def on_server_remove(self, server):
+        yield from self.plugin_manager.hook_event("on_server_remove", server)
+
+    @asyncio.coroutine
+    def on_server_update(self, before, after):
+        yield from self.plugin_manager.hook_event("on_server_update", before, after)
+
+    @asyncio.coroutine
+    def on_server_role_create(self, role):
+        yield from self.plugin_manager.hook_event("on_server_role_create", role)
+
+    @asyncio.coroutine
+    def on_server_role_delete(self, role):
+        yield from self.plugin_manager.hook_event("on_server_role_delete", role)
+
+    @asyncio.coroutine
+    def on_server_role_update(self, before, after):
+        yield from self.plugin_manager.hook_event("on_server_role_update", before, after)
+
+    @asyncio.coroutine
+    def on_server_emojis_update(self, before, after):
+        yield from self.plugin_manager.hook_event("on_server_emojis_update", before, after)
+
+    @asyncio.coroutine
+    def on_server_available(self, server):
+        yield from self.plugin_manager.hook_event("on_server_available", server)
+
+
+    @asyncio.coroutine
+    def on_server_unavailable(self, server):
+        yield from self.plugin_manager.hook_event("on_server_unavailable", server)
+
+    @asyncio.coroutine
+    def on_voice_state_update(self, before, after):
+        yield from self.plugin_manager.hook_event("on_voice_state_update", before, after)
+
+    @asyncio.coroutine
+    def on_member_ban(self, member):
+        yield from self.plugin_manager.hook_event("on_member_ban", member)
+
+    @asyncio.coroutine
+    def on_member_unban(self, member):
+        yield from self.plugin_manager.hook_event("on_member_unban", member)
+
+    @asyncio.coroutine
+    def on_typing(self, channel, user, when):
+        yield from self.plugin_manager.hook_event("on_typing", channel, user, when)
 
 
 if __name__ == "__main__":
