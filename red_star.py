@@ -17,17 +17,17 @@ class RedStar(discord.Client):
             self.logger.setLevel(logging.INFO)
         self.logger.debug("Initializing...")
         try:
-            with open("config.json", "r") as f:
+            with open("config/config.json", "r") as f:
                 self.config = json.load(f)
         except FileNotFoundError:
             self.logger.error("config.json not found! Copying default...")
             from shutil import copyfile
             try:
-                copyfile("config.json.default", "config.json")
+                copyfile("config/config.json.default", "config/config.json")
             except FileNotFoundError:
                 self.logger.error("config.json.default not found! Exiting...")
                 raise SystemExit
-            with open("config.json", "r") as f:
+            with open("config/config.json", "r") as f:
                 self.config = json.load(f)
         except json.decoder.JSONDecodeError:
             self.logger.error("config.json is invalid! Exiting...")
@@ -45,7 +45,7 @@ class RedStar(discord.Client):
 
     def save_config(self):
         self.logger.info("Saving configuration...")
-        with open("config.json", "w") as f:
+        with open("config/config.json", "w") as f:
             json.dump(self.config, f, indent=2, sort_keys=True)
 
     @asyncio.coroutine
