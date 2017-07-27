@@ -128,7 +128,6 @@ class RedStar(discord.Client):
     def on_server_available(self, server):
         yield from self.plugin_manager.hook_event("on_server_available", server)
 
-
     @asyncio.coroutine
     def on_server_unavailable(self, server):
         yield from self.plugin_manager.hook_event("on_server_unavailable", server)

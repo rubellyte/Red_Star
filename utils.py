@@ -76,7 +76,7 @@ def respond(client, data, response):
     :param response: The text to respond with.
     :return discord.Message: The Message sent.
     """
-    text = sub_user_data(data.user, response)
+    text = sub_user_data(data.author, response)
     m = yield from client.send_message(data.channel, text)
     return m
 
