@@ -27,7 +27,9 @@ class PluginManager:
         for file in plugin_path.iterdir():
             if file.stem in ignores:
                 continue
-            if (file.suffix == ".py" or file.is_dir()) and str(file) not in loaded:
+            if (file.suffix == ".py" or file.is_dir()) \
+            and str(file) not in loaded \
+            and not file.stem.startswith("_"):
                 try:
                     self.load_plugin(file)
                     loaded.add(str(file))
