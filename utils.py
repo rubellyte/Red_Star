@@ -120,7 +120,7 @@ class Command:
                         raise PermissionError
                 return asyncio.ensure_future(f(s, data))
             except PermissionError:
-                yield from respond(s.client, data, "You do not have permission to do that, <usernick>.")
+                yield from respond(s.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION : <usernick>.**")
 
         wrapped._command = True
         wrapped._aliases = self.aliases

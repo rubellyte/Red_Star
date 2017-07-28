@@ -7,9 +7,11 @@ class Announcer(BasePlugin):
     name = "announcer"
     default_config = {
         "greeting_enabled": True,
-        "greeting_message": "Sample message to be broadcasted on bot load.",
+        #UFP distributed command AI ONLINE. DESIGNATION: Red Star. MINE SHALL BE THE FINAL WORD.
+        "greeting_message": "Sample message to be broadcasted on bot load.", 
         "greeting_channel": "CHANNEL ID AS STRING",
         "new_member_announce_enabled": True,
+        #GREETINGS, <usermention>. Welcome to Ivaldi RP.
         "new_member_announce_message": "Message for new players. Replaces"
         " <username> with their name and <usermention> with a mention.",
         "new_member_announce_channel": "CHANNEL ID AS STRING"
