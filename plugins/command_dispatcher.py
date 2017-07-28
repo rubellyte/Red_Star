@@ -51,12 +51,12 @@ class CommandDispatcher(BasePlugin):
         except (SyntaxError, SyntaxWarning) as e:
             if fn.human_syntax:
                 yield from respond(self.client, data,
-                    "Invalid syntax. Usage: {}.".format(fn.human_syntax))
+                    "WARNING: Invalid syntax. ANALYSIS: Proper usage: {}.".format(fn.human_syntax))
             else:
-                yield from respond(self.client, data, "Invalid syntax.")
+                yield from respond(self.client, data, "WARNING: Invalid syntax.")
         except Exception:
             self.logger.exception("Exception occured in command. ", exc_info=True)
-            yield from respond(self.client, data, "An error occured while running your command.")
+            yield from respond(self.client, data, "WARNING: Error occurred while running command." "An error occured while running your command.")
 
     # Event hooks
 
