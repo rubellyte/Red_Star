@@ -58,7 +58,7 @@ class RedStar(discord.Client):
 
     @asyncio.coroutine
     def on_message_edit(self, before, after):
-        yield from self.plugin_manager.hook_event("on_message_edit", msg)
+        yield from self.plugin_manager.hook_event("on_message_edit", before, after)
 
     @asyncio.coroutine
     def on_reaction_add(self, reaction, user):
@@ -176,4 +176,6 @@ if __name__ == "__main__":
         bot.config_manager.save_config()
     finally:
         main_logger.info("Exiting...")
+        for task in asyncio.Task.all_tasks():
+            task.cancel()
         loop.close()
