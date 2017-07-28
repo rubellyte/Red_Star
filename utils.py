@@ -81,6 +81,32 @@ def respond(client, data, response):
     return m
 
 
+def split_message(message, splitter=None):
+    """
+    Split message into 2000-character blocks, optionally on specific character.
+    :param message: The message to split
+    :param splitter: Optional, the string to split on
+    """
+    msgs = []
+    searchpoint = 0
+    if splitter:
+        while len(message) - searchpoint > 2000:
+            searchstr = message[searchpoint:searchpoint + 2000]
+            point = searchstr.rfind(splitter)
+            if point >= 0:
+                point += 1
+                msgs.append(message[searchpoint:searchpoint + point])
+                searchpoint += point
+            else:
+                msgs.append(message[searchpoint:searchpoint + 2000])
+                searchpoint += 2000
+        msgs.append(message[searchpoint:])
+    else:
+        for x in range(0, len(message), 2000):
+            msgs.append(message[x:x + 2000])
+    return msgs
+
+
 class Command:
     """
     Defines a decorator that encapsulates a chat command. Provides a common

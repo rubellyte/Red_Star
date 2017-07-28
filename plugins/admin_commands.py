@@ -3,7 +3,7 @@ import re
 import asyncio
 from discord import InvalidArgument
 from plugin_manager import BasePlugin
-from utils import Command, respond
+from utils import Command, respond, split_message
 
 
 class AdminCommands(BasePlugin):
@@ -42,8 +42,7 @@ class AdminCommands(BasePlugin):
 
     @Command("purge",
              syntax="(count) [match]",
-             perms={"manage_messages"},
-             delcall=True)
+             perms={"manage_messages"})
     def _purge(self, data):
         cnt = data.content.split()
         try:
@@ -56,12 +55,11 @@ class AdminCommands(BasePlugin):
             self.searchstr = " ".join(cnt[2:])
         else:
             self.searchstr = ""
+        yield from self.client.delete_message(data)
         deleted = yield from self.client.purge_from(
             data.channel, limit=count, check=self.search)
         self.searchstr = ""
-        fb = yield from respond(self.client, data,
-            "**PURGE COMPLETE: {} messages purged.**"
-            .format(len(deleted)))
+        fb = yield from respond(self.client, data, "**PURGE COMPLETE: {} messages purged.**".format(len(deleted)))
         yield from asyncio.sleep(5)
         yield from self.client.delete_message(fb)
 

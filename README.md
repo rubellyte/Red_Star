@@ -3,9 +3,9 @@ A Discord administration bot, intended to replace a variety of bots on a server 
 
 Features:
 - Purging
+- Event logging (Message edit and delete, server join and leave)
 
 Planned features:
-- Event logging
 - Role administration by commands
 - Music playing
 - Custom commands
