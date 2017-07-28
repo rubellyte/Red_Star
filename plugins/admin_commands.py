@@ -14,12 +14,12 @@ class AdminCommands(BasePlugin):
 
     @Command("test")
     def _test_command(self, data):
-        yield from respond(self.client, data, "**Test confirmed, <usermention>.**")
+        yield from respond(self.client, data, "**AFFIRMATIVE. Confirming test, <usermention>.**")
 
     @Command("shutdown",
              perms={"manage_server"})
     def _shutdown(self, data):
-        yield from respond(self.client, data, "**Shutting down.**")
+        yield from respond(self.client, data, "**AFFIRMATIVE. SHUTTING DOWN.**")
         raise SystemExit
 
     @Command("update_avatar",
@@ -31,14 +31,14 @@ class AdminCommands(BasePlugin):
             try:
                 img = urllib.request.urlopen(url).read()
                 yield from self.client.edit_profile(avatar=img)
-                yield from respond(self.client, data, "**Avatar updated.**")
+                yield from respond(self.client, data, "**AVATAR UPDATED.**")
             except (urllib.request.URLError, ValueError) as e:
                 self.logger.debug(e)
-                yield from respond(self.client, data, "**Invalid URL provided.**")
+                yield from respond(self.client, data, "**WARNING: Invalid URL provided.**")
             except InvalidArgument:
-                yield from respond(self.client, data, "**Image must be a PNG or JPG.**")
+                yield from respond(self.client, data, "**NEGATIVE. Image must be a PNG or JPG.**")
         else:
-            yield from respond(self.client, data, "**No URL provided.**")
+            yield from respond(self.client, data, "**NEGATIVE. No URL provided.**")
 
     @Command("purge",
              syntax="(count) [match]",
