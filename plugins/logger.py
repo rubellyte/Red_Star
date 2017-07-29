@@ -31,7 +31,7 @@ class DiscordLogger(BasePlugin):
             contents = msg.clean_content
             self.logger.debug("User {}'s message was deleted. Contents: {}".format(uname, contents))
             yield from self.client.send_message(self.log_channel,
-                                                "**User {}'s message was deleted. Contents:**\n{}"
+                                                "**WARNING: User {}s message was deleted. ANALYSIS: Contents:**\n{}"
                                                 .format(uname, contents))
 
     def on_message_edit(self, before, after):
@@ -42,14 +42,14 @@ class DiscordLogger(BasePlugin):
             self.logger.debug("User {} edited their message.\nOld contents: {}\nNew contents: {}"
                               .format(uname, old_contents, contents))
             yield from self.client.send_message(self.log_channel,
-                                                "**User {} edited their message.**\n**Old contents:** {}\n"
+                                                "**WARNING: User {} edited their message. ANALYSIS:**\n**Old contents:** {}\n"
                                                 "**New contents:** {}".format(uname, old_contents, contents))
 
     def on_member_join(self, user):
         if "member_join" in self.log_events:
             uname = "{}#{}".format(user.name, user.discriminator)
             self.logger.debug("User {} joined the server.".format(uname))
-            yield from self.client.send_message(self.log_channel, "**User {} has joined the server.**".format(uname))
+            yield from self.client.send_message(self.log_channel, "**NEW USER DETECTED: {}.**".format(uname))
 
     def on_member_remove(self, user):
         if "member_remove" in self.log_events:
