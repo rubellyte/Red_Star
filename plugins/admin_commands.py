@@ -49,8 +49,10 @@ class AdminCommands(BasePlugin):
             count = int(cnt[1])
             if count > 250:
                 count = 250
+            elif count < 0:
+                raise ValueError
         except ValueError:
-            count = 100
+            raise SyntaxError
         if len(cnt) > 2:
             self.searchstr = " ".join(cnt[2:])
         else:
