@@ -25,13 +25,11 @@ class RedStar(discord.Client):
         self.logged_in = False
         asyncio.ensure_future(self.start_bot())
 
-    @asyncio.coroutine
-    def start_bot(self):
+    async def start_bot(self):
         self.logger.info("Logging in...")
-        yield from self.start(self.config["token"])
+        await self.start(self.config["token"])
 
-    @asyncio.coroutine
-    def on_ready(self):
+    async def on_ready(self):
         if not self.logged_in:
             self.logger.info("Logged in as")
             self.logger.info(self.user.name)
@@ -40,113 +38,86 @@ class RedStar(discord.Client):
             self.logged_in = True
             self.plugin_manager.activate_all()
 
-    @asyncio.coroutine
-    def on_resumed(self):
-        yield from self.plugin_manager.hook_event("on_resumed")
+    async def on_resumed(self):
+        await self.plugin_manager.hook_event("on_resumed")
 
-    @asyncio.coroutine
-    def on_error(self, event, *args, **kwargs):
+    async def on_error(self, event, *args, **kwargs):
         raise
 
-    @asyncio.coroutine
-    def on_message(self, msg):
-        yield from self.plugin_manager.hook_event("on_message", msg)
+    async def on_message(self, msg):
+        await self.plugin_manager.hook_event("on_message", msg)
 
-    @asyncio.coroutine
-    def on_message_delete(self, msg):
-        yield from self.plugin_manager.hook_event("on_message_delete", msg)
+    async def on_message_delete(self, msg):
+        await self.plugin_manager.hook_event("on_message_delete", msg)
 
-    @asyncio.coroutine
-    def on_message_edit(self, before, after):
-        yield from self.plugin_manager.hook_event("on_message_edit", before, after)
+    async def on_message_edit(self, before, after):
+        await self.plugin_manager.hook_event("on_message_edit", before, after)
 
-    @asyncio.coroutine
-    def on_reaction_add(self, reaction, user):
-        yield from self.plugin_manager.hook_event("on_reaction_add", reaction, user)
+    async def on_reaction_add(self, reaction, user):
+        await self.plugin_manager.hook_event("on_reaction_add", reaction, user)
 
-    @asyncio.coroutine
-    def on_reaction_remove(self, reaction, user):
-        yield from self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
+    async def on_reaction_remove(self, reaction, user):
+        await self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
 
-    @asyncio.coroutine
-    def on_reaction_clear(self, message, reactions):
-        yield from self.plugin_manager.hook_event("on_reaction_clear", message, reactions)
+    async def on_reaction_clear(self, message, reactions):
+        await self.plugin_manager.hook_event("on_reaction_clear", message, reactions)
 
-    @asyncio.coroutine
-    def on_channel_create(self, channel):
-        yield from self.plugin_manager.hook_event("on_channel_create", channel)
+    async def on_channel_create(self, channel):
+        await self.plugin_manager.hook_event("on_channel_create", channel)
 
-    @asyncio.coroutine
-    def on_channel_delete(self, channel):
-        yield from self.plugin_manager.hook_event("on_channel_delete", channel)
+    async def on_channel_delete(self, channel):
+        await self.plugin_manager.hook_event("on_channel_delete", channel)
 
-    @asyncio.coroutine
-    def on_channel_update(self, before, after):
-        yield from self.plugin_manager.hook_event("on_channel_update", before, after)
+    async def on_channel_update(self, before, after):
+        await self.plugin_manager.hook_event("on_channel_update", before, after)
 
-    @asyncio.coroutine
-    def on_member_join(self, member):
-        yield from self.plugin_manager.hook_event("on_member_join", member)
+    async def on_member_join(self, member):
+        await self.plugin_manager.hook_event("on_member_join", member)
 
-    @asyncio.coroutine
-    def on_member_remove(self, member):
-        yield from self.plugin_manager.hook_event("on_member_remove", member)
+    async def on_member_remove(self, member):
+        await self.plugin_manager.hook_event("on_member_remove", member)
 
-    @asyncio.coroutine
-    def on_member_update(self, before, after):
-        yield from self.plugin_manager.hook_event("on_member_update", before, after)
+    async def on_member_update(self, before, after):
+        await self.plugin_manager.hook_event("on_member_update", before, after)
 
-    @asyncio.coroutine
-    def on_server_join(self, server):
-        yield from self.plugin_manager.hook_event("on_server_join", server)
+    async def on_server_join(self, server):
+        await self.plugin_manager.hook_event("on_server_join", server)
 
-    @asyncio.coroutine
-    def on_server_remove(self, server):
-        yield from self.plugin_manager.hook_event("on_server_remove", server)
+    async def on_server_remove(self, server):
+        await self.plugin_manager.hook_event("on_server_remove", server)
 
-    @asyncio.coroutine
-    def on_server_update(self, before, after):
-        yield from self.plugin_manager.hook_event("on_server_update", before, after)
+    async def on_server_update(self, before, after):
+        await self.plugin_manager.hook_event("on_server_update", before, after)
 
-    @asyncio.coroutine
-    def on_server_role_create(self, role):
-        yield from self.plugin_manager.hook_event("on_server_role_create", role)
+    async def on_server_role_create(self, role):
+        await self.plugin_manager.hook_event("on_server_role_create", role)
 
-    @asyncio.coroutine
-    def on_server_role_delete(self, role):
-        yield from self.plugin_manager.hook_event("on_server_role_delete", role)
+    async def on_server_role_delete(self, role):
+        await self.plugin_manager.hook_event("on_server_role_delete", role)
 
-    @asyncio.coroutine
-    def on_server_role_update(self, before, after):
-        yield from self.plugin_manager.hook_event("on_server_role_update", before, after)
+    async def on_server_role_update(self, before, after):
+        await self.plugin_manager.hook_event("on_server_role_update", before, after)
 
-    @asyncio.coroutine
-    def on_server_emojis_update(self, before, after):
-        yield from self.plugin_manager.hook_event("on_server_emojis_update", before, after)
+    async def on_server_emojis_update(self, before, after):
+        await self.plugin_manager.hook_event("on_server_emojis_update", before, after)
 
-    @asyncio.coroutine
-    def on_server_available(self, server):
-        yield from self.plugin_manager.hook_event("on_server_available", server)
+    async def on_server_available(self, server):
+        await self.plugin_manager.hook_event("on_server_available", server)
 
-    @asyncio.coroutine
-    def on_server_unavailable(self, server):
-        yield from self.plugin_manager.hook_event("on_server_unavailable", server)
+    async def on_server_unavailable(self, server):
+        await self.plugin_manager.hook_event("on_server_unavailable", server)
 
-    @asyncio.coroutine
-    def on_voice_state_update(self, before, after):
-        yield from self.plugin_manager.hook_event("on_voice_state_update", before, after)
+    async def on_voice_state_update(self, before, after):
+        await self.plugin_manager.hook_event("on_voice_state_update", before, after)
 
-    @asyncio.coroutine
-    def on_member_ban(self, member):
-        yield from self.plugin_manager.hook_event("on_member_ban", member)
+    async def on_member_ban(self, member):
+        await self.plugin_manager.hook_event("on_member_ban", member)
 
-    @asyncio.coroutine
-    def on_member_unban(self, member):
-        yield from self.plugin_manager.hook_event("on_member_unban", member)
+    async def on_member_unban(self, member):
+        await self.plugin_manager.hook_event("on_member_unban", member)
 
-    @asyncio.coroutine
-    def on_typing(self, channel, user, when):
-        yield from self.plugin_manager.hook_event("on_typing", channel, user, when)
+    async def on_typing(self, channel, user, when):
+        await self.plugin_manager.hook_event("on_typing", channel, user, when)
 
 
 if __name__ == "__main__":

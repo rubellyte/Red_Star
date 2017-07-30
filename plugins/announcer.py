@@ -25,19 +25,18 @@ class Announcer(BasePlugin):
         if c.new_member_announce_enabled:
             self.new_member_announce_channel = self.client.get_channel(c.new_member_announce_channel)
 
-    @asyncio.coroutine
-    def _greet(self):
+    async def _greet(self):
             try:
                 c = self.plugin_config
-                yield from self.client.send_message(self.greet_channel, c.greeting_message)
+                await self.client.send_message(self.greet_channel, c.greeting_message)
             except TypeError:
                 self.logger.error("Greeting channel invalid!")
 
     # Event hooks
 
-    def on_member_join(self, data):
+    async def on_member_join(self, data):
         if self.plugin_config.new_member_announce_enabled:
             c = self.plugin_config
             msg = c.new_member_announce_message
             msg = sub_user_data(data, msg)
-            yield from self.client.send_message(self.new_member_announce_channel, msg)
+            await self.client.send_message(self.new_member_announce_channel, msg)
