@@ -129,6 +129,8 @@ def process_args(args):
 				t_list.append(arg)
 			else:
 				newargs.append(arg)
+	if len(t_list)> 0:
+		raise SyntaxError
 	return newargs[::-1]
 
 

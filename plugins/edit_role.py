@@ -12,7 +12,7 @@ class RoleCommands(BasePlugin):
 	@Command("editrole",
 		perms={"manage_server"},
 		category="roles",
-		syntax= "(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool]",
+		syntax= "(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
 		doc= "Edits the specified role name, colour, hoist (show separately from others) and mentionable properties.\n"
 		"WARNING: Options must be specified as option=value. No spaces around `=`.\n"
 		"ANALYSIS: Colour can be reset by setting it to 0.")
@@ -62,7 +62,7 @@ class RoleCommands(BasePlugin):
 	@Command("createrole",
 		perms={"manage_server"},
 		category="roles",
-		syntax = "(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool]",
+		syntax = "(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
 		doc = "Creates a role based on an existing role (for position and permissions), with parameters similar to editrole")
 	async def _createrole(self,data):
 		"""
@@ -118,7 +118,7 @@ class RoleCommands(BasePlugin):
 	@Command("deleterole",
 		perms = {"manage_server"},
 		category = "roles",
-		syntax = "(role name) [position]",
+		syntax = "(role name) [position].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
 		doc = "Deletes first encounter of the role with the given name and optionally position.")
 	async def _deleterole(self,data):
 		"""
@@ -153,7 +153,7 @@ class RoleCommands(BasePlugin):
 	@Command("moverole",
 		perms = {"manage_server"},
 		category = "roles",
-		syntax = "(role name) (position)",
+		syntax = "(role name) (position).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
 		doc = "Moves a role to a provided position.\nWARNING: position must be below the bot role position.")
 	async def _moverole(self,data):
 		"""
@@ -188,7 +188,7 @@ class RoleCommands(BasePlugin):
 	
 	@Command("inforole",
 		category = "roles",
-		syntax = "(role name)",
+		syntax = "(role name).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
 		doc = "Returns all the info about the given role.")
 	async def _inforole(self,data):
 		"""
@@ -224,7 +224,6 @@ class RoleCommands(BasePlugin):
 	
 	@Command("listrole",
 		category = "roles",
-		syntax = "(role name)",
 		doc = "Lists all roles.")
 	async def _listrole(self,data):
 		"""
