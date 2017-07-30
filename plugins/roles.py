@@ -134,7 +134,7 @@ class RoleCommands(BasePlugin):
     async def _deleterole(self, data):
         args = process_args(data.content.split())
         if len(args) > 1:
-            err = True
+            name = args[1].capitalize()
             pos = -1
             if len(args) > 2:
                 try:
@@ -145,19 +145,17 @@ class RoleCommands(BasePlugin):
                 for role in server.roles:
                     # delete if name matches, and if pos is not -1 - if position matches
                     if (args[1].lower() == role.name.lower()) and (((pos >= 0) and (role.position == pos)) or pos < 0):
-                        err = False
                         t_position = role.position
                         try:
                             await self.client.delete_role(server, role)
                         except Forbidden:
                             raise PermissionError
                         else:
-                            name = args[1].capitalize()
                             await respond(self.client, data,
                                           f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
                         break
-            if err:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+            else:
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError
 
@@ -172,8 +170,6 @@ class RoleCommands(BasePlugin):
         """
         args = process_args(data.content.split())
         if len(args) > 2:
-            err = True
-            new_position = 0
             try:
                 new_position = int(args[2])
             except ValueError:
@@ -181,7 +177,6 @@ class RoleCommands(BasePlugin):
             for server in self.client.servers:
                 for role in server.roles:
                     if args[1].lower() == role.name.lower():
-                        err = False
                         t_position = role.position
                         # TODO: figure out way to check position-based permissions without trying and getting an error
                         try:
@@ -196,7 +191,7 @@ class RoleCommands(BasePlugin):
                             await respond(self.client, data,
                                           f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
                         break
-            if err:
+            else:
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
             raise SyntaxError
@@ -215,14 +210,16 @@ class RoleCommands(BasePlugin):
             for server in self.client.servers:
                 for role in server.roles:
                     if args[1].lower() == role.name.lower():
-                        t_dict = {}
-                        t_dict["name"] = role.name
-                        t_dict["permissions"] = role.permissions
-                        t_dict["colour"] = role.colour
-                        t_dict["hoist"] = role.hoist
-                        t_dict["mentionable"] = role.mentionable
-                        t_dict["position"] = role.position
-                        t_dict["created_at"] = role.created_at
+                        t_dict = {
+                            "name": role.name,
+                            "permissions": role.permissions,
+                            "colour": role.colour,
+                            "hoist": role.hoist,
+                            "mentionable": role.mentionable,
+                            "position": role.position,
+                            "created_at": role.created_at,
+                            "id": role.id
+                        }
                         t_string = ""
                         for k, v in t_dict.items():
                             if k != "permissions":
