@@ -50,6 +50,7 @@ class AdminCommands(BasePlugin):
              doc="Purges messages from the channel in bulk.",
              syntax="(count) [match]",
              category="admin",
+             run_anywhere=True,
              perms={"manage_messages"})
     async def _purge(self, data):
         cnt = data.content.split()

@@ -144,8 +144,8 @@ class Command:
     and aliases.
     """
 
-    def __init__(self, name, *aliases, perms=set(), doc=None,
-                 syntax=None, priority=0, delcall=False, category="other"):
+    def __init__(self, name, *aliases, perms=set(), doc=None, syntax=None, priority=0, delcall=False,
+                 run_anywhere=False, category="other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
@@ -160,6 +160,7 @@ class Command:
         self.aliases = aliases
         self.priority = priority
         self.delcall = delcall
+        self.run_anywhere = run_anywhere
         self.category = category
 
     def __call__(self, f):
@@ -188,5 +189,6 @@ class Command:
         wrapped.syntax = self.human_syntax
         wrapped.priority = self.priority
         wrapped.delcall = self.delcall
+        wrapped.run_anywhere = self.run_anywhere
         wrapped.category = self.category
         return wrapped
