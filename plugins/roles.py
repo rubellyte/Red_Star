@@ -1,4 +1,3 @@
-import asyncio
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
 from utils import Command, respond, split_message, process_args
@@ -202,7 +201,7 @@ class RoleCommands(BasePlugin):
         else:
             raise SyntaxError
 
-    @Command("inforole",
+    @Command("roleinfo",
              category="roles",
              syntax="(role name).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Returns all the info about the given role.")
@@ -233,21 +232,21 @@ class RoleCommands(BasePlugin):
                         await respond(self.client, data,
                                       f"**ANALYSIS: role {name} has parameters :**\n ```{t_string}```")
                         break
-                    else:
-                        await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
+                else:
+                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError
 
-    @Command("listrole",
+    @Command("listroles",
              category="roles",
              doc="Lists all roles.")
-    async def _listrole(self, data):
+    async def _listroles(self, data):
         """
         lists all roles along with position and color
         """
         t_string = "**AFFIRMATIVE. Listing roles :**\n"
         for server in self.client.servers:
-            for role in server.roles:
+            for role in sorted(server.roles, key=lambda x: x.position):
                 t_string += f"`{role.name[:40].ljust(40)} [{role.position} | {role.colour}]`\n"
         for t in split_message(t_string):
             await respond(self.client, data, t)
