@@ -48,9 +48,11 @@ class CommandDispatcher(BasePlugin):
         except KeyError:
             pass
         except (SyntaxError, SyntaxWarning) as e:
-            if fn.human_syntax:
+            if fn.syntax:
+                deco = self.plugin_config.command_prefix
                 await respond(self.client, data,
-                    "**WARNING: Invalid syntax. ANALYSIS: Proper usage: {}.**".format(fn.human_syntax))
+                    "**WARNING: Invalid syntax. ANALYSIS: Proper usage: {}{} {}.**"
+                    .format(deco, command, fn.syntax))
             else:
                 await respond(self.client, data, "**WARNING: Invalid syntax.**")
         except Exception:
