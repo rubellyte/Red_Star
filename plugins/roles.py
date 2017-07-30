@@ -13,10 +13,11 @@ class RoleCommands(BasePlugin):
              perms={"manage_server"},
              category="roles",
              syntax="(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
-             "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
-             doc="Edits the specified role name, colour, hoist (show separately from others) and mentionable properties.\n"
-             "WARNING: Options must be specified as option=value. No spaces around `=`.\n"
-             "ANALYSIS: Colour can be reset by setting it to 0.")
+                    "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
+             doc="Edits the specified role name, colour, hoist (show separately from others)"
+                 " and mentionable properties.\n"
+                 "WARNING: Options must be specified as option=value. No spaces around `=`.\n"
+                 "ANALYSIS: Colour can be reset by setting it to 0.")
     async def _editrole(self, data):
         """
         a command for editing a role.
@@ -27,7 +28,6 @@ class RoleCommands(BasePlugin):
         """
         args = process_args(data.content.split())
         if len(args) > 1:
-            err = True
             for server in self.client.servers:
                 for role in server.roles:
                     if args[1].lower() == role.name.lower():  # found role
@@ -57,8 +57,8 @@ class RoleCommands(BasePlugin):
                         await respond(self.client, data,
                                       f"**AFFIRMATIVE. Role {name} modified with parameters :**\n ```{t_string}```")
                         break
-            if err:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+                else:
+                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
             raise SyntaxError
 
@@ -76,7 +76,6 @@ class RoleCommands(BasePlugin):
         """
         args = process_args(data.content.split())
         if len(args) > 2:
-            err = True
             for server in self.client.servers:
                 for role in server.roles:
                     if args[2].lower() == role.name.lower():
@@ -121,8 +120,9 @@ class RoleCommands(BasePlugin):
                         await respond(self.client, data,
                                       f"**AFFIRMATIVE. Created role {name} with parameters :**\n ```{t_string}```")
                         break
-            if err:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
+                else:
+                    await respond(self.client, data,
+                                  f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
         else:
             raise SyntaxError
 
@@ -154,8 +154,8 @@ class RoleCommands(BasePlugin):
                             await respond(self.client, data,
                                           f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
                         break
-            else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
+                else:
+                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError
 
@@ -191,8 +191,8 @@ class RoleCommands(BasePlugin):
                             await respond(self.client, data,
                                           f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
                         break
-            else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+                else:
+                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
             raise SyntaxError
 

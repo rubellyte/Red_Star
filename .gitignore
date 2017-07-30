@@ -104,3 +104,4 @@ ENV/
 /config/config.json
 *.sublime-project
 *.sublime-workspace
+/.idea
