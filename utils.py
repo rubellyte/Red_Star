@@ -50,6 +50,7 @@ def dict_merge(d, u):
             d[k] = u[k]
     return d
 
+
 def sub_user_data(user, text):
     """
     Replaces certain tags in data with user info.
@@ -68,6 +69,7 @@ def sub_user_data(user, text):
     pattern = re.compile("|".join(rep.keys()))
     text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
     return text
+
 
 async def respond(client, data, response):
     """
@@ -109,29 +111,30 @@ def split_message(message, splitter=None):
 
 
 def process_args(args):
-	"""
-	Goes through the presented result of data.content.split() and stitches anything between !" and " into one argument, allowing arguments with spaces and " in them like
-	'!editrole !"my role" name=!"new name heck" color=FFFFFF'
-	"""
-	newargs = []
-	t_list = []
-	t_cap = False
-	for arg in args[::-1]:
-		if t_cap:
-			t_list.append(arg)
-			if arg.startswith('!"') or arg.find('=!"') > -1 :
-				t_cap = False
-				newargs.append(str(reduce(lambda a,x:a+" "+x,t_list[::-1])).replace('!"',"",1)[0:-1]) #stitch together the bits in reverse order with spaces between them, remove !" and trailing "
-				t_list = []
-		else:
-			if arg.endswith('"'):
-				t_cap = True
-				t_list.append(arg)
-			else:
-				newargs.append(arg)
-	if len(t_list)> 0:
-		raise SyntaxError
-	return newargs[::-1]
+    """
+    Goes through the presented result of data.content.split() and stitches anything between !" and " into one argument,
+    allowing arguments with spaces and " in them like '!editrole !"my role" name=!"new name heck" color=FFFFFF'
+    """
+    newargs = []
+    t_list = []
+    t_cap = False
+    for arg in args[::-1]:
+        if t_cap:
+            t_list.append(arg)
+            if arg.startswith('!"') or arg.find('=!"') > -1:
+                t_cap = False
+                # stitch together the bits in reverse order with spaces between them, remove !" and trailing "
+                newargs.append(str(reduce(lambda a, x: a + " " + x, t_list[::-1])).replace('!"', "", 1)[0:-1])
+                t_list = []
+        else:
+            if arg.endswith('"'):
+                t_cap = True
+                t_list.append(arg)
+            else:
+                newargs.append(arg)
+    if len(t_list) > 0:
+        raise SyntaxError
+    return newargs[::-1]
 
 
 class Command:
@@ -174,7 +177,8 @@ class Command:
                     raise PermissionError
                 return asyncio.ensure_future(f(s, data))
             except PermissionError:
-                return asyncio.ensure_future(respond(s.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
+                return asyncio.ensure_future(respond(s.client, data,
+                                                     "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
 
         wrapped._command = True
         wrapped._aliases = self.aliases
