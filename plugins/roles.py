@@ -229,7 +229,7 @@ class RoleCommands(BasePlugin):
 		"""
 			lists all roles along with position and color
 		"""
-		t_string = "**AFFIRMATIVE. Listng roles :**\n"
+		t_string = "**AFFIRMATIVE. Listing roles :**\n"
 		for server in self.client.servers:
 			for role in server.roles:
 				t_string += f"`{role.name[:40].ljust(40)} [{role.position} | {role.colour}]`\n"
