@@ -13,7 +13,7 @@ class ConfigManager:
     def __init__(self):
         self.logger = logging.getLogger("red_star.config_manager")
         self.raw_config = None
-        self.config = {}
+        self.config = DotDict({})
         self._path = None
 
     def load_config(self, config_path):

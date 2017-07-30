@@ -46,7 +46,7 @@ class CommandDispatcher(BasePlugin):
         try:
             fn = self.commands[command]
             if self.plugin_config.use_command_channel:
-                chan = self.client.get_channel(self.plugin_config.command_prefix)
+                chan = self.client.get_channel(self.plugin_config.command_channel)
                 if not fn.run_anywhere and data.channel != chan:
                     raise KeyError
             await fn(data)
