@@ -3,6 +3,7 @@ import collections
 import re
 import asyncio
 import discord
+from functools import reduce
 
 
 class DotDict(dict):
@@ -105,6 +106,30 @@ def split_message(message, splitter=None):
         for x in range(0, len(message), 2000):
             msgs.append(message[x:x + 2000])
     return msgs
+
+
+def process_args(args):
+	"""
+	Goes through the presented result of data.content.split() and stitches anything between !" and " into one argument, allowing arguments with spaces and " in them like
+	'!editrole !"my role" name=!"new name heck" color=FFFFFF'
+	"""
+	newargs = []
+	t_list = []
+	t_cap = False
+	for arg in args[::-1]:
+		if t_cap:
+			t_list.append(arg)
+			if arg.startswith('!"') or arg.find('=!"') > -1 :
+				t_cap = False
+				newargs.append(str(reduce(lambda a,x:a+" "+x,t_list[::-1])).replace('!"',"",1)[0:-1]) #stitch together the bits in reverse order with spaces between them, remove !" and trailing "
+				t_list = []
+		else:
+			if arg.endswith('"'):
+				t_cap = True
+				t_list.append(arg)
+			else:
+				newargs.append(arg)
+	return newargs[::-1]
 
 
 class Command:
