@@ -1,5 +1,4 @@
 import inspect
-import asyncio
 from plugin_manager import BasePlugin
 from utils import respond
 
@@ -55,6 +54,8 @@ class CommandDispatcher(BasePlugin):
                     .format(deco, command, fn.syntax))
             else:
                 await respond(self.client, data, "**WARNING: Invalid syntax.**")
+        except PermissionError:
+            await respond(self.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**")
         except Exception:
             self.logger.exception("Exception occured in command. ", exc_info=True)
             await respond(self.client, data, "**WARNING: Error occurred while running command.**")
@@ -66,6 +67,6 @@ class CommandDispatcher(BasePlugin):
         if data.author != self.client.user:
             cnt = data.content
             if cnt.startswith(deco):
-                cmd = cnt[len(deco):].split()[0]
+                cmd = cnt[len(deco):].split()[0].lower()
                 if cmd in self.commands:
                     await self.run_command(cmd, data)
