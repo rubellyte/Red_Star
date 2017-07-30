@@ -12,18 +12,24 @@ class AdminCommands(BasePlugin):
     def activate(self):
         pass
 
-    @Command("test")
+    @Command("test",
+             doc="A test command.")
     async def _test_command(self, data):
         await respond(self.client, data, "**AFFIRMATIVE. Confirming test, <usermention>.**")
 
     @Command("shutdown",
+             doc="Shuts down the bot.",
+             syntax="N/A",
+             category="bot_management",
              perms={"manage_server"})
     async def _shutdown(self, data):
         await respond(self.client, data, "**AFFIRMATIVE. SHUTTING DOWN.**")
         raise SystemExit
 
     @Command("update_avatar",
+             doc="Updates the bot's avatar.",
              syntax="(URL)",
+             category="bot_management",
              perms={"manage_server"})
     async def _update_avatar(self, data):
         url = " ".join(data.content.split()[1:])
@@ -41,7 +47,9 @@ class AdminCommands(BasePlugin):
             await respond(self.client, data, "**NEGATIVE. No URL provided.**")
 
     @Command("purge",
+             doc="Purges messages from the channel in bulk.",
              syntax="(count) [match]",
+             category="admin",
              perms={"manage_messages"})
     async def _purge(self, data):
         cnt = data.content.split()
@@ -51,7 +59,7 @@ class AdminCommands(BasePlugin):
                 count = 250
             elif count < 0:
                 raise ValueError
-        except ValueError:
+        except (ValueError, IndexError):
             raise SyntaxError
         if len(cnt) > 2:
             self.searchstr = " ".join(cnt[2:])

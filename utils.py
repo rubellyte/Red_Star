@@ -2,6 +2,7 @@
 import collections
 import re
 import asyncio
+import discord
 
 
 class DotDict(dict):
@@ -114,7 +115,7 @@ class Command:
     """
 
     def __init__(self, name, *aliases, perms=set(), doc=None,
-                 syntax=None, priority=0, delcall=False):
+                 syntax=None, priority=0, delcall=False, category="other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
@@ -129,6 +130,7 @@ class Command:
         self.aliases = aliases
         self.priority = priority
         self.delcall = delcall
+        self.category = category
 
     def __call__(self, f):
         """
@@ -139,13 +141,13 @@ class Command:
         """
         def wrapped(s, data):
             user_perms = data.author.permissions_in(data.channel)
+            user_perms = {x for x, y in user_perms if y}
             try:
-                for perm in self.perms:
-                    if not getattr(user_perms, perm):
-                        raise PermissionError
+                if not user_perms >= self.perms:
+                    raise PermissionError
                 return asyncio.ensure_future(f(s, data))
             except PermissionError:
-                asyncio.ensure_future(respond(s.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
+                return asyncio.ensure_future(respond(s.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
 
         wrapped._command = True
         wrapped._aliases = self.aliases
@@ -155,4 +157,5 @@ class Command:
         wrapped.syntax = self.human_syntax
         wrapped.priority = self.priority
         wrapped.delcall = self.delcall
+        wrapped.category = self.category
         return wrapped
