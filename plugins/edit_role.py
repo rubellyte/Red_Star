@@ -30,8 +30,6 @@ class RoleCommands(BasePlugin):
 			for server in self.client.servers:
 				for role in server.roles:
 					if args[1].lower() == role.name.lower(): #found role
-						for x in args:
-							print(x)
 						err = False
 						t_dict = {}
 						for arg in args[2:]:
