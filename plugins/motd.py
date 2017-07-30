@@ -30,7 +30,7 @@ class MOTD(BasePlugin):
     def _display_motd(self):
         today = datetime.date.today()
         month = today.strftime("%B")
-        day = today.day
+        day = str(today.day)
         weekday = today.strftime("%A")
         holiday_lines = self._get_holiday(month, day, weekday)
         chan = self.client.get_channel(self.plugin_config.motd_channel)
@@ -87,7 +87,7 @@ class MOTD(BasePlugin):
     async def _displaymotdcmd(self, data):
         today = datetime.date.today()
         month = today.strftime("%B")
-        day = today.day
+        day = str(today.day)
         weekday = today.strftime("%A")
         holiday_lines = self._get_holiday(month, day, weekday)
         chan = self.client.get_channel(self.plugin_config.motd_channel)
