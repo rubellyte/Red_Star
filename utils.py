@@ -67,8 +67,7 @@ def sub_user_data(user, text):
     text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
     return text
 
-@asyncio.coroutine
-def respond(client, data, response):
+async def respond(client, data, response):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.
@@ -77,7 +76,7 @@ def respond(client, data, response):
     :return discord.Message: The Message sent.
     """
     text = sub_user_data(data.author, response)
-    m = yield from client.send_message(data.channel, text)
+    m = await client.send_message(data.channel, text)
     return m
 
 
@@ -146,7 +145,7 @@ class Command:
                         raise PermissionError
                 return asyncio.ensure_future(f(s, data))
             except PermissionError:
-                yield from respond(s.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION : <usernick>.**")
+                asyncio.ensure_future(respond(s.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
 
         wrapped._command = True
         wrapped._aliases = self.aliases

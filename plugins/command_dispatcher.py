@@ -39,33 +39,31 @@ class CommandDispatcher(BasePlugin):
             for alias in fn.aliases:
                 self.register(fn, alias, is_alias=True)
 
-    @asyncio.coroutine
-    def run_command(self, command, data):
+    async def run_command(self, command, data):
         try:
             fn = self.commands[command]
             if fn.delcall:
-                yield from self.client.delete_message(data)
-            yield from fn(data)
+                await self.client.delete_message(data)
+            await fn(data)
         except KeyError:
             pass
         except (SyntaxError, SyntaxWarning) as e:
             if fn.human_syntax:
-                yield from respond(self.client, data,
+                await respond(self.client, data,
                     "**WARNING: Invalid syntax. ANALYSIS: Proper usage: {}.**".format(fn.human_syntax))
             else:
-                yield from respond(self.client, data, "**WARNING: Invalid syntax.**")
+                await respond(self.client, data, "**WARNING: Invalid syntax.**")
         except Exception:
             self.logger.exception("Exception occured in command. ", exc_info=True)
-            yield from respond(self.client, data, "**WARNING: Error occurred while running command.**")
+            await respond(self.client, data, "**WARNING: Error occurred while running command.**")
 
     # Event hooks
 
-    @asyncio.coroutine
-    def on_message(self, data):
+    async def on_message(self, data):
         deco = self.plugin_config.command_prefix
         if data.author != self.client.user:
             cnt = data.content
             if cnt.startswith(deco):
                 cmd = cnt[len(deco):].split()[0]
                 if cmd in self.commands:
-                    yield from self.run_command(cmd, data)
+                    await self.run_command(cmd, data)

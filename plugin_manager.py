@@ -108,8 +108,7 @@ class PluginManager:
         except KeyError:
             self.logger.error("Attempted to deactivate non-existent plugin {}.".format(plugin))
 
-    @asyncio.coroutine
-    def hook_event(self, event, *args):
+    async def hook_event(self, event, *args):
         """
         Dispatches an event, with its data, to all plugins.
         :param event: The name of the event. Should match the calling function.
@@ -120,7 +119,7 @@ class PluginManager:
             hook = getattr(plugin, event, False)
             if hook:
                 try:
-                    yield from hook(*args)
+                    await hook(*args)
                 except Exception:
                     self.logger.exception("Exception encounter in plugin {} on"
                                           " event {}: ".format(plugin.name, event), exc_info=True)

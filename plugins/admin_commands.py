@@ -3,7 +3,7 @@ import re
 import asyncio
 from discord import InvalidArgument
 from plugin_manager import BasePlugin
-from utils import Command, respond, split_message
+from utils import Command, respond
 
 
 class AdminCommands(BasePlugin):
@@ -13,37 +13,37 @@ class AdminCommands(BasePlugin):
         pass
 
     @Command("test")
-    def _test_command(self, data):
-        yield from respond(self.client, data, "**AFFIRMATIVE. Confirming test, <usermention>.**")
+    async def _test_command(self, data):
+        await respond(self.client, data, "**AFFIRMATIVE. Confirming test, <usermention>.**")
 
     @Command("shutdown",
              perms={"manage_server"})
-    def _shutdown(self, data):
-        yield from respond(self.client, data, "**AFFIRMATIVE. SHUTTING DOWN.**")
+    async def _shutdown(self, data):
+        await respond(self.client, data, "**AFFIRMATIVE. SHUTTING DOWN.**")
         raise SystemExit
 
     @Command("update_avatar",
              syntax="(URL)",
              perms={"manage_server"})
-    def _update_avatar(self, data):
+    async def _update_avatar(self, data):
         url = " ".join(data.content.split()[1:])
         if url:
             try:
                 img = urllib.request.urlopen(url).read()
-                yield from self.client.edit_profile(avatar=img)
-                yield from respond(self.client, data, "**AVATAR UPDATED.**")
+                await self.client.edit_profile(avatar=img)
+                await respond(self.client, data, "**AVATAR UPDATED.**")
             except (urllib.request.URLError, ValueError) as e:
                 self.logger.debug(e)
-                yield from respond(self.client, data, "**WARNING: Invalid URL provided.**")
+                await respond(self.client, data, "**WARNING: Invalid URL provided.**")
             except InvalidArgument:
-                yield from respond(self.client, data, "**NEGATIVE. Image must be a PNG or JPG.**")
+                await respond(self.client, data, "**NEGATIVE. Image must be a PNG or JPG.**")
         else:
-            yield from respond(self.client, data, "**NEGATIVE. No URL provided.**")
+            await respond(self.client, data, "**NEGATIVE. No URL provided.**")
 
     @Command("purge",
              syntax="(count) [match]",
              perms={"manage_messages"})
-    def _purge(self, data):
+    async def _purge(self, data):
         cnt = data.content.split()
         try:
             count = int(cnt[1])
@@ -55,13 +55,13 @@ class AdminCommands(BasePlugin):
             self.searchstr = " ".join(cnt[2:])
         else:
             self.searchstr = ""
-        yield from self.client.delete_message(data)
-        deleted = yield from self.client.purge_from(
+        await self.client.delete_message(data)
+        deleted = await self.client.purge_from(
             data.channel, limit=count, check=self.search)
         self.searchstr = ""
-        fb = yield from respond(self.client, data, "**PURGE COMPLETE: {} messages purged.**".format(len(deleted)))
-        yield from asyncio.sleep(5)
-        yield from self.client.delete_message(fb)
+        fb = await respond(self.client, data, "**PURGE COMPLETE: {} messages purged.**".format(len(deleted)))
+        await asyncio.sleep(5)
+        await self.client.delete_message(fb)
 
     def search(self, data):
         if self.searchstr:
