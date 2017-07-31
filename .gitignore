@@ -102,6 +102,7 @@ ENV/
 
 # configuration files
 /config/config.json
+/config/ccs.json
 *.sublime-project
 *.sublime-workspace
 /.idea

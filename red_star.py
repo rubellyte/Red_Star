@@ -23,6 +23,7 @@ class RedStar(discord.Client):
         self.plugin_manager.load_from_path(path / self.config.plugin_path)
         self.plugin_manager.final_load()
         self.logged_in = False
+        self.server_ready = False
         asyncio.ensure_future(self.start_bot())
 
     async def start_bot(self):
@@ -36,7 +37,9 @@ class RedStar(discord.Client):
             self.logger.info(self.user.id)
             self.logger.info("------------")
             self.logged_in = True
-            self.plugin_manager.activate_all()
+            if self.server_ready:
+                self.logger.info("Logged in with server; activating plugins.")
+                self.plugin_manager.activate_all()
 
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
@@ -99,6 +102,12 @@ class RedStar(discord.Client):
         await self.plugin_manager.hook_event("on_server_emojis_update", before, after)
 
     async def on_server_available(self, server):
+        if not self.server_ready:
+            self.logger.info("A server is now available.")
+            if self.logged_in:
+                self.logger.info("Logged in with server; activating plugins.")
+                self.plugin_manager.activate_all()
+            self.server_ready = True
         await self.plugin_manager.hook_event("on_server_available", server)
 
     async def on_server_unavailable(self, server):
