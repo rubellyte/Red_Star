@@ -10,7 +10,7 @@ class RoleCommands(BasePlugin):
         pass
 
     @Command("editrole",
-             perms={"manage_server"},
+             perms={"manage_roles"},
              category="roles",
              syntax="(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
                     "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
@@ -62,7 +62,7 @@ class RoleCommands(BasePlugin):
             raise SyntaxError
 
     @Command("createrole",
-             perms={"manage_server"},
+             perms={"manage_roles"},
              category="roles",
              syntax="(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
              "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
@@ -126,7 +126,7 @@ class RoleCommands(BasePlugin):
             raise SyntaxError
 
     @Command("deleterole",
-             perms={"manage_server"},
+             perms={"manage_roles"},
              category="roles",
              syntax="(role name) [position].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Deletes first encounter of the role with the given name and optionally position.")
@@ -159,7 +159,7 @@ class RoleCommands(BasePlugin):
             raise SyntaxError
 
     @Command("moverole",
-             perms={"manage_server"},
+             perms={"manage_roles"},
              category="roles",
              syntax="(role name) (position).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Moves a role to a provided position.\nWARNING: position must be below the bot role position.")
@@ -235,6 +235,7 @@ class RoleCommands(BasePlugin):
 
     @Command("listroles",
              category="roles",
+             perms={"manage_roles"},
              doc="Lists all roles.")
     async def _listroles(self, data):
         """

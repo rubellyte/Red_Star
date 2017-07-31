@@ -62,8 +62,9 @@ class MOTD(BasePlugin):
         else:
             return
 
-    @Command("testmotd",
+    @Command("testmotds",
              doc="Used for testing MOTD lines.",
+             perms={"manage_server"},
              syntax="(month/Any) (day/weekday/Any)")
     async def _testmotd(self, data):
         args = data.clean_content.split()[1:]
@@ -82,24 +83,3 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get(day, [])
             lines += self.motds.get(month, {}).get(weekday, [])
             await respond(self.client, data, "\n".join(lines))
-
-    @Command("displaymotd",
-             doc="Display a MOTD based on the current date.")
-    async def _displaymotdcmd(self, data):
-        today = datetime.date.today()
-        month = today.strftime("%B")
-        day = str(today.day)
-        weekday = today.strftime("%A")
-        holiday_lines = self._get_holiday(month, day, weekday)
-        chan = self.client.get_channel(self.plugin_config.motd_channel)
-        if holiday_lines:
-            asyncio.ensure_future(self.client.send_message(chan, choice(holiday_lines)))
-        else:
-            lines = []
-            lines += self.motds.get("Any", {}).get("Any", [])
-            lines += self.motds.get("Any", {}).get(day, [])
-            lines += self.motds.get("Any", {}).get(weekday, [])
-            lines += self.motds.get(month, {}).get("Any", [])
-            lines += self.motds.get(month, {}).get(day, [])
-            lines += self.motds.get(month, {}).get(weekday, [])
-            asyncio.ensure_future(self.client.send_message(chan, choice(lines)))

@@ -12,11 +12,6 @@ class AdminCommands(BasePlugin):
     def activate(self):
         pass
 
-    @Command("test",
-             doc="A test command.")
-    async def _test_command(self, data):
-        await respond(self.client, data, "**AFFIRMATIVE. Confirming test, <usermention>.**")
-
     @Command("shutdown",
              doc="Shuts down the bot.",
              syntax="N/A",
