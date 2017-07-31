@@ -1,6 +1,7 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
 from utils import Command, respond, split_message, process_args
+from string import capwords
 
 
 class RoleCommands(BasePlugin):
@@ -8,6 +9,15 @@ class RoleCommands(BasePlugin):
 
     def activate(self):
         pass
+        # TODO : figure out how to get asyncio.sleep working and why await breaks here
+        """
+        self.bot_role_position = 0
+        while not self.client.user.roles:
+            await asyncio.sleep(5)
+        for role in self.client.user.roles:
+            if role.position > self.bot_role_position:
+                self.bot_role_position = role.position
+        """
 
     @Command("editrole",
              perms={"manage_roles"},
@@ -205,7 +215,7 @@ class RoleCommands(BasePlugin):
         """
         args = process_args(data.content.split())
         if len(args) > 1:
-            name = args[1].capitalize()
+            name = capwords(args[1])
             for server in self.client.servers:
                 for role in server.roles:
                     if args[1].lower() == role.name.lower():
