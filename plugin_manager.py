@@ -68,6 +68,7 @@ class PluginManager:
             plugin.plugins = self.plugins
             if plugin.default_config:
                 self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
+                plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
 
     def activate_all(self):
         self.logger.info("Activating plugins.")
