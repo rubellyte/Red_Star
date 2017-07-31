@@ -4,11 +4,21 @@ A Discord administration bot, intended to replace a variety of bots on a server 
 Features:
 - Purging
 - Event logging (Message edit and delete, server join and leave)
-
-Planned features:
 - Role administration by commands
+- Message of the Day with configurable holidays and messages based on day, weekday, or month
+- New member announcer
 - Music playing
 - Custom commands
 
 # Installation
-Don't.
+- Install [Python 3.6+](https://www.python.org/)
+- Install [discord.py](https://github.com/Rapptz/discord.py)
+- For music playing:
+  - Install discord.py[voice]
+  - Install [ffmpeg](http://ffmpeg.zeranoe.com/builds/) and add it to your PATH
+- For MotD:
+  - Install [schedule](https://github.com/dbader/schedule)
+- Clone the `Red_Star` repository to your computer.
+- [Configure](https://github.com/medeor413/Red_Star/wiki/Configuring-Red-Star) the bot.
+- [Add the bot to your server.](https://github.com/medeor413/Red_Star/wiki/Adding-A-Bot)
+- Run the bot by running the command `python red_star.py`.
