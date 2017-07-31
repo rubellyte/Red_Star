@@ -322,8 +322,7 @@ class CustomCommands(BasePlugin):
             return "false"
 
     def _hasrole(self, args, msg):
-        args = self._split_args(args)
-        if args[0].lower() in [x.name.lower() for x in msg.author.roles]:
+        if args[0] in [x.name.lower() for x in msg.author.roles]:
             return "true"
         else:
             return "false"
