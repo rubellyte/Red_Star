@@ -30,8 +30,8 @@ class DiscordLogger(BasePlugin):
             contents = msg.clean_content
             self.logger.debug("User {}'s message was deleted. Contents: {}".format(uname, contents))
             await self.client.send_message(self.log_channel,
-                                                "**WARNING: User {}s message was deleted. ANALYSIS: Contents:**\n{}"
-                                                .format(uname, contents))
+                                           f"**WARNING: User {uname}'s message was deleted. ANALYSIS: "
+                                           f"Contents:**\n{contents}")
 
     async def on_message_edit(self, before, after):
         if "message_edit" in self.log_events and after.author != self.client.user:
@@ -41,17 +41,17 @@ class DiscordLogger(BasePlugin):
             self.logger.debug("User {} edited their message.\nOld contents: {}\nNew contents: {}"
                               .format(uname, old_contents, contents))
             await self.client.send_message(self.log_channel,
-                                                "**WARNING: User {} edited their message. ANALYSIS:**\n**Old contents:** {}\n"
-                                                "**New contents:** {}".format(uname, old_contents, contents))
+                                           f"**WARNING: User {uname} edited their message. ANALYSIS:**\n**Old "
+                                           f"contents:** {old_contents}\n**New contents:** {contents}")
 
     async def on_member_join(self, user):
         if "member_join" in self.log_events:
             uname = "{}#{}".format(user.name, user.discriminator)
             self.logger.debug("User {} joined the server.".format(uname))
-            await self.client.send_message(self.log_channel, "**NEW USER DETECTED: {}.**".format(uname))
+            await self.client.send_message(self.log_channel, f"**NEW USER DETECTED: {uname}.**")
 
     async def on_member_remove(self, user):
         if "member_remove" in self.log_events:
             uname = "{}#{}".format(user.name, user.discriminator)
             self.logger.debug("User {} left the server.".format(uname))
-            await self.client.send_message(self.log_channel, "**User {} has left the server.**".format(uname))
+            await self.client.send_message(self.log_channel, f"**User {uname} has left the server.**")

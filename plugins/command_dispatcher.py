@@ -56,13 +56,13 @@ class CommandDispatcher(BasePlugin):
             if fn.delcall:
                 await self.client.delete_message(data)
         except (SyntaxError, SyntaxWarning) as e:
+            err = e if e else "Invalid syntax."
             if fn.syntax:
                 deco = self.plugin_config.command_prefix
                 await respond(self.client, data,
-                    "**WARNING: Invalid syntax. ANALYSIS: Proper usage: {}{} {}.**"
-                    .format(deco, command, fn.syntax))
+                    f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
-                await respond(self.client, data, "**WARNING: Invalid syntax.**")
+                await respond(self.client, data, f"**WARNING: {err}.**")
         except PermissionError:
             await respond(self.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**")
         except Exception:

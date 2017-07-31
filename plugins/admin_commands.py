@@ -44,7 +44,7 @@ class AdminCommands(BasePlugin):
             except InvalidArgument:
                 await respond(self.client, data, "**NEGATIVE. Image must be a PNG or JPG.**")
         else:
-            await respond(self.client, data, "**NEGATIVE. No URL provided.**")
+            raise SyntaxError("No URL provided.")
 
     @Command("purge",
              doc="Purges messages from the channel in bulk.",
@@ -60,8 +60,10 @@ class AdminCommands(BasePlugin):
                 count = 250
             elif count < 0:
                 raise ValueError
-        except (ValueError, IndexError):
-            raise SyntaxError
+        except ndexError:
+            raise SyntaxError("No count to delete provided.")
+        except ValueError:
+            raise SyntaxError("Count to delete is not a valid number.")
         if len(cnt) > 2:
             self.searchstr = " ".join(cnt[2:])
         else:
