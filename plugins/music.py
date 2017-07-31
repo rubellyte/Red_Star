@@ -2,6 +2,8 @@ from plugin_manager import BasePlugin
 from utils import Command, respond, process_args
 from random import choice
 from asyncio import get_event_loop
+from math import ceil
+from youtube_dl.utils import DownloadError
 
 
 class MusicPlayer(BasePlugin):
@@ -65,7 +67,7 @@ class MusicPlayer(BasePlugin):
         for server in self.client.servers:
             # doublecheck, just in case bot crashed earlier and discord is being weird
             if self.client.is_voice_connected(server):
-                self.client.voice_client_in(server).disconnect()
+                await self.client.voice_client_in(server).disconnect()
             a_voice = self.m_channel
             if not self.m_channel:
                 a_voice = data.author.voice.voice_channel
@@ -77,6 +79,7 @@ class MusicPlayer(BasePlugin):
                 await respond(self.client, data, choice(self.no_perm_lines).format(a_voice))
 
     @Command("playvc",
+             "play",
              category="voice",
              syntax="[URL or search query]",
              doc="Plays presented youtube video or searches for one.\nNO PLAYLISTS ALLOWED.")
@@ -86,8 +89,8 @@ class MusicPlayer(BasePlugin):
         queue.
         """
         if not self.vc:
-            await respond(self.client, data, "**WARNING: Can not play music while not connected.**")
-            return
+            await self._joinvc(data)
+            #await respond(self.client, data, "**WARNING: Can not play music while not connected.**")
         args = data.content.split(' ', 1)
         if len(args) > 1:
             if not (args[1].startswith("http://") or args[1].startswith("https://")):
@@ -101,40 +104,55 @@ class MusicPlayer(BasePlugin):
     async def play_video(self, vid, data):
         """
         Processes provided video request, either starting to play it instantly or adding it to queue.
-        :param vid: URL or ytsearch: query to process
+        :param vid: URL or ytsearch: query to process or NEXT for skipping
         :param data: message data for responses
         """
-        if self.player and not self.player.is_done():
+        if self.player and not self.player.is_done() and vid != "NEXT":
+            t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
+                                                        after=lambda: t_loop.create_task(self.play_video("NEXT",
+                                                                                                         data)))
+            if t_player.duration > self.max_length:
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
+                                                 f"{t_player.duration//60}:{t_player.duration%60}.**")
+                return
             if len(self.queue)<self.max_queue:
-                self.queue.append(vid)
-                t_string = "\n".join(self.queue)
-                await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{vid}\" to queue.\n"
-                                                 f"Current queue:**\n```{t_string}```")
+                self.queue.append(t_player)
+                await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
+                                                 f"Current queue:**\n```{self.build_queue()}```")
             else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Queue full. Dropping \"{vid}\".\n"
-                                                 f"Current queue:**\n```{t_string}```")
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Queue full. Dropping \"{t_player.title}\".\n"
+                                                 f"Current queue:**\n```{self.build_queue()}```")
         else:
-            t_loop = get_event_loop()
             self.vote_set = set()
-            # creates a player with a callback to play next video
-            self.player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
-                                                           after=lambda: t_loop.create_task(self.play_next(
-                                                                   data)))
+            if vid != "NEXT":
+                t_loop = get_event_loop()
+                # creates a player with a callback to play next video
+                self.player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
+                                                               after=lambda: t_loop.create_task(self.play_video("NEXT",
+                                                                       data)))
+            elif len(self.queue) > 0:
+                self.player = self.queue.pop(0)
+            else:
+                await respond(self.client, data, "**ANALYSIS: Queue complete.**")
             if self.player.duration <= self.max_length:
                 self.player.volume = self.volume / 100
                 self.player.start()
-                await respond(self.client, data, f"**CURRENTLY PLAYING: \"{vid}\"**")
+                await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
             else:
                 self.player.stop()
-                await respond(self.client, data, f"**WARNING: \"{vid}\" is too long, skipping.**")
+                await respond(self.client, data, f"**WARNING: \"{self.player.title}\" is too long, skipping.**")
 
-    async def play_next(self, data):
+    def build_queue(self):
         """
-        Attempts to play next video in queue
-        :param data: message data for responses
+        builds a nice newline separated queue
+        :return: returns queue string
         """
-        if len(self.queue) > 0:
-            await self.play_video(self.queue.pop(0), data)
+        t_string = ""
+        for player in self.queue:
+            title = player.title[0:36].ljust(39) if len(player.title) < 36 else player.title[0:36] + "..."
+            mins, secs = divmod(player.duration, 60)
+            t_string = f"{t_string}{title} [{mins}:{secs:02d}]\n"
+        return t_string
 
     @Command("skipvc",
              category="voice",
@@ -147,14 +165,14 @@ class MusicPlayer(BasePlugin):
         self.vote_set.add(data.author.id)
         override = data.author.permissions_in(self.vc.channel).mute_members
         votes = len(self.vote_set)
-        m_votes = len(self.vc.channel.voice_members)/2
+        m_votes = (len(self.vc.channel.voice_members)-1)/2
         if votes >= m_votes or override:
             if self.player:
                 self.player.stop()
                 await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
                               if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
-            await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {}**")
+            await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
 
 
     @Command("volvc",
@@ -179,7 +197,7 @@ class MusicPlayer(BasePlugin):
             if self.player:
                 self.player.volume = vol / 100
         else:
-            raise SyntaxError("Expected integer value between 0 and 200!")
+            await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}/100.**")
 
     @Command("stopvc",
              perms={"mute_members"},
@@ -199,7 +217,18 @@ class MusicPlayer(BasePlugin):
              doc="Writes out the current queue.")
     async def _queuevc(self, data):
         if len(self.queue) > 0:
-            t_string = "\n".join(self.queue)
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{t_string}```")
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
         else:
-            await respond(self.client, data, "**ANALYSIS: queie empty.**")
+            await respond(self.client, data, "**ANALYSIS: queue empty.**")
+
+    @Command("nowvc",
+             category="voice",
+             syntax="",
+             doc="Writes out the current queue.")
+    async def _nowvc(self, data):
+        if self.player:
+            t_string = "**CURRENTLY PLAYING:\n**```"
+            t_string += "TITLE: "+self.player.title+"\n\n"
+            t_string += "DESCRIPTION: "+self.player.description.replace("https://", "").replace("http://","")+"\n\n"
+            t_string += "DURATION: "+str(self.player.duration//60)+":"+str(self.player.duration%60)+"```"
+            await respond(self.client, data, t_string)
