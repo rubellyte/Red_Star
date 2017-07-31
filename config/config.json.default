@@ -12,7 +12,26 @@
       "new_member_announce_channel": "CHANNEL ID AS STRING"
     },
     "command_dispatcher": {
-      "command_prefix": "!"
+      "command_channel": "CHANNEL ID AS STRING",
+      "command_prefix": "!",
+      "use_command_channel": true
+    },
+    "custom_commands": {
+      "cc_file": "config/ccs.json",
+      "cc_prefix": "!!"
+    },
+    "logger": {
+      "log_channel": "CHANNEL ID AS STRING",
+      "log_events": [
+        "message_delete",
+        "message_edit",
+        "member_join",
+        "member_remove"
+      ]
+    },
+    "motd": {
+      "motd_channel": "CHANNEL ID AS STRING",
+      "motd_file": "config/motds.json"
     }
   }
 }
