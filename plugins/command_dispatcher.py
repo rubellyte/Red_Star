@@ -45,6 +45,9 @@ class CommandDispatcher(BasePlugin):
     async def run_command(self, command, data):
         try:
             fn = self.commands[command]
+        except KeyError:
+            return
+        try:
             if self.plugin_config.use_command_channel:
                 chan = self.client.get_channel(self.plugin_config.command_channel)
                 if not fn.run_anywhere and data.channel != chan:
@@ -52,8 +55,6 @@ class CommandDispatcher(BasePlugin):
             await fn(data)
             if fn.delcall:
                 await self.client.delete_message(data)
-        except KeyError:
-            pass
         except (SyntaxError, SyntaxWarning) as e:
             if fn.syntax:
                 deco = self.plugin_config.command_prefix

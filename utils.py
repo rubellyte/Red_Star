@@ -80,6 +80,10 @@ async def respond(client, data, response):
     :return discord.Message: The Message sent.
     """
     text = sub_user_data(data.author, response)
+    if len(text) > 2000:
+        # shoulda split it first
+        # this is just a last-ditch error check
+        text = text[:2000]
     m = await client.send_message(data.channel, text)
     return m
 
