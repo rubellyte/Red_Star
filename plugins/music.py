@@ -41,7 +41,8 @@ class MusicPlayer(BasePlugin):
         self.vc = False
         self.player = False
         self.queue = []
-        # TODO move no_perm_lines to config
+        self.vote_set = set()
+        # stuff from config
         self.no_perm_lines = c.no_permission_lines
         self.ytdl_options = c.ytdl_options
         self.volume = c.default_volume
@@ -114,6 +115,7 @@ class MusicPlayer(BasePlugin):
                                                  f"Current queue:**\n```{t_string}```")
         else:
             t_loop = get_event_loop()
+            self.vote_set = set()
             # creates a player with a callback to play next video
             self.player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
                                                            after=lambda: t_loop.create_task(self.play_next(
@@ -139,8 +141,21 @@ class MusicPlayer(BasePlugin):
              syntax="",
              doc="Skips current video.")
     async def _skipvc(self, data):
-        if self.player:
-            self.player.stop()
+        """
+        Collects votes for skipping current song or skips if you got mute_members permission
+        """
+        self.vote_set.add(data.author.id)
+        override = data.author.permissions_in(self.vc.channel).mute_members
+        votes = len(self.vote_set)
+        m_votes = len(self.vc.channel.voice_members)/2
+        if votes >= m_votes or override:
+            if self.player:
+                self.player.stop()
+                await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
+                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+        else:
+            await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {}**")
+
 
     @Command("volvc",
              category="voice",
