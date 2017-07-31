@@ -7,6 +7,7 @@ from plugin_manager import BasePlugin
 import discord.utils
 from utils import respond, Command
 
+
 class CustomCommands(BasePlugin):
     name = "custom_commands"
     default_config = {
@@ -221,7 +222,6 @@ class CustomCommands(BasePlugin):
         with open(self.plugin_config.cc_file, "w") as f:
             json.dump(self.ccs, f, indent=2)
 
-
     def _find_tags(self, s, msg):
         def tag_iter(level=0):
             try:
@@ -262,17 +262,17 @@ class CustomCommands(BasePlugin):
     # CC argument tag functions
 
     def _args(self, args, msg):
-        input = msg.clean_content.split()[1:]
+        split_args = msg.clean_content.split()[1:]
         if args.isdecimal():
             try:
                 i = int(args) - 1
-                return input[i]
+                return split_args[i]
             except ValueError:
                 raise SyntaxError("<args> argument is not a number or *!")
             except IndexError:
                 return ""
         elif args == "*":
-            return " ".join(input)
+            return " ".join(split_args)
         else:
             raise SyntaxError("<args> argument is not a number or *!")
 

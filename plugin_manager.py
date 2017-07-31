@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import logging
 import importlib
@@ -18,8 +17,7 @@ class PluginManager:
         self.logger = logging.getLogger("red_star.plugin_manager")
 
     def __repr__(self):
-        return "<PluginManager: Plugins: {}, Active: >".format(
-            self.plugins.keys(), self.active_plugins())
+        return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
 
     def load_from_path(self, plugin_path):
         ignores = ("__init__", "__pycache__")
@@ -28,30 +26,29 @@ class PluginManager:
             if file.stem in ignores:
                 continue
             if (file.suffix == ".py" or file.is_dir()) \
-            and str(file) not in loaded \
-            and not file.stem.startswith("_"):
+                    and str(file) not in loaded \
+                    and not file.stem.startswith("_"):
                 try:
                     self.load_plugin(file)
                     loaded.add(str(file))
-                except (SyntaxError, ImportError) as e:
-                    self.logger.exception("Exception encounter loading plugin "
-                                          "{}: ".format(file.stem), exc_info=True)
+                except (SyntaxError, ImportError):
+                    self.logger.exception(f"Exception encounter loading plugin {file.stem}: ", exc_info=True)
                 except FileNotFoundError:
-                    self.logger.error("File {} missing when load attempted!".format(file.stem))
+                    self.logger.error(f"File {file.stem} missing when load attempted!")
 
     def _load_module(self, module_path):
         if module_path.is_dir():
             module_path /= "__init__.py"
         if not module_path.exists():
-            raise FileNotFoundError("{} does not exist.".format(module_path))
+            raise FileNotFoundError(f"{module_path} does not exist.")
         name = "plugins." + module_path.stem
         loader = importlib.machinery.SourceFileLoader(name, str(module_path))
-        module = loader.load_module(name)
-        return module
+        modul = loader.load_module(name)
+        return modul
 
-    def _get_plugin_class(self, module):
+    def _get_plugin_class(self, modul):
         class_list = set()
-        for name, obj in inspect.getmembers(module, predicate=inspect.isclass):
+        for name, obj in inspect.getmembers(modul, predicate=inspect.isclass):
             if issubclass(obj, BasePlugin) and obj is not BasePlugin:
                 obj.client = self.client
                 obj.config = self.config_manager
@@ -61,8 +58,8 @@ class PluginManager:
         return class_list
 
     def load_plugin(self, plugin_path):
-        module = self._load_module(plugin_path)
-        classes = self._get_plugin_class(module)
+        modul = self._load_module(plugin_path)
+        classes = self._get_plugin_class(modul)
         for i in classes:
             self.plugins[i.name] = i()
 
@@ -93,9 +90,9 @@ class PluginManager:
                 plg.activate()
                 self.active_plugins.add(plg)
             else:
-                self.logger.warning("Attempted to activate already active plugin {}.".format(plugin))
+                self.logger.warning(f"Attempted to activate already active plugin {plugin}.")
         except KeyError:
-            self.logger.error("Attempted to activate non-existent plugin {}.".format(plugin))
+            self.logger.error(f"Attempted to activate non-existent plugin {plugin}.")
 
     def deactivate(self, plugin):
         try:
@@ -104,15 +101,15 @@ class PluginManager:
                 plg.deactivate()
                 self.active_plugins.remove(plg)
             else:
-                self.logger.warning("Attempted to deactivate already inactive plugin {}.".format(plugin))
+                self.logger.warning(f"Attempted to deactivate already inactive plugin {plugin}.")
         except KeyError:
-            self.logger.error("Attempted to deactivate non-existent plugin {}.".format(plugin))
+            self.logger.error(f"Attempted to deactivate non-existent plugin {plugin}.")
 
     async def hook_event(self, event, *args):
         """
         Dispatches an event, with its data, to all plugins.
         :param event: The name of the event. Should match the calling function.
-        :param *args: Everything that gets passed to the calling function
+        :param args: Everything that gets passed to the calling function
         should be passed through to this function.
         """
         for plugin in self.active_plugins:
@@ -121,8 +118,8 @@ class PluginManager:
                 try:
                     await hook(*args)
                 except Exception:
-                    self.logger.exception("Exception encounter in plugin {} on"
-                                          " event {}: ".format(plugin.name, event), exc_info=True)
+                    self.logger.exception(f"Exception encounter in plugin {plugin.name} on event {event}: ",
+                                          exc_info=True)
 
 
 class BasePlugin:

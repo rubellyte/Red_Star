@@ -60,7 +60,7 @@ class AdminCommands(BasePlugin):
                 count = 250
             elif count < 0:
                 raise ValueError
-        except ndexError:
+        except IndexError:
             raise SyntaxError("No count to delete provided.")
         except ValueError:
             raise SyntaxError("Count to delete is not a valid number.")
@@ -72,7 +72,7 @@ class AdminCommands(BasePlugin):
         deleted = await self.client.purge_from(
             data.channel, limit=count, check=self.search)
         self.searchstr = ""
-        fb = await respond(self.client, data, "**PURGE COMPLETE: {} messages purged.**".format(len(deleted)))
+        fb = await respond(self.client, data, f"**PURGE COMPLETE: {len(deleted)} messages purged.**")
         await asyncio.sleep(5)
         await self.client.delete_message(fb)
 

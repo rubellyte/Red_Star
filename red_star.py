@@ -41,9 +41,6 @@ class RedStar(discord.Client):
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
 
-    async def on_error(self, event, *args, **kwargs):
-        raise
-
     async def on_message(self, msg):
         await self.plugin_manager.hook_event("on_message", msg)
 

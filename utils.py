@@ -2,7 +2,6 @@
 import collections
 import re
 import asyncio
-import discord
 from functools import reduce
 
 
@@ -75,6 +74,7 @@ async def respond(client, data, response, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.
+    :param client: The discord.Client object used for sending.
     :param data: The message to respond to.
     :param response: The text to respond with.
     :return discord.Message: The Message sent.

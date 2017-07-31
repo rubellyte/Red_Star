@@ -31,7 +31,6 @@ class RoleCommands(BasePlugin):
             for server in self.client.servers:
                 for role in server.roles:
                     if args[1].lower() == role.name.lower():  # found role
-                        err = False
                         t_dict = {}
                         for arg in args[2:]:
                             t_arg = arg.split("=")
@@ -79,15 +78,15 @@ class RoleCommands(BasePlugin):
             for server in self.client.servers:
                 for role in server.roles:
                     if args[2].lower() == role.name.lower():
-                        err = False
-                        t_dict = {}
                         # copying the existing role (especially permissions)
-                        t_dict["name"] = args[1]
-                        t_dict["permissions"] = role.permissions
-                        t_dict["colour"] = role.colour
-                        t_dict["hoist"] = role.hoist
-                        t_dict["mentionable"] = role.mentionable
-                        t_dict["position"] = role.position
+                        t_dict = {
+                            "name": args[1],
+                            "permissions": role.permissions,
+                            "colour": role.colour,
+                            "hoist": role.hoist,
+                            "mentionable": role.mentionable,
+                            "position": role.position
+                        }
                         for arg in args[3:]:
                             t_arg = arg.split("=")
                             if len(t_arg) > 1:  # beautiful

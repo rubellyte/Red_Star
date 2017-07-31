@@ -6,6 +6,7 @@ from random import choice
 from plugin_manager import BasePlugin
 from utils import Command, respond
 
+
 class MOTD(BasePlugin):
     name = "motd"
     default_config = {

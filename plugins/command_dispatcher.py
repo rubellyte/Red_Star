@@ -24,17 +24,17 @@ class CommandDispatcher(BasePlugin):
         alias, we don't want it to overwrite non-alias commands. Otherwise,
         overwrite based on priority, and failing that, load order.
         """
-        self.logger.debug("Registering command {} from {}.".format(name, fn.__self__.name))
+        self.logger.debug(f"Registering command {name} from {fn.__self__.name}.")
 
         if name in self.commands:
             oldfn = self.commands[name]
             if fn.priority >= oldfn.priority and not is_alias:
                 self.commands[name] = fn
-                self.logger.warning("Command {} from {} overwrites command {} from {}!"
-                    .format(name, fn.__self__.name, oldfn.name, oldfn.__self__.name))
+                self.logger.warning(f"Command {name} from {fn.__self__.name} overwrites command {oldfn.name} from "
+                                    f"{oldfn.__self__.name}!")
             else:
-                self.logger.warning("Command {} from {} overwrites command {} from {}!"
-                    .format(oldfn.name, oldfn.__self__.name, name, fn.__self__.name))
+                self.logger.warning(f"Command {oldfn.name} from {oldfn.__self__.name} overwrites command {name} from "
+                                    f"{fn.__self__.name}!")
         else:
             self.commands[name] = fn
 
@@ -60,7 +60,7 @@ class CommandDispatcher(BasePlugin):
             if fn.syntax:
                 deco = self.plugin_config.command_prefix
                 await respond(self.client, data,
-                    f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
+                              f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
                 await respond(self.client, data, f"**WARNING: {err}.**")
         except PermissionError:
