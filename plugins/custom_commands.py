@@ -2,6 +2,7 @@ import re
 import random
 import json
 import datetime
+from asyncio import ensure_future
 from plugin_manager import BasePlugin
 import discord.utils
 from utils import respond, Command
@@ -16,8 +17,22 @@ class CustomCommands(BasePlugin):
     def activate(self):
         self.args = None
         self.tags = {
+            "args": self._args,
+            "username": self._username,
+            "usernick": self._usernick,
+            "usermention": self._usermention,
+            "authorname": self._authorname,
+            "authornick": self._authornick,
+            "if": self._if,
+            "not": self._not,
+            "isempty": self._isempty,
+            "equals": self._equals,
+            "hasrole": self._hasrole,
+            "upper": self._upper,
+            "lower": self._lower,
             "random": self._random,
-            "rot13": self._rot13
+            "rot13": self._rot13,
+            "delcall": self._delcall
         }
         try:
             with open(self.plugin_config.cc_file, "r") as f:
@@ -29,6 +44,8 @@ class CustomCommands(BasePlugin):
         except json.decoder.JSONDecodeError:
             self.logger.exception("Could not decode ccs.json! ", exc_info=True)
 
+    # Event hooks
+
     async def on_message(self, data):
         deco = self.plugin_config.cc_prefix
         if data.author != self.client.user:
@@ -39,6 +56,8 @@ class CustomCommands(BasePlugin):
                     await self.run_cc(cmd, data)
                 else:
                     await respond(self.client, data, f"**WARNING: No such custom command {cmd}.**")
+
+    # Commands
 
     @Command("createcc",
              doc="Creates a custom command.",
@@ -177,23 +196,33 @@ class CustomCommands(BasePlugin):
         else:
             await respond(self.client, data, f"**WARNING: No such custom command {name}.**")
 
+    # Custom command machinery
+
     async def run_cc(self, cmd, data):
         if self.ccs[cmd]["locked"] and not data.author.server_permissions.manage_messages:
             await respond(self.client, data, "**WARNING: Custom command {cmd} is locked.**")
         else:
-            self.args = data.clean_content.split()[1:]
             ccdat = self.ccs[cmd]["content"]
-            res = self._find_tags(ccdat)
-            await respond(self.client, data, res)
-            self.ccs[cmd]["times_run"] += 1
-            self._save_ccs()
+            try:
+                res = self._find_tags(ccdat, data)
+            except (SyntaxError, SyntaxWarning) as e:
+                err = e if e else "Syntax error."
+                await respond(self.client, data, f"**WARNING: {err}**")
+            except Exception:
+                self.logger.exception("Exception occurred in custom command: ", exc_info=True)
+                await respond(self.client, data, "**WARNING: An error occurred while running the custom command.**")
+            else:
+                await respond(self.client, data, res)
+                self.args = None
+                self.ccs[cmd]["times_run"] += 1
+                self._save_ccs()
 
     def _save_ccs(self):
         with open(self.plugin_config.cc_file, "w") as f:
             json.dump(self.ccs, f, indent=2)
 
 
-    def _find_tags(self, s):
+    def _find_tags(self, s, msg):
         def tag_iter(level=0):
             try:
                 token = next(tokens)
@@ -209,7 +238,7 @@ class CustomCommands(BasePlugin):
                     return ""
             elif token == '<':
                 tag = "".join([tag_iter(level + 1)])
-                parsed = self._parse_tag(tag)
+                parsed = self._parse_tag(tag, msg)
                 return parsed + tag_iter(level)
             else:
                 return "".join([token]) + tag_iter(level)
@@ -217,10 +246,12 @@ class CustomCommands(BasePlugin):
         tokens = iter(s)
         return tag_iter()
 
-    def _parse_tag(self, tag):
-        tag, args = tag.split(":", 1)
-        if self.tags[tag]:
-            return self.tags[tag](args)
+    def _parse_tag(self, tag, data):
+        args = tag.split(":", 1)
+        tag = args.pop(0)
+        args = " ".join(args)
+        if tag.lower() in self.tags:
+            return self.tags[tag](args, data)
         else:
             raise SyntaxError(f"No such tag {tag}!")
 
@@ -228,11 +259,90 @@ class CustomCommands(BasePlugin):
         args = re.split(r"(?<!\\);", argstr)
         return [x.replace("\\;", ";") for x in args]
 
-    def _random(self, args):
+    # CC argument tag functions
+
+    def _args(self, args, msg):
+        input = msg.clean_content.split()[1:]
+        if args.isdecimal():
+            try:
+                i = int(args) - 1
+                return input[i]
+            except ValueError:
+                raise SyntaxError("<args> argument is not a number or *!")
+            except IndexError:
+                return ""
+        elif args == "*":
+            return " ".join(input)
+        else:
+            raise SyntaxError("<args> argument is not a number or *!")
+
+    def _username(self, args, msg):
+        return msg.author.name
+
+    def _usernick(self, args, msg):
+        return msg.author.display_name
+
+    def _usermention(self, args, msg):
+        return msg.author.mention
+
+    def _authorname(self, args, msg):
+        author = self.ccs[msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
+        return discord.utils.get(msg.server.members, id=author).name
+
+    def _authornick(self, args, msg):
+        author = self.ccs[msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
+        return discord.utils.get(msg.server.members, id=author).display_name
+
+    def _if(self, args, msg):
+        args = self._split_args(args)
+        if args[0] == "true":
+            return args[1]
+        else:
+            return args[2]
+
+    def _equals(self, args, msg):
+        args = self._split_args(args)
+        test = args[0]
+        for arg in args[1:]:
+            if test != arg:
+                return "false"
+        else:
+            return "true"
+
+    def _not(self, args, msg):
+        if args == "true":
+            return "false"
+        else:
+            return "true"
+
+    def _isempty(self, args, msg):
+        if len(args) == 0:
+            return "true"
+        else:
+            return "false"
+
+    def _hasrole(self, args, msg):
+        args = self._split_args(args)
+        if args[0].lower() in [x.name.lower() for x in msg.author.roles]:
+            return "true"
+        else:
+            return "false"
+
+    def _upper(self, args, msg):
+        return args.upper()
+
+    def _lower(self, args, msg):
+        return args.lower()
+
+    def _random(self, args, msg):
         return random.choice(self._split_args(args))
 
-    def _rot13(self, args):
+    def _rot13(self, args, msg):
         rot13 = str.maketrans(
                 "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz",
                 "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm")
         return str.translate(args, rot13)
+
+    def _delcall(self, args, msg):
+        ensure_future(self.client.delete_message(msg))
+        return ""

@@ -71,7 +71,7 @@ def sub_user_data(user, text):
     return text
 
 
-async def respond(client, data, response):
+async def respond(client, data, response, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.
@@ -84,8 +84,11 @@ async def respond(client, data, response):
         # shoulda split it first
         # this is just a last-ditch error check
         text = text[:2000]
-    m = await client.send_message(data.channel, text)
-    return m
+    if text:
+        m = await client.send_message(data.channel, text, **kwargs)
+        return m
+    else:
+        return
 
 
 def split_message(message, splitter=None):
