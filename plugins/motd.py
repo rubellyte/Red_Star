@@ -20,13 +20,31 @@ class MOTD(BasePlugin):
                 self.motds = json.load(f)
                 schedule.every().day.at("00:00").do(self._display_motd)
                 asyncio.ensure_future(self._run_motd())
+        except FileNotFoundError:
+            with open(self.plugin_config.motd_file, "w") as f:
+                self.motds = {}
+                f.write("{}")
         except json.decoder.JSONDecodeError:
             self.logger.exception(f"Could not decode {self.plugin_config.motd_file}! ", exc_info=True)
+        # This is stupid
+        self.valid_months = {
+            "January", "February", "March", "April", "May", "June", "July",
+            "August", "September", "October", "November", "December", "Any"
+        }
+        self.valid_days = {
+            "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Any",
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+            "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"
+        }
 
     async def _run_motd(self):
         while True:
             schedule.run_pending()
             await asyncio.sleep(60)
+
+    def _save_motds(self):
+        with open(self.plugin_config.motd_file, "w") as f:
+            json.dump(self.motds, f, indent=2)
 
     def _display_motd(self):
         today = datetime.date.today()
@@ -61,6 +79,32 @@ class MOTD(BasePlugin):
             return self.motds["Any"][weekday]
         else:
             return
+
+    @Command("addmotd",
+             doc="Adds a MotD message.",
+             perms={"manage_server"},
+             syntax="(month/Any) (day/weekday/Any) (message)")
+    async def _addmotd(self, data):
+        args = data.clean_content.split()[1:]
+        month = args[0].capitalize()
+        day = args[1].capitalize()
+        msg = " ".join(args[2:])
+        if month not in self.valid_months or day not in self.valid_days:
+            self.logger.debug(month)
+            self.logger.debug(day)
+            raise SyntaxError("Month or day is invalid. Please use full names.")
+        try:
+            if month not in self.motds:
+                self.motds[month] = {}
+            if day not in self.motds[month]:
+                self.motds[month][day] = []
+            self.motds[month][day].append(msg)
+            self._save_motds()
+            await respond(self.client, data, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
+        except KeyError:
+            self.logger.debug(month)
+            self.logger.debug(day)
+            raise SyntaxError("Month or day is invalid. Please use full names.")
 
     @Command("testmotds",
              doc="Used for testing MOTD lines.",
