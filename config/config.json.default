@@ -1,5 +1,5 @@
 {
-  "client_id": "INSERT CLIENT ID HERE!"
+  "client_id": "INSERT CLIENT ID HERE!",
   "token": "INSERT TOKEN HERE!",
   "plugin_path": "./plugins",
   "plugins": {
