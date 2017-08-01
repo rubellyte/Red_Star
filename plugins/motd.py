@@ -86,9 +86,12 @@ class MOTD(BasePlugin):
              syntax="(month/Any) (day/weekday/Any) (message)")
     async def _addmotd(self, data):
         args = data.clean_content.split()[1:]
-        month = args[0].capitalize()
-        day = args[1].capitalize()
-        msg = " ".join(args[2:])
+        try:
+            month = args[0].capitalize()
+            day = args[1].capitalize()
+            msg = " ".join(args[2:])
+        except IndexError:
+            raise SyntaxError
         if month not in self.valid_months or day not in self.valid_days:
             self.logger.debug(month)
             self.logger.debug(day)
@@ -111,10 +114,13 @@ class MOTD(BasePlugin):
              perms={"manage_server"},
              syntax="(month/Any) (day/weekday/Any)")
     async def _testmotd(self, data):
-        args = data.clean_content.split()[1:]
-        month = args[0]
-        day = args[1]
-        weekday = args[2]
+        try:
+            args = data.clean_content.split()[1:]
+            month = args[0]
+            day = args[1]
+            weekday = args[2]
+        except IndexError:
+            raise SyntaxError
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
             await respond(self.client, data, choice(holiday_lines))

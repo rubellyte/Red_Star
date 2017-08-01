@@ -54,9 +54,10 @@ class MusicPlayer(BasePlugin):
         self.m_channel = c.music_channel if c.force_music_channel else False
         self.time_started = time.time()
 
-    @Command("joinvc",
+    # Command functions
+
+    @Command("joinvoice",
              category="voice",
-             syntax="",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):
         """
@@ -80,10 +81,9 @@ class MusicPlayer(BasePlugin):
             else:
                 await respond(self.client, data, choice(self.no_perm_lines).format(a_voice))
 
-    @Command("playvc",
-             "play",
+    @Command("play",
              category="voice",
-             syntax="[URL or search query]",
+             syntax="(URL or search query)",
              doc="Plays presented youtube video or searches for one.\nNO PLAYLISTS ALLOWED.")
     async def _playvc(self, data):
         """
@@ -104,6 +104,91 @@ class MusicPlayer(BasePlugin):
             await self.play_video(args[1], data)
         else:
             raise SyntaxError("Expected URL or search query.")
+
+    @Command("skipvc",
+             category="voice",
+             doc="Votes to skip the current song.")
+    async def _skipvc(self, data):
+        """
+        Collects votes for skipping current song or skips if you got mute_members permission
+        """
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
+        if self.player and self.player.is_done() and len(self.queue) > 0:
+            await self.play_next(data)
+            await respond(self.client, data, "**AFFIRMATIVE. Forcing next song in queue.**")
+            return
+        self.vote_set.add(data.author.id)
+        override = data.author.permissions_in(self.vc.channel).mute_members
+        votes = len(self.vote_set)
+        m_votes = (len(self.vc.channel.voice_members) - 1) / 2
+        if votes >= m_votes or override:
+            if self.player:
+                self.player.stop()
+                await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
+                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+        else:
+            await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
+
+    @Command("volume",
+             category="voice",
+             syntax="[volume from 0 to 200]",
+             doc="Adjusts volume, from 0 to 200%.")
+    async def _volvc(self, data):
+        """
+        Checks that the user didn't put in something stupid and adjusts volume.
+        """
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
+        args = process_args(data.content.split())
+        if len(args) > 1:
+            try:
+                vol = int(args[1])
+            except ValueError:
+                raise SyntaxError("Expected integer value between 0 and 200!")
+            if vol < 0:
+                vol = 0
+            if vol > 200:
+                vol = 200
+            self.volume = vol
+            if self.player:
+                self.player.volume = vol / 100
+        else:
+            await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
+
+    @Command("stopplaying",
+             perms={"mute_members"},
+             category="voice",
+             doc="Stops the music and empties the queue.")
+    async def _stopvc(self, data):
+        if len(self.queue) > 0:
+            self.queue = []
+        if self.player:
+            self.player.stop()
+        await respond(self.client, data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
+
+    @Command("queue",
+             category="voice",
+             doc="Writes out the current queue.")
+    async def _queuevc(self, data):
+        if len(self.queue) > 0:
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+        else:
+            await respond(self.client, data, "**ANALYSIS: queue empty.**")
+
+    @Command("nowplaying",
+             category="voice",
+             doc="Writes out the current song information.")
+    async def _nowvc(self, data):
+        if self.player:
+            desc = self.player.description.replace('https://','').replace('http://','')[0:1000]
+            t_string = f"**CURRENTLY PLAYING:**\n```" \
+                       f"TITLE: {self.player.title}\n{'='*60}\n" \
+                       f"DESCRIPTION: {desc}\n{'='*60}\n" \
+                       f"DURATION: {self.player.duration//60}:{self.player.duration%60:02d}```"
+            await respond(self.client, data, t_string)
+
+    # Music playing
 
     async def play_video(self, vid, data):
         """
@@ -165,6 +250,8 @@ class MusicPlayer(BasePlugin):
         else:
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
 
+    # Utility functions
+
     def build_queue(self):
         """
         builds a nice newline separated queue
@@ -176,93 +263,6 @@ class MusicPlayer(BasePlugin):
             mins, secs = divmod(player.duration, 60)
             t_string = f"{t_string}{title} [{mins}:{secs:02d}]\n"
         return t_string
-
-    @Command("skipvc",
-             category="voice",
-             syntax="",
-             doc="Skips current video.")
-    async def _skipvc(self, data):
-        """
-        Collects votes for skipping current song or skips if you got mute_members permission
-        """
-        if not self.check_in(data.author):
-            raise PermissionError("Must be in voicechat.")
-        if self.player and self.player.is_done() and len(self.queue) > 0:
-            await self.play_next(data)
-            await respond(self.client, data, "**AFFIRMATIVE. Forcing next song in queue.**")
-            return
-        self.vote_set.add(data.author.id)
-        override = data.author.permissions_in(self.vc.channel).mute_members
-        votes = len(self.vote_set)
-        m_votes = (len(self.vc.channel.voice_members) - 1) / 2
-        if votes >= m_votes or override:
-            if self.player:
-                self.player.stop()
-                await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
-                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
-        else:
-            await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
-
-    @Command("volvc",
-             category="voice",
-             syntax="[volume from 0 to 200]",
-             doc="Adjusts volume, from 0 to 200%.")
-    async def _volvc(self, data):
-        """
-        Checks that the user didn't put in something stupid and adjusts volume.
-        """
-        if not self.check_in(data.author):
-            raise PermissionError("Must be in voicechat.")
-        args = process_args(data.content.split())
-        if len(args) > 1:
-            try:
-                vol = int(args[1])
-            except ValueError:
-                raise SyntaxError("Expected integer value between 0 and 200!")
-            if vol < 0:
-                vol = 0
-            if vol > 200:
-                vol = 200
-            self.volume = vol
-            if self.player:
-                self.player.volume = vol / 100
-        else:
-            await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
-
-    @Command("stopvc",
-             perms={"mute_members"},
-             category="voice",
-             syntax="",
-             doc="Stops the music. All of it.")
-    async def _stopvc(self, data):
-        if len(self.queue) > 0:
-            self.queue = []
-        if self.player:
-            self.player.stop()
-        await respond(self.client, data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
-
-    @Command("queuevc",
-             category="voice",
-             syntax="",
-             doc="Writes out the current queue.")
-    async def _queuevc(self, data):
-        if len(self.queue) > 0:
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
-        else:
-            await respond(self.client, data, "**ANALYSIS: queue empty.**")
-
-    @Command("nowvc",
-             category="voice",
-             syntax="",
-             doc="Writes out the current queue.")
-    async def _nowvc(self, data):
-        if self.player:
-            t_string = f"**CURRENTLY PLAYING:**\n```" \
-                       f"TITLE: {self.player.title}\n{'='*60}\n" \
-                       f"DESCRIPTION: {self.player.description.replace('https://','').replace('http://','')[0:1000]}\n" \
-                       f"{'='*60}\n" \
-                       f"DURATION: {self.player.duration//60}:{self.player.duration%60:02d}```"
-            await respond(self.client, data, t_string)
 
     def check_in(self, author):
         """

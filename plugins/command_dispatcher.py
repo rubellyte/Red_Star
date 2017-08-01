@@ -51,7 +51,7 @@ class CommandDispatcher(BasePlugin):
             if self.plugin_config.use_command_channel:
                 chan = self.client.get_channel(self.plugin_config.command_channel)
                 if not fn.run_anywhere and data.channel != chan:
-                    raise KeyError
+                    return
             await fn(data)
             if fn.delcall:
                 await self.client.delete_message(data)
