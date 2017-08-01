@@ -9,15 +9,9 @@ class RoleCommands(BasePlugin):
 
     async def activate(self):
         pass
-        # TODO : figure out how to get asyncio.sleep working and why await breaks here
-        """
-        self.bot_role_position = 0
-        while not self.client.user.roles:
-            await asyncio.sleep(5)
-        for role in self.client.user.roles:
-            if role.position > self.bot_role_position:
-                self.bot_role_position = role.position
-        """
+
+    async def deactivate(self):
+        pass
 
     @Command("editrole",
              perms={"manage_roles"},
@@ -191,7 +185,6 @@ class RoleCommands(BasePlugin):
                 for role in server.roles:
                     if args[1].lower() == role.name.lower():
                         t_position = role.position
-                        # TODO: figure out way to check position-based permissions without trying and getting an error
                         try:
                             await self.client.move_role(server, role, new_position)
                         except (InvalidArgument, HTTPException, Forbidden):
