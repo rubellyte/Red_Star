@@ -4,6 +4,7 @@ from random import choice
 from asyncio import get_event_loop
 from math import ceil
 from youtube_dl.utils import DownloadError
+import time
 
 
 class MusicPlayer(BasePlugin):
@@ -51,6 +52,7 @@ class MusicPlayer(BasePlugin):
         self.max_length = c.max_video_length
         self.max_queue = c.max_queue_length
         self.m_channel = c.music_channel if c.force_music_channel else False
+        self.time_started = time.time()
 
     @Command("joinvc",
              category="voice",
@@ -90,7 +92,9 @@ class MusicPlayer(BasePlugin):
         """
         if not self.vc:
             await self._joinvc(data)
-            #await respond(self.client, data, "**WARNING: Can not play music while not connected.**")
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
+            # await respond(self.client, data, "**WARNING: Can not play music while not connected.**")
         args = data.content.split(' ', 1)
         if len(args) > 1:
             if not (args[1].startswith("http://") or args[1].startswith("https://")):
@@ -107,15 +111,23 @@ class MusicPlayer(BasePlugin):
         :param vid: URL or ytsearch: query to process or NEXT for skipping
         :param data: message data for responses
         """
-        if self.player and not self.player.is_done() and vid != "NEXT":
-            t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
-                                                        after=lambda: t_loop.create_task(self.play_video("NEXT",
-                                                                                                         data)))
+        if self.player and self.player.error:
+            print(self.player.error)
+        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15"
+        t_loop = get_event_loop()
+        if self.player and not self.player.is_done() or len(self.queue) > 0:
+            try:
+                t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
+                                                            before_options=before_args,
+                                                            after=lambda: t_loop.create_task(self.play_next(data)))
+            except DownloadError:
+                await respond(self.client, data, "**NEGATIVE. Could not load song.**")
+                raise Exception
             if t_player.duration > self.max_length:
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
-                                                 f"{t_player.duration//60}:{t_player.duration%60}.**")
+                                                 f"{self.max_length//60}:{self.max_length%60:02d}.**")
                 return
-            if len(self.queue)<self.max_queue:
+            if len(self.queue) < self.max_queue:
                 self.queue.append(t_player)
                 await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
                                                  f"Current queue:**\n```{self.build_queue()}```")
@@ -124,23 +136,34 @@ class MusicPlayer(BasePlugin):
                                                  f"Current queue:**\n```{self.build_queue()}```")
         else:
             self.vote_set = set()
-            if vid != "NEXT":
-                t_loop = get_event_loop()
-                # creates a player with a callback to play next video
+            self.logger.debug(time.time() - self.time_started)
+            self.time_started = time.time()
+            # creates a player with a callback to play next video
+            try:
                 self.player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
-                                                               after=lambda: t_loop.create_task(self.play_video("NEXT",
-                                                                       data)))
-            elif len(self.queue) > 0:
-                self.player = self.queue.pop(0)
-            else:
-                await respond(self.client, data, "**ANALYSIS: Queue complete.**")
+                                                               before_options=before_args,
+                                                               after=lambda: t_loop.create_task(self.play_next(data)))
+            except DownloadError:
+                await respond(self.client, data, "**NEGATIVE. Could not load song.**")
+                raise Exception
             if self.player.duration <= self.max_length:
                 self.player.volume = self.volume / 100
                 self.player.start()
                 await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
             else:
                 self.player.stop()
-                await respond(self.client, data, f"**WARNING: \"{self.player.title}\" is too long, skipping.**")
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
+                                                 f"{self.max_length//60}:{self.max_length%60:02d}.**")
+
+    async def play_next(self, data):
+        if len(self.queue) > 0:
+            self.player.stop()
+            self.player = self.queue.pop(0)
+            self.player.volume = self.volume / 100
+            self.player.start()
+            await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
+        else:
+            await respond(self.client, data, "**ANALYSIS: Queue complete.**")
 
     def build_queue(self):
         """
@@ -162,10 +185,16 @@ class MusicPlayer(BasePlugin):
         """
         Collects votes for skipping current song or skips if you got mute_members permission
         """
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
+        if self.player and self.player.is_done() and len(self.queue) > 0:
+            await self.play_next(data)
+            await respond(self.client, data, "**AFFIRMATIVE. Forcing next song in queue.**")
+            return
         self.vote_set.add(data.author.id)
         override = data.author.permissions_in(self.vc.channel).mute_members
         votes = len(self.vote_set)
-        m_votes = (len(self.vc.channel.voice_members)-1)/2
+        m_votes = (len(self.vc.channel.voice_members) - 1) / 2
         if votes >= m_votes or override:
             if self.player:
                 self.player.stop()
@@ -173,7 +202,6 @@ class MusicPlayer(BasePlugin):
                               if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
             await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
-
 
     @Command("volvc",
              category="voice",
@@ -183,6 +211,8 @@ class MusicPlayer(BasePlugin):
         """
         Checks that the user didn't put in something stupid and adjusts volume.
         """
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
         args = process_args(data.content.split())
         if len(args) > 1:
             try:
@@ -197,7 +227,7 @@ class MusicPlayer(BasePlugin):
             if self.player:
                 self.player.volume = vol / 100
         else:
-            await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}/100.**")
+            await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
 
     @Command("stopvc",
              perms={"mute_members"},
@@ -227,8 +257,16 @@ class MusicPlayer(BasePlugin):
              doc="Writes out the current queue.")
     async def _nowvc(self, data):
         if self.player:
-            t_string = "**CURRENTLY PLAYING:\n**```"
-            t_string += "TITLE: "+self.player.title+"\n\n"
-            t_string += "DESCRIPTION: "+self.player.description.replace("https://", "").replace("http://","")+"\n\n"
-            t_string += "DURATION: "+str(self.player.duration//60)+":"+str(self.player.duration%60)+"```"
+            t_string = f"**CURRENTLY PLAYING:**\n```" \
+                       f"TITLE: {self.player.title}\n{'='*60}\n" \
+                       f"DESCRIPTION: {self.player.description.replace('https://','').replace('http://','')[0:1000]}\n" \
+                       f"{'='*60}\n" \
+                       f"DURATION: {self.player.duration//60}:{self.player.duration%60:02d}```"
             await respond(self.client, data, t_string)
+
+    def check_in(self, author):
+        """
+        :param author: author from message data
+        :return: is he in same vc channel?
+        """
+        return self.vc and author in self.vc.channel.voice_members
