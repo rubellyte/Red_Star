@@ -38,6 +38,8 @@ class DiscordLogger(BasePlugin):
             uname = f"{after.author.name}#{after.author.discriminator}"
             old_contents = before.clean_content
             contents = after.clean_content
+            if old_contents == contents:
+                return
             self.logger.debug(f"User {uname} edited their message.\nOld contents: {old_contents}\nNew contents: "
                               f"{contents}")
             await self.client.send_message(self.log_channel,

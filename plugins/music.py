@@ -52,7 +52,7 @@ class MusicPlayer(BasePlugin):
         self.max_length = c.max_video_length
         self.max_queue = c.max_queue_length
         self.m_channel = c.music_channel if c.force_music_channel else False
-        self.time_started = time.time()
+        self.time_started = 0
 
     # Command functions
 
@@ -172,7 +172,9 @@ class MusicPlayer(BasePlugin):
              doc="Writes out the current queue.")
     async def _queuevc(self, data):
         if len(self.queue) > 0:
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+            t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```\n"
+                                             f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
         else:
             await respond(self.client, data, "**ANALYSIS: Queue empty.**")
 
@@ -180,12 +182,14 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Writes out the current song information.")
     async def _nowvc(self, data):
-        if self.player:
+        if self.player and not self.player.is_done():
+            progress = ceil(time.time() - self.time_started)
+            progress = f"{progress//60}:{progress%60:02d} /"
             desc = self.player.description.replace('https://','').replace('http://','')[0:1000]
             t_string = f"**CURRENTLY PLAYING:**\n```" \
                        f"TITLE: {self.player.title}\n{'='*60}\n" \
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
-                       f"DURATION: {self.player.duration//60}:{self.player.duration%60:02d}```"
+                       f"DURATION: {progress} {self.player.duration//60}:{self.player.duration%60:02d}```"
             await respond(self.client, data, t_string)
 
     # Music playing
@@ -213,16 +217,17 @@ class MusicPlayer(BasePlugin):
                                                  f"{self.max_length//60}:{self.max_length%60:02d}.**")
                 return
             if len(self.queue) < self.max_queue:
+                t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
                 self.queue.append(t_player)
                 await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
-                                                 f"Current queue:**\n```{self.build_queue()}```")
+                                                 f"Current queue:**\n```{self.build_queue()}```\n"
+                                                 f"**ANALYSIS: time until your song: {t_m}:{t_s:02d}**")
             else:
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Queue full. Dropping \"{t_player.title}\".\n"
                                                  f"Current queue:**\n```{self.build_queue()}```")
         else:
             self.vote_set = set()
-            self.logger.debug(time.time() - self.time_started)
-            self.time_started = time.time()
+            # self.logger.debug(time.time() - self.time_started)
             # creates a player with a callback to play next video
             try:
                 self.player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
@@ -234,6 +239,7 @@ class MusicPlayer(BasePlugin):
             if self.player.duration <= self.max_length:
                 self.player.volume = self.volume / 100
                 self.player.start()
+                self.time_started = time.time()
                 await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
             else:
                 self.player.stop()
@@ -246,6 +252,7 @@ class MusicPlayer(BasePlugin):
             self.player = self.queue.pop(0)
             self.player.volume = self.volume / 100
             self.player.start()
+            self.time_started = time.time()
             await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
         else:
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
@@ -263,6 +270,16 @@ class MusicPlayer(BasePlugin):
             mins, secs = divmod(player.duration, 60)
             t_string = f"{t_string}{title} [{mins}:{secs:02d}]\n"
         return t_string
+
+    def queue_length(self, queue):
+        if self.player and not self.player.is_done():
+            t = self.player.duration - time.time() + self.time_started
+        else:
+            t = 0
+        for player in queue:
+            t += player.duration
+        return t
+
 
     def check_in(self, author):
         """
