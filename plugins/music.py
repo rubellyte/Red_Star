@@ -22,6 +22,7 @@ class MusicPlayer(BasePlugin):
         'max_video_length': 1800,
         'max_queue_length': 30,
         'default_volume': 15,
+        'allow_pause': True,
         'ytdl_options': {
             'format': 'bestaudio/best',
             'extractaudio': True,
@@ -53,10 +54,19 @@ class MusicPlayer(BasePlugin):
         self.max_queue = c.max_queue_length
         self.m_channel = c.music_channel if c.force_music_channel else False
         self.time_started = 0
+        self.allow_pause = c.allow_pause
+        self.time_pause = 0
+        self.time_skip = 0
+
+    async def deactivate(self):
+        if self.player:
+            self.player.stop()
+        if self.vc:
+            self.vc.disconnect()
 
     # Command functions
 
-    @Command("joinvoice",
+    @Command("joinvoice", "joinvc",
              category="music",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):
@@ -183,7 +193,7 @@ class MusicPlayer(BasePlugin):
              doc="Writes out the current song information.")
     async def _nowvc(self, data):
         if self.player and not self.player.is_done():
-            progress = ceil(time.time() - self.time_started)
+            progress = self.play_length()
             progress = f"{progress//60}:{progress%60:02d} /"
             desc = self.player.description.replace('https://', '').replace('http://', '')[0:1000]
             t_string = f"**CURRENTLY PLAYING:**\n```" \
@@ -191,6 +201,40 @@ class MusicPlayer(BasePlugin):
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
                        f"DURATION: {progress} {self.player.duration//60}:{self.player.duration%60:02d}```"
             await respond(self.client, data, t_string)
+
+    @Command("pausesong",
+             category="music",
+             doc="Pauses currently playing music stream.")
+    async def _pausevc(self, data):
+        if not self.allow_pause:
+            raise PermissionError("Pause not allowed")
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
+        if self.player and self.player.is_playing():
+            self.player.pause()
+            progress = self.play_length()
+            progress = f"{progress//60}:{progress%60:02d} /"
+            self.time_pause = time.time()
+            await respond(self.client, data, f"**AFFIRMATIVE. Song paused at {progress} "
+                                             f"{self.player.duration//60}:{self.player.duration%60:02d}**")
+        else:
+            await respond(self.client, data, f"**NEGATIVE. Invalid pause request.**")
+
+    @Command("resumesong",
+             category="music",
+             doc="Resumes currently paused music stream.")
+    async def _resumevc(self, data):
+        if not self.allow_pause:
+            raise PermissionError("Pause not allowed")
+        if not self.check_in(data.author):
+            raise PermissionError("Must be in voicechat.")
+        if self.player and not self.player.is_playing() and not self.player.is_done():
+            self.player.resume()
+            self.time_skip += time.time() - self.time_pause
+            self.time_pause = 0
+            await respond(self.client, data, "**AFFIRMATIVE. Resuming song.**")
+        else:
+            await respond(self.client, data, "**NEGATIVE. No song to resume.**")
 
     # Music playing
 
@@ -240,6 +284,7 @@ class MusicPlayer(BasePlugin):
                 self.player.volume = self.volume / 100
                 self.player.start()
                 self.time_started = time.time()
+                self.time_skip = 0
                 await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
             else:
                 self.player.stop()
@@ -248,13 +293,17 @@ class MusicPlayer(BasePlugin):
 
     async def play_next(self, data):
         if len(self.queue) > 0:
-            self.player.stop()
+            if self.player:
+                self.player.stop()
             self.player = self.queue.pop(0)
             self.player.volume = self.volume / 100
             self.player.start()
             self.time_started = time.time()
+            self.time_skip = 0
             await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
         else:
+            if self.player:
+                self.player.stop()
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
 
     # Utility functions
@@ -272,12 +321,30 @@ class MusicPlayer(BasePlugin):
         return t_string
 
     def queue_length(self, queue):
+        """
+        Calculates the complete length of the current queue, including song playing
+        :param queue: the queue of player objects. Takes queue in case you want to keep something out
+        :return: the duration in seconds
+        """
         if self.player and not self.player.is_done():
-            t = self.player.duration - time.time() + self.time_started
+            t = self.player.duration - self.play_length()
         else:
             t = 0
         for player in queue:
             t += player.duration
+        return t
+
+    def play_length(self):
+        """
+        Calculates the duration of the current song, including time skipped by pausing
+        :return: duration in seconds
+        """
+        t = 0
+        if self.player and not self.player.is_done():
+            t_skip = 0
+            if self.time_pause > 0:
+                t_skip = time.time() - self.time_pause
+            t = ceil(time.time() - self.time_started - self.time_skip-t_skip)
         return t
 
     def check_in(self, author):
