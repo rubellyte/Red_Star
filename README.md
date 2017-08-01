@@ -16,6 +16,7 @@ Features:
 - For music playing:
   - Install discord.py[voice]
   - Install [ffmpeg](http://ffmpeg.zeranoe.com/builds/) and add it to your PATH
+  - Install [PyNaCl](https://github.com/pyca/pynacl)
 - For MotD:
   - Install [schedule](https://github.com/dbader/schedule)
 - Clone the `Red_Star` repository to your computer.
