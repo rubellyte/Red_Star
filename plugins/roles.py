@@ -49,6 +49,8 @@ class RoleCommands(BasePlugin):
                                     t_dict["name"] = t_arg[1]
                                 elif t_arg[0].lower() == "colour":
                                     t_dict["colour"] = Colour(int(t_arg[1], 16))
+                                elif t_arg[0].lower() == "color":
+                                    t_dict["colour"] = Colour(int(t_arg[1], 16))
                                 elif t_arg[0].lower() == "hoist":
                                     t_dict["hoist"] = t_arg[1].lower() == "true"
                                 elif t_arg[0].lower() == "mentionable":
@@ -103,6 +105,8 @@ class RoleCommands(BasePlugin):
                                 if t_arg[0].lower() == "name":
                                     t_dict["name"] = t_arg[1]
                                 elif t_arg[0].lower() == "colour":
+                                    t_dict["colour"] = Colour(int(t_arg[1], 16))
+                                elif t_arg[0].lower() == "color":
                                     t_dict["colour"] = Colour(int(t_arg[1], 16))
                                 elif t_arg[0].lower() == "hoist":
                                     t_dict["hoist"] = t_arg[1].lower() == "true"
