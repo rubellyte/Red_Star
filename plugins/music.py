@@ -172,7 +172,9 @@ class MusicPlayer(BasePlugin):
              doc="Writes out the current queue.")
     async def _queuevc(self, data):
         if len(self.queue) > 0:
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+            t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```\n"
+                                             f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
         else:
             await respond(self.client, data, "**ANALYSIS: Queue empty.**")
 
@@ -215,9 +217,11 @@ class MusicPlayer(BasePlugin):
                                                  f"{self.max_length//60}:{self.max_length%60:02d}.**")
                 return
             if len(self.queue) < self.max_queue:
+                t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
                 self.queue.append(t_player)
                 await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
-                                                 f"Current queue:**\n```{self.build_queue()}```")
+                                                 f"Current queue:**\n```{self.build_queue()}```\n"
+                                                 f"**ANALYSIS: time until your song: {t_m}:{t_s:02d}**")
             else:
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Queue full. Dropping \"{t_player.title}\".\n"
                                                  f"Current queue:**\n```{self.build_queue()}```")
@@ -266,6 +270,16 @@ class MusicPlayer(BasePlugin):
             mins, secs = divmod(player.duration, 60)
             t_string = f"{t_string}{title} [{mins}:{secs:02d}]\n"
         return t_string
+
+    def queue_length(self, queue):
+        if self.player and not self.player.is_done():
+            t = self.player.duration - time.time() + self.time_started
+        else:
+            t = 0
+        for player in queue:
+            t += player.duration
+        return t
+
 
     def check_in(self, author):
         """
