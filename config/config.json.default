@@ -2,6 +2,8 @@
   "client_id": "INSERT CLIENT ID HERE!",
   "token": "INSERT TOKEN HERE!",
   "plugin_path": "./plugins",
+  "shelve_path": "config/storage",
+  "shelve_save_interval": 60,
   "plugins": {
     "announcer": {
       "greeting_enabled": true,
@@ -32,6 +34,36 @@
     "motd": {
       "motd_channel": "CHANNEL ID AS STRING",
       "motd_file": "config/motds.json"
+    },
+    "music_player": {
+      "allow_pause": true,
+      "default_volume": 15,
+      "force_music_channel": false,
+      "max_queue_length": 30,
+      "max_video_length": 1800,
+      "music_channel": "CHANNEL ID HERE",
+      "no_permission_lines": [
+        "**NEGATIVE. Insufficient permissions for funky beats in channel: {}.**",
+        "**NEGATIVE. Insufficient permissions for rocking you like a hurricane in channel: {}.**",
+        "**NEGATIVE. Insufficient permissions for putting hands in the air in channel: {}.**",
+        "**NEGATIVE. Insufficient permissions for wanting to rock in channel: {}.**",
+        "**NEGATIVE. Insufficient permissions for dropping the beat in channel: {}.**"
+      ],
+      "ytdl_options": {
+        "audioformat": "mp3",
+        "default_search": "auto",
+        "extractaudio": true,
+        "format": "bestaudio/best",
+        "ignoreerrors": false,
+        "logtostderr": false,
+        "no_warnings": false,
+        "nocheckcertificate": true,
+        "noplaylist": true,
+        "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
+        "quiet": true,
+        "restrictfilenames": true,
+        "source_address": "0.0.0.0"
+      }
     }
   }
 }
