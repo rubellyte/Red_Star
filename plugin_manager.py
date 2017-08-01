@@ -93,8 +93,8 @@ class PluginManager:
             if name not in self.active_plugins:
                 self.logger.info(f"Activating plugin {name}.")
                 await plg.activate()
-                await self.hook_event("on_plugin_activated", name)
                 self.active_plugins[name] = plg
+                await self.hook_event("on_plugin_activated", name)
             else:
                 self.logger.warning(f"Attempted to activate already active plugin {name}.")
         except KeyError:
@@ -106,8 +106,8 @@ class PluginManager:
             if name in self.active_plugins:
                 self.logger.info(f"Deactivating plugin {name}.")
                 await plg.deactivate()
-                await self.hook_event("on_plugin_deactivated", name)
                 del self.active_plugins[name]
+                await self.hook_event("on_plugin_deactivated", name)
             else:
                 self.logger.warning(f"Attempted to deactivate already inactive plugin {name}.")
         except KeyError:
@@ -120,7 +120,8 @@ class PluginManager:
         :param args: Everything that gets passed to the calling function
         should be passed through to this function.
         """
-        for plugin in self.active_plugins.values():
+        plugins = set(self.active_plugins.values())
+        for plugin in plugins:
             hook = getattr(plugin, event, False)
             if hook:
                 try:

@@ -1,45 +1,11 @@
-import urllib
 import re
 import asyncio
-from discord import InvalidArgument
 from plugin_manager import BasePlugin
 from utils import Command, respond
 
 
 class AdminCommands(BasePlugin):
     name = "admin_commands"
-
-    async def activate(self):
-        pass
-
-    @Command("shutdown",
-             doc="Shuts down the bot.",
-             syntax="N/A",
-             category="bot_management",
-             perms={"manage_server"})
-    async def _shutdown(self, data):
-        await respond(self.client, data, "**AFFIRMATIVE. SHUTTING DOWN.**")
-        raise SystemExit
-
-    @Command("update_avatar",
-             doc="Updates the bot's avatar.",
-             syntax="(URL)",
-             category="bot_management",
-             perms={"manage_server"})
-    async def _update_avatar(self, data):
-        url = " ".join(data.content.split()[1:])
-        if url:
-            try:
-                img = urllib.request.urlopen(url).read()
-                await self.client.edit_profile(avatar=img)
-                await respond(self.client, data, "**AVATAR UPDATED.**")
-            except (urllib.request.URLError, ValueError) as e:
-                self.logger.debug(e)
-                await respond(self.client, data, "**WARNING: Invalid URL provided.**")
-            except InvalidArgument:
-                await respond(self.client, data, "**NEGATIVE. Image must be a PNG or JPG.**")
-        else:
-            raise SyntaxError("No URL provided.")
 
     @Command("purge",
              doc="Purges messages from the channel in bulk.",

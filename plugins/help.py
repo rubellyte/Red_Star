@@ -12,6 +12,15 @@ class Help(BasePlugin):
         self.categories = {}
 
     async def on_all_plugins_loaded(self):
+        await self.build_help()
+
+    async def on_plugin_activated(self, plgname):
+        await self.build_help()
+
+    async def on_plugin_deactivated(self, plgname):
+        await self.build_help()
+
+    async def build_help(self):
         await asyncio.sleep(1)
         self.commands = self.plugins.command_dispatcher.commands
         self.categories = {}
