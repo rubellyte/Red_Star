@@ -1,6 +1,8 @@
 import inspect
 import logging
 import importlib
+import shelve
+import asyncio
 from utils import DotDict
 
 
@@ -15,6 +17,16 @@ class PluginManager:
         self.plugins = DotDict({})
         self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
+        self.shelve_path = self.config_manager.config.shelve_path
+        try:
+            self.shelve = shelve.open(self.shelve_path, writeback=True)
+        except OSError:
+            self.logger.exception("Exception occurred while opening shelve! ", exc_info=True)
+            raise SystemExit
+        except AttributeError:
+            self.logger.error("shelve_path not defined in config!")
+            raise SystemExit
+        asyncio.ensure_future(self._write_to_shelve())
 
     def __repr__(self):
         return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
@@ -66,6 +78,9 @@ class PluginManager:
     def final_load(self):
         for plugin in self.plugins.values():
             plugin.plugins = self.active_plugins
+            if plugin.name not in self.shelve:
+                self.shelve[plugin.name] = {}
+            plugin.storage = self.shelve[plugin.name]
             if plugin.default_config:
                 self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
                 plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
@@ -130,6 +145,20 @@ class PluginManager:
                     self.logger.exception(f"Exception encountered in plugin {plugin.name} on event {event}: ",
                                           exc_info=True)
 
+    async def _write_to_shelve(self):
+        """
+        A looping coroutine that saves the shelf to file on a configured interval.
+        :return: None.
+        """
+        try:
+            time = self.config_manager.config.shelve_save_interval
+        except AttributeError:
+            time = 60
+        await asyncio.sleep(time)
+        self.logger.debug("Writing to shelve...")
+        self.shelve.sync()
+        await self._write_to_shelve()
+
 
 class BasePlugin:
     """
@@ -145,6 +174,7 @@ class BasePlugin:
     plugins = set()
     client = None
     logger = None
+    storage = None
 
     def __init__(self):
         self.plugin_config = self.config.get_plugin_config(self.name)

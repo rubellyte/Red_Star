@@ -74,7 +74,11 @@ class BotManagement(BasePlugin):
              perms={"manage_server"})
     async def _list_plugins(self, data):
         active_plgs = ", ".join(self.plugins.keys())
+        if not active_plgs:
+            active_plgs = "None."
         all_plgs = list(self.client.plugin_manager.plugins.keys())
         inactive_plgs = ", ".join([x for x in all_plgs if x not in self.plugins])
-        await respond(self.client, data, f"**ANALYSIS: Plugins are as follows:\nActive: **`{active_plgs}`\n"
-                                         f"**Inactive: **`{inactive_plgs}`")
+        if not inactive_plgs:
+            inactive_plgs = "None."
+        await respond(self.client, data, f"**ANALYSIS: Plugins are as follows:**```\nActive: {active_plgs}\n"
+                                         f"Inactive: {inactive_plgs}\n```")

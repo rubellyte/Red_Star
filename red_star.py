@@ -41,6 +41,13 @@ class RedStar(discord.Client):
                 self.logger.info("Logged in with server; activating plugins.")
                 await self.plugin_manager.activate_all()
 
+    async def stop_bot(self):
+        await self.plugin_manager.deactivate_all()
+        self.logger.info("Closing the shelf.")
+        self.plugin_manager.shelve.close()
+        self.logger.info("Logging out.")
+        await self.logout()
+
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
 
@@ -148,11 +155,11 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(bot.start(bot.config.token))
     except (KeyboardInterrupt, SystemExit):
-        main_logger.info("Interrupt caught, shutting down...")
-        loop.run_until_complete(bot.logout())
+        logger.info("Interrupt caught, shutting down...")
+        loop.run_until_complete(bot.stop_bot())
         bot.config_manager.save_config()
     finally:
-        main_logger.info("Exiting...")
+        logger.info("Exiting...")
         for task in asyncio.Task.all_tasks():
-            task.cancel()
+            loop.run_until_complete(task)
         loop.close()
