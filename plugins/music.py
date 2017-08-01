@@ -60,9 +60,18 @@ class MusicPlayer(BasePlugin):
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
 
+
     async def deactivate(self):
+        self.storage["serialized_queue"] = []
         if self.player:
+            self.storage["serialized_queue"].append(self.player.url)
+            print("Serializing the current player")
             self.player.stop()
+        if len(self.queue) > 0:
+            for player in self.queue:
+                self.storage["serialized_queue"].append(player.url)
+            print("Serializing the queue")
+        self.queue = []
         if self.vc:
             self.vc.disconnect()
 
@@ -91,6 +100,14 @@ class MusicPlayer(BasePlugin):
             perms = server.me.permissions_in(a_voice)
             if perms.connect and perms.speak and perms.use_voice_activation:
                 self.vc = await self.client.join_voice_channel(a_voice)
+                # restore the queue from storage
+                if "serialized_queue" in self.storage and len(self.storage["serialized_queue"]) > 0:
+                    await respond(self.client, data, "**RESTORING QUEUE. Thank you for your patience.**")
+                    for x in self.storage["serialized_queue"]:
+                        await self.add_song(x, data)
+                    await self.play_next(data)
+                    await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+                    self.storage["serialized_queue"] = []
                 await respond(self.client, data, f"**AFFIRMATIVE. Connected to: {a_voice}.**")
             else:
                 await respond(self.client, data, choice(self.no_perm_lines).format(a_voice))
@@ -123,7 +140,7 @@ class MusicPlayer(BasePlugin):
 
     @Command("skipsong",
              category="music",
-             doc="Votes to skip the current song.")
+             doc="Votes to skip the current song.\n Forces skip if the current song is stuck.")
     async def _skipvc(self, data):
         """
         Collects votes for skipping current song or skips if you got mute_members permission
@@ -141,10 +158,9 @@ class MusicPlayer(BasePlugin):
         votes = len(self.vote_set)
         m_votes = (len(self.vc.channel.voice_members) - 1) / 2
         if votes >= m_votes or override:
-            if self.player:
-                self.player.stop()
-                await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
-                if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+            await self.play_next(data)
+            await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
+            if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
             await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
 
@@ -350,7 +366,7 @@ class MusicPlayer(BasePlugin):
                                                                after=lambda: t_loop.create_task(self.play_next(data)))
             except DownloadError:
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
-                raise Exception
+                return
             if self.player.duration <= self.max_length:
                 self.player.volume = self.volume / 100
                 self.player.start()
@@ -376,6 +392,17 @@ class MusicPlayer(BasePlugin):
             if self.player:
                 self.player.stop()
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
+
+    async def add_song(self, vid, data):
+        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        try:
+            t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
+                                                        before_options=before_args,
+                                                        after=lambda: get_event_loop().create_task(self.play_next(data)))
+        except DownloadError:
+            await respond(self.client, data, "**NEGATIVE. Could not load song.**")
+            raise Exception
+        self.queue.append(t_player)
 
     # Utility functions
 
