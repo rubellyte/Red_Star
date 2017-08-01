@@ -19,9 +19,9 @@ class MusicPlayer(BasePlugin):
             "**NEGATIVE. Insufficient permissions for wanting to rock in channel: {}.**",
             "**NEGATIVE. Insufficient permissions for dropping the beat in channel: {}.**"
         ],
-        'max_video_length': 10 * 60,
+        'max_video_length': 1800,
         'max_queue_length': 30,
-        'default_volume': 100,
+        'default_volume': 15,
         'ytdl_options': {
             'format': 'bestaudio/best',
             'extractaudio': True,
