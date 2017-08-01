@@ -1,4 +1,6 @@
 # Red Star Bot
+![PyPI](https://img.shields.io/badge/Python-3.6-blue.svg)
+
 A Discord administration bot, intended to replace a variety of bots on a server I participate in.
 
 Features:
