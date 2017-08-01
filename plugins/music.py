@@ -168,7 +168,7 @@ class MusicPlayer(BasePlugin):
         await respond(self.client, data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
 
     @Command("queue",
-             category="voice",
+             category="music",
              doc="Writes out the current queue.")
     async def _queuevc(self, data):
         if len(self.queue) > 0:
@@ -177,7 +177,7 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, "**ANALYSIS: Queue empty.**")
 
     @Command("nowplaying",
-             category="voice",
+             category="music",
              doc="Writes out the current song information.")
     async def _nowvc(self, data):
         if self.player:
