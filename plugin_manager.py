@@ -91,7 +91,9 @@ class PluginManager:
         try:
             plg = self.plugins[name]
             if name not in self.active_plugins:
+                self.logger.info(f"Activating plugin {name}.")
                 await plg.activate()
+                await self.hook_event("on_plugin_activated", name)
                 self.active_plugins[name] = plg
             else:
                 self.logger.warning(f"Attempted to activate already active plugin {name}.")
@@ -102,7 +104,9 @@ class PluginManager:
         try:
             plg = self.plugins[name]
             if name in self.active_plugins:
+                self.logger.info(f"Deactivating plugin {name}.")
                 await plg.deactivate()
+                await self.hook_event("on_plugin_deactivated", name)
                 del self.active_plugins[name]
             else:
                 self.logger.warning(f"Attempted to deactivate already inactive plugin {name}.")
