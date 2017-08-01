@@ -57,6 +57,8 @@ class MusicPlayer(BasePlugin):
         self.allow_pause = c.allow_pause
         self.time_pause = 0
         self.time_skip = 0
+        if not "banned_members" in self.storage:
+            self.storage["banned_members"] = set()
 
     async def deactivate(self):
         if self.player:
@@ -75,6 +77,8 @@ class MusicPlayer(BasePlugin):
         Checks the permissions before joining - must be able to join, speak and not use ptt.
         """
         # leave if there's already a vc client in self.
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if self.vc:
             self.vc.disconnect()
         for server in self.client.servers:
@@ -100,6 +104,8 @@ class MusicPlayer(BasePlugin):
         Decorates the input to make sure ytdl can eat it and filters out playlists before pushing the video in the
         queue.
         """
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if not self.vc:
             await self._joinvc(data)
         if not self.check_in(data.author):
@@ -122,6 +128,8 @@ class MusicPlayer(BasePlugin):
         """
         Collects votes for skipping current song or skips if you got mute_members permission
         """
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
         if self.player and self.player.is_done() and len(self.queue) > 0:
@@ -136,7 +144,7 @@ class MusicPlayer(BasePlugin):
             if self.player:
                 self.player.stop()
                 await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
-                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+                if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
             await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
 
@@ -148,6 +156,8 @@ class MusicPlayer(BasePlugin):
         """
         Checks that the user didn't put in something stupid and adjusts volume.
         """
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
         args = process_args(data.content.split())
@@ -159,7 +169,7 @@ class MusicPlayer(BasePlugin):
             if vol < 0:
                 vol = 0
             if vol > 200:
-                vol = 200
+                raise SyntaxError("Expected integer value between 0 and 200!")
             self.volume = vol
             if self.player:
                 self.player.volume = vol / 100
@@ -171,6 +181,8 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Stops the music and empties the queue.")
     async def _stopvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if len(self.queue) > 0:
             self.queue = []
         if self.player:
@@ -181,6 +193,8 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Writes out the current queue.")
     async def _queuevc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if len(self.queue) > 0:
             t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
             await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```\n"
@@ -192,6 +206,8 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Writes out the current song information.")
     async def _nowvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if self.player and not self.player.is_done():
             progress = self.play_length()
             progress = f"{progress//60}:{progress%60:02d} /"
@@ -206,6 +222,8 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Pauses currently playing music stream.")
     async def _pausevc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if not self.allow_pause:
             raise PermissionError("Pause not allowed")
         if not self.check_in(data.author):
@@ -224,17 +242,70 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Resumes currently paused music stream.")
     async def _resumevc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if not self.allow_pause:
             raise PermissionError("Pause not allowed")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
+        args = data.content.split(" ", 1)
         if self.player and not self.player.is_playing() and not self.player.is_done():
             self.player.resume()
             self.time_skip += time.time() - self.time_pause
             self.time_pause = 0
+            if args[1] == "FORCE":
+                self.player.start()
             await respond(self.client, data, "**AFFIRMATIVE. Resuming song.**")
         else:
             await respond(self.client, data, "**NEGATIVE. No song to resume.**")
+
+    @Command("delsong",
+             category="music",
+             perms={"mute_members"},
+             syntax="[queue index]",
+             doc="Deletes a song from the queue by it's position number, starting from 1.")
+    async def _delvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
+        args = data.content.split(" ", 1)
+        try:
+            pos = int(args[1])
+        except ValueError:
+            raise SyntaxError("Expected an integer value!")
+        if pos < 1 or pos > len(self.queue):
+            raise SyntaxError("Index out of list.")
+        t_p = self.queue.pop(pos - 1)
+        await respond(self.client, data, f"**AFFIRMATIVE. Removed song \"{t_p.title}\" from position {pos}.**")
+
+    @Command("musicban")
+    async def _musicban(self, data):
+        args = process_args(data.content.split())
+        t_string = ""
+        for uid in args[1:]:
+            t_member = self.find_member(uid)
+            if t_member:
+                self.storage["banned_members"].add(t_member.id)
+                t_string = f"{t_string} <@{t_member.id}>\n"
+        for t_member in data.mentions:
+            self.storage["banned_members"].add(t_member.id)
+            t_string = f"{t_string} <@{t_member.id}>"
+        await respond(self.client, data, f"**AFFIRMATIVE. Users banned from using music module:**\n"
+                                         f"{t_string}")
+
+    @Command("musicunban")
+    async def _musicban(self, data):
+        args = process_args(data.content.split())
+        t_string = ""
+        for uid in args[1:]:
+            t_member = self.find_member(uid)
+            if t_member:
+                self.storage["banned_members"].remove(t_member.id)
+                t_string = f"{t_string} <@{t_member.id}>\n"
+        for t_member in data.mentions:
+            self.storage["banned_members"].remove(t_member.id)
+            t_string = f"{t_string} <@{t_member.id}>"
+        await respond(self.client, data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n"
+                                         f"{t_string}")
 
     # Music playing
 
@@ -246,7 +317,7 @@ class MusicPlayer(BasePlugin):
         """
         if self.player and self.player.error:
             print(self.player.error)
-        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15"
+        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
             try:
@@ -314,10 +385,10 @@ class MusicPlayer(BasePlugin):
         :return: returns queue string
         """
         t_string = ""
-        for player in self.queue:
+        for k, player in enumerate(self.queue):
             title = player.title[0:36].ljust(39) if len(player.title) < 36 else player.title[0:36] + "..."
             mins, secs = divmod(player.duration, 60)
-            t_string = f"{t_string}{title} [{mins}:{secs:02d}]\n"
+            t_string = f"{t_string}{k+1}:{title} [{mins}:{secs:02d}]\n"
         return t_string
 
     def queue_length(self, queue):
@@ -344,7 +415,7 @@ class MusicPlayer(BasePlugin):
             t_skip = 0
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
-            t = ceil(time.time() - self.time_started - self.time_skip-t_skip)
+            t = ceil(time.time() - self.time_started - self.time_skip - t_skip)
         return t
 
     def check_in(self, author):
@@ -353,3 +424,13 @@ class MusicPlayer(BasePlugin):
         :return: is he in same vc channel?
         """
         return self.vc and author in self.vc.channel.voice_members
+
+    def check_ban(self, uid):
+        return uid in self.storage["banned_members"]
+
+    def find_member(self, uid):
+        for member in self.client.get_all_members():
+            if member.nick.find(uid) > -1 or member.id == uid:
+                return member
+        else:
+            return None
