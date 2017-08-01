@@ -66,7 +66,7 @@ class CommandDispatcher(BasePlugin):
         except PermissionError:
             await respond(self.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**")
         except Exception:
-            self.logger.exception("Exception occured in command. ", exc_info=True)
+            self.logger.exception("Exception occurred in command. ", exc_info=True)
             await respond(self.client, data, "**WARNING: Error occurred while running command.**")
 
     # Event hooks

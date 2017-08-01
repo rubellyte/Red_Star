@@ -185,7 +185,7 @@ class MusicPlayer(BasePlugin):
         if self.player and not self.player.is_done():
             progress = ceil(time.time() - self.time_started)
             progress = f"{progress//60}:{progress%60:02d} /"
-            desc = self.player.description.replace('https://','').replace('http://','')[0:1000]
+            desc = self.player.description.replace('https://', '').replace('http://', '')[0:1000]
             t_string = f"**CURRENTLY PLAYING:**\n```" \
                        f"TITLE: {self.player.title}\n{'='*60}\n" \
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
@@ -279,7 +279,6 @@ class MusicPlayer(BasePlugin):
         for player in queue:
             t += player.duration
         return t
-
 
     def check_in(self, author):
         """
