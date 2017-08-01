@@ -54,6 +54,12 @@ class MusicPlayer(BasePlugin):
         self.m_channel = c.music_channel if c.force_music_channel else False
         self.time_started = 0
 
+    async def deactivate(self):
+        if self.player:
+            self.player.stop()
+        if self.vc:
+            self.vc.disconnect()
+
     # Command functions
 
     @Command("joinvoice",
