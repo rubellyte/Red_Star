@@ -180,7 +180,7 @@ class MusicPlayer(BasePlugin):
     @Command("skipvc",
              category="voice",
              syntax="",
-             doc="Skips current video.")
+             doc="Skips current song.")
     async def _skipvc(self, data):
         """
         Collects votes for skipping current song or skips if you got mute_members permission
@@ -254,7 +254,7 @@ class MusicPlayer(BasePlugin):
     @Command("nowvc",
              category="voice",
              syntax="",
-             doc="Writes out the current queue.")
+             doc="Writes out the current song info dump.")
     async def _nowvc(self, data):
         if self.player:
             t_string = f"**CURRENTLY PLAYING:**\n```" \
