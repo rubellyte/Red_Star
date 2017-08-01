@@ -136,7 +136,7 @@ class MusicPlayer(BasePlugin):
             if self.player:
                 self.player.stop()
                 await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
-                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+                if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
             await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
 
@@ -228,13 +228,32 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("Pause not allowed")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
+        args = data.content.split(" ", 1)
         if self.player and not self.player.is_playing() and not self.player.is_done():
             self.player.resume()
             self.time_skip += time.time() - self.time_pause
             self.time_pause = 0
+            if args[1] == "FORCE":
+                self.player.start()
             await respond(self.client, data, "**AFFIRMATIVE. Resuming song.**")
         else:
             await respond(self.client, data, "**NEGATIVE. No song to resume.**")
+
+    @Command("delsong",
+             category="music",
+             perms={"mute_members"},
+             syntax="[queue index]",
+             doc="Deletes a song from the queue by it's position number, starting from 1.")
+    async def _delvc(self, data):
+        args = data.content.split(" ", 1)
+        try:
+            pos = int(args[1])
+        except ValueError:
+            raise SyntaxError("Expected an integer value!")
+        if pos < 1 or pos > len(self.queue):
+            raise SyntaxError("Index out of list.")
+        t_p = self.queue.pop(pos - 1)
+        await respond(self.client, data, f"**AFFIRMATIVE. Removed song \"{t_p.title}\" from position {pos}.**")
 
     # Music playing
 
@@ -246,7 +265,7 @@ class MusicPlayer(BasePlugin):
         """
         if self.player and self.player.error:
             print(self.player.error)
-        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 15"
+        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
             try:
@@ -314,10 +333,10 @@ class MusicPlayer(BasePlugin):
         :return: returns queue string
         """
         t_string = ""
-        for player in self.queue:
+        for k, player in enumerate(self.queue):
             title = player.title[0:36].ljust(39) if len(player.title) < 36 else player.title[0:36] + "..."
             mins, secs = divmod(player.duration, 60)
-            t_string = f"{t_string}{title} [{mins}:{secs:02d}]\n"
+            t_string = f"{t_string}{k+1}:{title} [{mins}:{secs:02d}]\n"
         return t_string
 
     def queue_length(self, queue):
@@ -344,7 +363,7 @@ class MusicPlayer(BasePlugin):
             t_skip = 0
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
-            t = ceil(time.time() - self.time_started - self.time_skip-t_skip)
+            t = ceil(time.time() - self.time_started - self.time_skip - t_skip)
         return t
 
     def check_in(self, author):
