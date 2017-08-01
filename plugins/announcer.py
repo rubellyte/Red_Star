@@ -17,7 +17,7 @@ class Announcer(BasePlugin):
         "new_member_announce_channel": "CHANNEL ID AS STRING"
     }
 
-    def activate(self):
+    async def activate(self):
         c = self.plugin_config
         if c.greeting_enabled:
             self.greet_channel = self.client.get_channel(c.greeting_channel)

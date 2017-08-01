@@ -11,8 +11,10 @@ class CommandDispatcher(BasePlugin):
         "command_channel": ""
     }
 
-    def activate(self):
+    async def activate(self):
         self.commands = {}
+
+    async def on_all_plugins_loaded(self):
         for plugin in self.plugins.values():
             for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
                 if hasattr(mth, "_command"):
@@ -38,8 +40,8 @@ class CommandDispatcher(BasePlugin):
         else:
             self.commands[name] = fn
 
-        if hasattr(fn, "aliases"):
-            for alias in fn.aliases:
+        if hasattr(fn, "_aliases") and not is_alias:
+            for alias in fn._aliases:
                 self.register(fn, alias, is_alias=True)
 
     async def run_command(self, command, data):

@@ -14,7 +14,7 @@ class MOTD(BasePlugin):
         "motd_channel": "CHANNEL ID HERE"
     }
 
-    def activate(self):
+    async def activate(self):
         try:
             with open(self.plugin_config.motd_file, "r") as f:
                 self.motds = json.load(f)

@@ -15,7 +15,7 @@ class CustomCommands(BasePlugin):
         "cc_prefix": "!!"
     }
 
-    def activate(self):
+    async def activate(self):
         self.args = None
         self.tags = {
             "args": self._args,

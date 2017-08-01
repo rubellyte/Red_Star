@@ -14,7 +14,7 @@ class DiscordLogger(BasePlugin):
         "log_channel": "CHANNEL ID HERE"
     }
 
-    def activate(self):
+    async def activate(self):
         self.log_events = self.plugin_config.log_events
         self.log_channel = None
         asyncio.ensure_future(self.get_channels())

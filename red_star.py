@@ -39,7 +39,7 @@ class RedStar(discord.Client):
             self.logged_in = True
             if self.server_ready:
                 self.logger.info("Logged in with server; activating plugins.")
-                self.plugin_manager.activate_all()
+                await self.plugin_manager.activate_all()
 
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
@@ -106,7 +106,7 @@ class RedStar(discord.Client):
             self.logger.info("A server is now available.")
             if self.logged_in:
                 self.logger.info("Logged in with server; activating plugins.")
-                self.plugin_manager.activate_all()
+                await self.plugin_manager.activate_all()
             self.server_ready = True
         await self.plugin_manager.hook_event("on_server_available", server)
 

@@ -7,7 +7,7 @@ from string import capwords
 class RoleCommands(BasePlugin):
     name = "role_commands"
 
-    def activate(self):
+    async def activate(self):
         pass
         # TODO : figure out how to get asyncio.sleep working and why await breaks here
         """

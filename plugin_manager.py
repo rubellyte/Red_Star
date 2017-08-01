@@ -13,7 +13,7 @@ class PluginManager:
         self.client = client
         self.config_manager = config_manager
         self.plugins = DotDict({})
-        self.active_plugins = set()
+        self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
 
     def __repr__(self):
@@ -65,46 +65,49 @@ class PluginManager:
 
     def final_load(self):
         for plugin in self.plugins.values():
-            plugin.plugins = self.plugins
+            plugin.plugins = self.active_plugins
             if plugin.default_config:
                 self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
                 plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
 
-    def activate_all(self):
+    async def activate_all(self):
         self.logger.info("Activating plugins.")
-        for plugin in self.plugins.values():
-            self.logger.info("Activated " + plugin.name)
-            plugin.activate()
-            self.active_plugins.add(plugin)
+        for n, plugin in self.plugins.items():
+            if n not in self.active_plugins:
+                self.logger.info("Activated " + plugin.name)
+                await plugin.activate()
+                self.active_plugins[n] = plugin
+        await self.hook_event("on_all_plugins_loaded")
 
-    def deactivate_all(self):
+    async def deactivate_all(self):
         self.logger.info("Deactivating plugins.")
-        for plugin in self.plugins.values():
-            self.logger.info("Deactivated " + plugin.name)
-            plugin.deactivate()
-            self.active_plugins.remove(plugin)
+        for n, plugin in self.plugins.items():
+            if n in self.active_plugins:
+                self.logger.info("Deactivated " + plugin.name)
+                await plugin.deactivate()
+                del self.active_plugins[n]
 
-    def activate(self, plugin):
+    async def activate(self, name):
         try:
-            plg = self.plugins[plugin]
-            if plg not in self.active_plugins:
-                plg.activate()
-                self.active_plugins.add(plg)
+            plg = self.plugins[name]
+            if name not in self.active_plugins:
+                await plg.activate()
+                self.active_plugins[name] = plg
             else:
-                self.logger.warning(f"Attempted to activate already active plugin {plugin}.")
+                self.logger.warning(f"Attempted to activate already active plugin {name}.")
         except KeyError:
-            self.logger.error(f"Attempted to activate non-existent plugin {plugin}.")
+            self.logger.error(f"Attempted to activate non-existent plugin {name}.")
 
-    def deactivate(self, plugin):
+    async def deactivate(self, name):
         try:
-            plg = self.plugins[plugin]
-            if plg in self.active_plugins:
-                plg.deactivate()
-                self.active_plugins.remove(plg)
+            plg = self.plugins[name]
+            if name in self.active_plugins:
+                await plg.deactivate()
+                del self.active_plugins[name]
             else:
-                self.logger.warning(f"Attempted to deactivate already inactive plugin {plugin}.")
+                self.logger.warning(f"Attempted to deactivate already inactive plugin {name}.")
         except KeyError:
-            self.logger.error(f"Attempted to deactivate non-existent plugin {plugin}.")
+            self.logger.error(f"Attempted to deactivate non-existent plugin {name}.")
 
     async def hook_event(self, event, *args):
         """
@@ -113,13 +116,13 @@ class PluginManager:
         :param args: Everything that gets passed to the calling function
         should be passed through to this function.
         """
-        for plugin in self.active_plugins:
+        for plugin in self.active_plugins.values():
             hook = getattr(plugin, event, False)
             if hook:
                 try:
                     await hook(*args)
                 except Exception:
-                    self.logger.exception(f"Exception encounter in plugin {plugin.name} on event {event}: ",
+                    self.logger.exception(f"Exception encountered in plugin {plugin.name} on event {event}: ",
                                           exc_info=True)
 
 
@@ -133,8 +136,30 @@ class BasePlugin:
     description = "This is a template class for plugins. Name *must* be"
     "filled, other meta-fields are optional."
     version = "1.0"
-    default_config = None
-    plugins = DotDict({})
+    default_config = DotDict({})
+    plugins = set()
+    client = None
+    logger = None
 
     def __init__(self):
         self.plugin_config = self.config.get_plugin_config(self.name)
+
+    async def activate(self):
+        pass
+
+    async def deactivate(self):
+        pass
+
+    def __str__(self):
+        """
+        Method to return something a little less nasty.
+        :return: String: The string to return when str() is called on this object.
+        """
+        return f"<Plugin {self.name} (Version {self.version})>"
+
+    def __repr__(self):
+        """
+        Method to return something a little less nasty.
+        :return: String: The string to return when str() is called on this object.
+        """
+        return f"<Plugin {self.name} (Version {self.version})>"

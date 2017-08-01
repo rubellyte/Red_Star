@@ -39,7 +39,7 @@ class MusicPlayer(BasePlugin):
         }
     }
 
-    def activate(self):
+    async def activate(self):
         c = self.plugin_config
         self.vc = False
         self.player = False

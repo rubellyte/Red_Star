@@ -7,10 +7,11 @@ from utils import respond, Command
 class Help(BasePlugin):
     name = "help"
 
-    def activate(self):
-        asyncio.ensure_future(self.get_commands())
+    async def activate(self):
+        self.commands = {}
+        self.categories = {}
 
-    async def get_commands(self):
+    async def on_all_plugins_loaded(self):
         await asyncio.sleep(1)
         self.commands = self.plugins.command_dispatcher.commands
         self.categories = {}

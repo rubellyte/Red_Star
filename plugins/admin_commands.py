@@ -9,7 +9,7 @@ from utils import Command, respond
 class AdminCommands(BasePlugin):
     name = "admin_commands"
 
-    def activate(self):
+    async def activate(self):
         pass
 
     @Command("shutdown",
