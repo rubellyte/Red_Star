@@ -13,36 +13,37 @@ class Info(BasePlugin):
         self.categories = {}
 
     async def on_all_plugins_loaded(self):
+        await asyncio.sleep(1)
         await self.build_help()
 
     async def on_plugin_activated(self, plgname):
+        await asyncio.sleep(1)
         await self.build_help()
 
     async def on_plugin_deactivated(self, plgname):
+        await asyncio.sleep(1)
         await self.build_help()
 
     async def build_help(self):
-        await asyncio.sleep(1)
         self.commands = self.plugins.command_dispatcher.commands
         self.categories = {}
         for name, command in self.commands.items():
             cate = command.category.lower()
-            doc = command.__doc__
-            syn = command.syntax
-            perms = command.perms
             if cate not in self.categories:
                 self.categories[cate] = {}
-            self.categories[cate][name] = {"name": name, "doc": doc, "syntax": syn, "perms": perms}
+            self.categories[cate][name] = command
 
     @Command("help",
              doc="Displays information on commands.",
              syntax="[category/command]",
              category="info")
     async def _help(self, data):
+        if not self.categories:
+            await self.build_help()
         try:
             search = data.clean_content.split(" ")[1].lower()
         except IndexError:
-            cates = "\n".join([capwords(x, "_") for x in self.categories.keys()])
+            cates = "\n".join(sorted([capwords(x, "_") for x in self.categories.keys()]))
             await respond(self.client, data, f"**ANALYSIS: Command categories:**```\n{cates}\n```")
             return
         if search in [x.lower() for x in self.commands.keys()]:
@@ -54,14 +55,23 @@ class Info(BasePlugin):
             doc = cmd.__doc__
             perms = cmd.perms
             cate = capwords(cmd.category, "_")
+            aliases = ", ".join([capwords(x, "_") for x in cmd._aliases])
             if not {x for x, y in data.author.server_permissions if y} >= perms:
                 raise PermissionError
-            text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate})\n{doc}\nSyntax: {syn}\n```"
+            text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) (Aliases: {aliases})\n{doc}\n" \
+                   f"Syntax: {syn}\n```"
             await respond(self.client, data, text)
         elif search in self.categories.keys():
             name = capwords(search, "_")
-            text = "\n".join([capwords(x["name"], "_") for x in self.categories[search].values()])
-            await respond(self.client, data, f"**ANALYSIS: Category {name}:**```\n{text}\n```")
+            userperms = {x for x, y in data.author.server_permissions if y}
+            cmds = [capwords(x.name, "_") for x in self.categories[search].values() if userperms >= x.perms]
+            cmds = sorted(list(set(cmds)))
+            if cmds:
+                text = "\n".join(cmds)
+                await respond(self.client, data, f"**ANALYSIS: Category {name}:**```\n{text}\n```")
+            else:
+                await respond(self.client, data, "**WARNING: You do not have permission for any command in this "
+                                                 "category.**")
         else:
             await respond(self.client, data, f"**WARNING: No such category or command {search}**")
 
