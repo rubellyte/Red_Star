@@ -7,12 +7,6 @@ from string import capwords
 class RoleCommands(BasePlugin):
     name = "role_commands"
 
-    async def activate(self):
-        pass
-
-    async def deactivate(self):
-        pass
-
     @Command("editrole",
              perms={"manage_roles"},
              category="roles",

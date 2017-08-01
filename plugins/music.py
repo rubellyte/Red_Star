@@ -62,7 +62,7 @@ class MusicPlayer(BasePlugin):
 
     # Command functions
 
-    @Command("joinvoice",
+    @Command("joinvoice", "joinvc",
              category="music",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):
@@ -254,13 +254,16 @@ class MusicPlayer(BasePlugin):
 
     async def play_next(self, data):
         if len(self.queue) > 0:
-            self.player.stop()
+            if self.player:
+                self.player.stop()
             self.player = self.queue.pop(0)
             self.player.volume = self.volume / 100
             self.player.start()
             self.time_started = time.time()
             await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
         else:
+            if self.player:
+                self.player.stop()
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
 
     # Utility functions
