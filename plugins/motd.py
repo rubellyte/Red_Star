@@ -83,6 +83,7 @@ class MOTD(BasePlugin):
     @Command("addmotd",
              doc="Adds a MotD message.",
              perms={"manage_server"},
+             category="bot_management",
              syntax="(month/Any) (day/weekday/Any) (message)")
     async def _addmotd(self, data):
         args = data.clean_content.split()[1:]
@@ -112,6 +113,7 @@ class MOTD(BasePlugin):
     @Command("testmotds",
              doc="Used for testing MOTD lines.",
              perms={"manage_server"},
+             category="debug",
              syntax="(month/Any) (day/weekday/Any)")
     async def _testmotd(self, data):
         try:

@@ -57,7 +57,7 @@ class MusicPlayer(BasePlugin):
     # Command functions
 
     @Command("joinvoice",
-             category="voice",
+             category="music",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):
         """
@@ -82,7 +82,7 @@ class MusicPlayer(BasePlugin):
                 await respond(self.client, data, choice(self.no_perm_lines).format(a_voice))
 
     @Command("play",
-             category="voice",
+             category="music",
              syntax="(URL or search query)",
              doc="Plays presented youtube video or searches for one.\nNO PLAYLISTS ALLOWED.")
     async def _playvc(self, data):
@@ -105,8 +105,8 @@ class MusicPlayer(BasePlugin):
         else:
             raise SyntaxError("Expected URL or search query.")
 
-    @Command("skipvc",
-             category="voice",
+    @Command("skipsong",
+             category="music",
              doc="Votes to skip the current song.")
     async def _skipvc(self, data):
         """
@@ -131,7 +131,7 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
 
     @Command("volume",
-             category="voice",
+             category="music",
              syntax="[volume from 0 to 200]",
              doc="Adjusts volume, from 0 to 200%.")
     async def _volvc(self, data):
@@ -156,9 +156,9 @@ class MusicPlayer(BasePlugin):
         else:
             await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
 
-    @Command("stopplaying",
+    @Command("stopsong",
              perms={"mute_members"},
-             category="voice",
+             category="music",
              doc="Stops the music and empties the queue.")
     async def _stopvc(self, data):
         if len(self.queue) > 0:
@@ -174,7 +174,7 @@ class MusicPlayer(BasePlugin):
         if len(self.queue) > 0:
             await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
         else:
-            await respond(self.client, data, "**ANALYSIS: queue empty.**")
+            await respond(self.client, data, "**ANALYSIS: Queue empty.**")
 
     @Command("nowplaying",
              category="voice",
