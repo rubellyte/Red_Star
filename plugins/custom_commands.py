@@ -147,7 +147,7 @@ class CustomCommands(BasePlugin):
             raise SyntaxError("No name provided.")
         if name in self.ccs:
             ccdata = self.ccs[name]
-            last_edited = ccdata["last_edited"] if ccdata["last_edited"] else ""
+            last_edited = f"Last Edited: {ccdata['last_edited']}\n" if ccdata["last_edited"] else ""
             cc_locked = "Yes" if ccdata["locked"] else "No"
             author = discord.utils.get(data.server.members, id=ccdata["author"])
             if author:
@@ -163,12 +163,11 @@ class CustomCommands(BasePlugin):
 
     @Command("searchccs",
              doc="Searches CCs by name.",
-             syntax="(type) (search)",
+             syntax="(search)",
              category="custom_commands")
     async def _searchccs(self, data):
-        try:
-            search = " ".join(data.clean_content.split()[1:])
-        except IndexError:
+        search = " ".join(data.clean_content.split()[1:])
+        if not search:
             raise SyntaxError("No search provided.")
         res = []
         for cc in self.ccs.keys():
@@ -201,7 +200,7 @@ class CustomCommands(BasePlugin):
 
     async def run_cc(self, cmd, data):
         if self.ccs[cmd]["locked"] and not data.author.server_permissions.manage_messages:
-            await respond(self.client, data, "**WARNING: Custom command {cmd} is locked.**")
+            await respond(self.client, data, f"**WARNING: Custom command {cmd} is locked.**")
         else:
             ccdat = self.ccs[cmd]["content"]
             try:

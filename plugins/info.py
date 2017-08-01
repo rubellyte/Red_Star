@@ -2,10 +2,11 @@ import asyncio
 from string import capwords
 from plugin_manager import BasePlugin
 from utils import respond, Command
+from discord import Embed
 
 
-class Help(BasePlugin):
-    name = "help"
+class Info(BasePlugin):
+    name = "info"
 
     async def activate(self):
         self.commands = {}
@@ -63,3 +64,14 @@ class Help(BasePlugin):
             await respond(self.client, data, f"**ANALYSIS: Category {name}:**```\n{text}\n```")
         else:
             await respond(self.client, data, f"**WARNING: No such category or command {search}**")
+
+    @Command("about",
+             doc="Displays information about the bot.",
+             category="info")
+    async def _about(self, data):
+        deco = self.plugins.command_dispatcher.plugin_config.command_prefix
+        desc = f"Red Star: General purpose command AI for Discord.\nUse {deco}help for command information."
+        em = Embed(title="About Red Star", color=0xFF0000, description=desc)
+        em.set_thumbnail(url="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png")
+        em.add_field(name="GitHub", value="https://github.com/medeor413/Red_Star")
+        await self.client.send_message(data.channel, embed=em)
