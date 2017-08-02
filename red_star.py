@@ -48,6 +48,7 @@ class RedStar(discord.Client):
         self.config_manager.save_config()
         self.logger.info("Logging out.")
         await self.logout()
+        quit()
 
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
