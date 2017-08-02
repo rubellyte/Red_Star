@@ -45,6 +45,7 @@ class RedStar(discord.Client):
         await self.plugin_manager.deactivate_all()
         self.logger.info("Closing the shelf.")
         self.plugin_manager.shelve.close()
+        self.config_manager.save_config()
         self.logger.info("Logging out.")
         await self.logout()
 
@@ -152,14 +153,14 @@ if __name__ == "__main__":
     bot = RedStar()
     loop = asyncio.get_event_loop()
     main_logger = logging.getLogger("MAIN")
+    task = loop.create_task(bot.start(bot.config.token))
     try:
-        loop.run_until_complete(bot.start(bot.config.token))
+        loop.run_until_complete(task)
     except (KeyboardInterrupt, SystemExit):
         logger.info("Interrupt caught, shutting down...")
-        loop.run_until_complete(bot.stop_bot())
-        bot.config_manager.save_config()
     finally:
+        pending = asyncio.Task.all_tasks()
+        tasks = asyncio.gather(*pending, return_exceptions=True)
+        loop.run_until_complete(tasks)
         logger.info("Exiting...")
-        for task in asyncio.Task.all_tasks():
-            loop.run_until_complete(task)
         loop.close()

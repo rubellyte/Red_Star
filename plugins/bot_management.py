@@ -13,7 +13,7 @@ class BotManagement(BasePlugin):
              perms={"manage_server"})
     async def _shutdown(self, data):
         await respond(self.client, data, "**AFFIRMATIVE. SHUTTING DOWN.**")
-        raise SystemExit
+        await self.client.stop_bot()
 
     @Command("update_avatar",
              doc="Updates the bot's avatar.",
