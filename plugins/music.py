@@ -42,10 +42,26 @@ class MusicPlayer(BasePlugin):
 
     async def activate(self):
         c = self.plugin_config
+        """
+        Dynamic storage.
+        vc - instance of voicechat, for control purposes.
+        player - instance of currently active player. DO NOT NULL, it will keep playing anyway.
+        queue - queue of player objects
+        vote_set - set of member ids for skip voting purposes, is emptied for every song
+        time_started - time of song load, for displaying duration
+        time_pause - time of pause star, for displaying duration properly with pausing
+        time_skip - total time paused, for displaying duration properly with pausing
+        run_timer - keep running the timer coroutine
+        """
         self.vc = False
         self.player = False
         self.queue = []
         self.vote_set = set()
+        self.time_started = 0
+        self.time_pause = 0
+        self.time_skip = 0
+        self.run_timer = True
+
         # stuff from config
         self.no_perm_lines = c.no_permission_lines
         self.ytdl_options = c.ytdl_options
@@ -53,10 +69,7 @@ class MusicPlayer(BasePlugin):
         self.max_length = c.max_video_length
         self.max_queue = c.max_queue_length
         self.m_channel = c.music_channel if c.force_music_channel else False
-        self.time_started = 0
         self.allow_pause = c.allow_pause
-        self.time_pause = 0
-        self.time_skip = 0
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
 
@@ -196,12 +209,16 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
 
     @Command("stopsong",
-             perms={"mute_members"},
              category="music",
-             doc="Stops the music and empties the queue.")
+             doc="Stops the music and empties the queue."
+                 "\nRequires mute_members permission in the voice channel")
     async def _stopvc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            return
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
         if len(self.queue) > 0:
             self.queue = []
         if self.player:
@@ -297,12 +314,16 @@ class MusicPlayer(BasePlugin):
 
     @Command("delsong",
              category="music",
-             perms={"mute_members"},
              syntax="[queue index]",
-             doc="Deletes a song from the queue by it's position number, starting from 1.")
+             doc="Deletes a song from the queue by it's position number, starting from 1."
+                 "\nRequires mute_members permission in the voice channel")
     async def _delvc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            return
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
         args = data.content.split(" ", 1)
         try:
             pos = int(args[1])
@@ -351,9 +372,15 @@ class MusicPlayer(BasePlugin):
 
     @Command("dumpqueue",
              category="music",
-             perms={"mute_members"},
-             doc="Serializes and dumps the currently playing queue.")
+             doc="Serializes and dumps the currently playing queue.\nRequires mute_members permission in the "
+                 "voice channel")
     async def _dumpvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            return
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
         t_string = ""
         if self.player:
             t_string = f"!\"{self.player.url}\""
@@ -365,11 +392,15 @@ class MusicPlayer(BasePlugin):
 
     @Command("appendqueue",
              category="music",
-             perms={"mute_members"},
-             doc="Appends a number of songs to the queue, takes output from dumpqueue.")
+             doc="Appends a number of songs to the queue, takes output from dumpqueue."
+                 "\nRequires mute_members permission in the voice channel")
     async def _appendvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
         if not self.vc:
             await self._joinvc(data)
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
         args = process_args(data.content.split())
         if len(args) > 1:
             await respond(self.client, data, "**AFFIRMATIVE. Extending queue.**")
