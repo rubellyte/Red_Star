@@ -331,7 +331,7 @@ class MusicPlayer(BasePlugin):
              category="music",
              perms={"mute_members"},
              doc="Unbans members from using the music module.")
-    async def _musicban(self, data):
+    async def _musicunban(self, data):
         args = process_args(data.content.split())
         t_string = ""
         for uid in args[1:]:
@@ -498,7 +498,7 @@ class MusicPlayer(BasePlugin):
             t_skip = 0
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
-            t = max(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration)
+            t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration)
         return t
 
     def check_in(self, author):
