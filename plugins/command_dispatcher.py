@@ -27,7 +27,7 @@ class CommandDispatcher(BasePlugin):
                 self.register(mth, mth.name)
 
     async def on_plugin_deactivated(self, plgname):
-        plugin = self.client.plugin_manager.plugins[plgname]
+        plugin = self.plugin_manager.plugins[plgname]
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
                 self.deregister(mth, mth.name)

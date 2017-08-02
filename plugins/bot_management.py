@@ -42,10 +42,10 @@ class BotManagement(BasePlugin):
              perms={"manage_server"})
     async def _activate(self, data):
         plgname = " ".join(data.content.split()[1:]).lower()
-        all_plugins = self.client.plugin_manager.plugins
+        all_plugins = self.plugin_manager.plugins
         if plgname in all_plugins:
             if plgname not in self.plugins:
-                await self.client.plugin_manager.activate(plgname)
+                await self.plugin_manager.activate(plgname)
                 await respond(self.client, data, f"**ANALYSIS: Plugin {plgname} was activated successfully.**")
             else:
                 await respond(self.client, data, f"**ANALYSIS: Plugin {plgname} is already activated.**")
@@ -62,7 +62,7 @@ class BotManagement(BasePlugin):
         if plgname == self.name:
             await respond(self.client, data, f"**WARNING: Cannot deactivate {self.name}.**")
         elif plgname in self.plugins:
-            await self.client.plugin_manager.deactivate(plgname)
+            await self.plugin_manager.deactivate(plgname)
             await respond(self.client, data, f"**ANALYSIS: Plugin {plgname} was deactivated successfully.**")
         else:
             await respond(self.client, data, f"**ANALYSIS: Plugin {plgname} is not active.**")
@@ -76,7 +76,7 @@ class BotManagement(BasePlugin):
         active_plgs = ", ".join(self.plugins.keys())
         if not active_plgs:
             active_plgs = "None."
-        all_plgs = list(self.client.plugin_manager.plugins.keys())
+        all_plgs = list(self.plugin_manager.plugins.keys())
         inactive_plgs = ", ".join([x for x in all_plgs if x not in self.plugins])
         if not inactive_plgs:
             inactive_plgs = "None."

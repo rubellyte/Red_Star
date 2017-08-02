@@ -63,8 +63,8 @@ class PluginManager:
         for name, obj in inspect.getmembers(modul, predicate=inspect.isclass):
             if issubclass(obj, BasePlugin) and obj is not BasePlugin:
                 obj.client = self.client
-                obj.config = self.config_manager
-                obj.manager = self
+                obj.config_manager = self.config_manager
+                obj.plugin_manager = self
                 obj.logger = logging.getLogger("red_star.plugin." + obj.name)
                 class_list.add(obj)
         return class_list
@@ -173,11 +173,13 @@ class BasePlugin:
     default_config = DotDict({})
     plugins = set()
     client = None
+    config_manager = None
+    plugin_manager = None
     logger = None
     storage = None
 
     def __init__(self):
-        self.plugin_config = self.config.get_plugin_config(self.name)
+        self.plugin_config = self.config_manager.get_plugin_config(self.name)
 
     async def activate(self):
         pass
