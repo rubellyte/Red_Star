@@ -60,7 +60,6 @@ class MusicPlayer(BasePlugin):
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
 
-
     async def deactivate(self):
         self.storage["serialized_queue"] = []
         if self.player:
@@ -233,6 +232,9 @@ class MusicPlayer(BasePlugin):
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
                        f"DURATION: {progress} {self.player.duration//60}:{self.player.duration%60:02d}```"
             await respond(self.client, data, t_string)
+        else:
+            await respond(self.client, data, "**ANALYSIS: Playing nothing.\nANALYSIS: If a song is stuck, "
+                                             "use !skipsong.**")
 
     @Command("pausesong",
              category="music",
@@ -293,7 +295,10 @@ class MusicPlayer(BasePlugin):
         t_p = self.queue.pop(pos - 1)
         await respond(self.client, data, f"**AFFIRMATIVE. Removed song \"{t_p.title}\" from position {pos}.**")
 
-    @Command("musicban")
+    @Command("musicban",
+             category="music",
+             perms={"mute_members"},
+             doc="Bans members from using the music module.")
     async def _musicban(self, data):
         args = process_args(data.content.split())
         t_string = ""
@@ -308,7 +313,10 @@ class MusicPlayer(BasePlugin):
         await respond(self.client, data, f"**AFFIRMATIVE. Users banned from using music module:**\n"
                                          f"{t_string}")
 
-    @Command("musicunban")
+    @Command("musicunban",
+             category="music",
+             perms={"mute_members"},
+             doc="Unbans members from using the music module.")
     async def _musicban(self, data):
         args = process_args(data.content.split())
         t_string = ""
@@ -322,6 +330,38 @@ class MusicPlayer(BasePlugin):
             t_string = f"{t_string} <@{t_member.id}>"
         await respond(self.client, data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n"
                                          f"{t_string}")
+
+    @Command("dumpqueue",
+             category="music",
+             perms={"mute_members"},
+             doc="Serializes and dumps the currently playing queue.")
+    async def _dumpvc(self, data):
+        t_string = ""
+        if self.player:
+            t_string = f"!\"{self.player.url}\""
+        for player in self.queue:
+            t_string = f"{t_string}!\"{player.url}\" "
+        if t_string != "":
+            await respond(self.client, data, f"**AFFIRMATIVE. Current queue:**\n"
+                                             f"```{t_string}```")
+
+    @Command("appendqueue",
+             category="music",
+             perms={"mute_members"},
+             doc="Appends a number of songs to the queue, takes output from dumpqueue.")
+    async def _appendvc(self, data):
+        if not self.vc:
+            await self._joinvc(data)
+        args = process_args(data.content.split())
+        if len(args) > 1:
+            await respond(self.client, data, "**AFFIRMATIVE. Extending queue.**")
+            for arg in args[1:]:
+                await self.add_song(arg, data)
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+            if not self.player:
+                await self.play_next(data)
+        else:
+            raise SyntaxError("Expected arguments!")
 
     # Music playing
 
@@ -342,7 +382,7 @@ class MusicPlayer(BasePlugin):
                                                             after=lambda: t_loop.create_task(self.play_next(data)))
             except DownloadError:
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
-                raise Exception
+                return
             if t_player.duration > self.max_length:
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
                                                  f"{self.max_length//60}:{self.max_length%60:02d}.**")
@@ -395,13 +435,15 @@ class MusicPlayer(BasePlugin):
 
     async def add_song(self, vid, data):
         before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        t_loop = get_event_loop()
         try:
             t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
                                                         before_options=before_args,
-                                                        after=lambda: get_event_loop().create_task(self.play_next(data)))
+                                                        after=lambda: t_loop.create_task(
+                                                            self.play_next(data)))
         except DownloadError:
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
-            raise Exception
+            return
         self.queue.append(t_player)
 
     # Utility functions
