@@ -157,7 +157,11 @@ class MusicPlayer(BasePlugin):
         votes = len(self.vote_set)
         m_votes = (len(self.vc.channel.voice_members) - 1) / 2
         if votes >= m_votes or override:
-            await self.play_next(data)
+            if self.player and not self.player.is_done():
+                self.player.stop()
+                self.vote_set = set()
+            else:
+                await self.play_next(self)
             await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
             if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
