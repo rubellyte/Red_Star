@@ -148,7 +148,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
-        if self.player and self.player.is_done() and len(self.queue) > 0:
+        if (self.player and self.player.is_done() or not self.player) and len(self.queue) > 0:
             await self.play_next(data)
             await respond(self.client, data, "**AFFIRMATIVE. Forcing next song in queue.**")
             return
@@ -210,12 +210,28 @@ class MusicPlayer(BasePlugin):
     async def _queuevc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
-        if len(self.queue) > 0:
-            t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```\n"
-                                             f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
+        t_string = "**ANALYSIS: Currently playing:**\n"
+        if self.player and not self.player.is_done():
+            t_bar = ceil((self.play_length() / self.player.duration)*58)
+            progress = self.play_length()
+            progress = f"{progress//60:02d}:{progress%60:02d}"
+            duration = f"{self.player.duration//60:02d}:{self.player.duration%60:02d}"
+            t_name = self.player.title[:37]
+            if len(t_name) == 37:
+                t_name += "..."
+            else:
+                t_name = t_name.ljust(40)
+            t_string = f"{t_string}```[{t_name}]     [{progress}/{duration}]\n" \
+                       f"[{'█' * int(t_bar)}{'-' * int(58 - t_bar)}]```"
         else:
-            await respond(self.client, data, "**ANALYSIS: Queue empty.**")
+            t_string = f"{t_string}```NOTHING PLAYING```"
+        if len(self.queue) > 0:
+            t_string = f"{t_string}\n```{self.build_queue()}```"
+        else:
+            t_string = f"{t_string}\n```QUEUE EMPTY```"
+        t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+        t_string = f"{t_string}\n**ANALYSIS: Current duration: {t_m}:{t_s:02d}**"
+        await respond(self.client, data, t_string)
 
     @Command("nowplaying",
              category="music",
@@ -271,8 +287,6 @@ class MusicPlayer(BasePlugin):
             self.player.resume()
             self.time_skip += time.time() - self.time_pause
             self.time_pause = 0
-            if args[1] == "FORCE":
-                self.player.start()
             await respond(self.client, data, "**AFFIRMATIVE. Resuming song.**")
         else:
             await respond(self.client, data, "**NEGATIVE. No song to resume.**")
@@ -358,7 +372,7 @@ class MusicPlayer(BasePlugin):
             for arg in args[1:]:
                 await self.add_song(arg, data)
             await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
-            if not self.player:
+            if not self.player or self.player and self.player.is_done():
                 await self.play_next(data)
         else:
             raise SyntaxError("Expected arguments!")
@@ -455,9 +469,9 @@ class MusicPlayer(BasePlugin):
         """
         t_string = ""
         for k, player in enumerate(self.queue):
-            title = player.title[0:36].ljust(39) if len(player.title) < 36 else player.title[0:36] + "..."
+            title = player.title[0:44].ljust(47) if len(player.title) < 44 else player.title[0:44] + "..."
             mins, secs = divmod(player.duration, 60)
-            t_string = f"{t_string}{k+1}:{title} [{mins}:{secs:02d}]\n"
+            t_string = f"{t_string}[{k+1:02d}][{title}][{mins:02d}:{secs:02d}]\n"
         return t_string
 
     def queue_length(self, queue):
@@ -484,7 +498,7 @@ class MusicPlayer(BasePlugin):
             t_skip = 0
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
-            t = ceil(time.time() - self.time_started - self.time_skip - t_skip)
+            t = max(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration)
         return t
 
     def check_in(self, author):
