@@ -135,8 +135,11 @@ def process_args(args):
                 t_list = []
         else:
             if arg.endswith('"'):
-                t_cap = True
-                t_list.append(arg)
+                if arg.find('!"') > -1:
+                    newargs.append(arg.replace("!\"", "", 1)[0:-1])
+                else:
+                    t_cap = True
+                    t_list.append(arg)
             else:
                 newargs.append(arg)
     if len(t_list) > 0:
@@ -177,6 +180,7 @@ class Command:
         :param f: The function the Command decorator is wrapping.
         :return: The now-wrapped command, with all the trappings.
         """
+
         def wrapped(s, data):
             user_perms = data.author.permissions_in(data.channel)
             user_perms = {x for x, y in user_perms if y}

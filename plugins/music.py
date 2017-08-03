@@ -1,11 +1,12 @@
 from plugin_manager import BasePlugin
 from utils import Command, respond, process_args
 from random import choice
-from asyncio import get_event_loop
+import asyncio
+import threading
 from math import ceil
 from youtube_dl.utils import DownloadError
 import time
-
+import discord.game
 
 class MusicPlayer(BasePlugin):
     name = "music_player"
@@ -42,10 +43,31 @@ class MusicPlayer(BasePlugin):
 
     async def activate(self):
         c = self.plugin_config
+        """
+        Dynamic storage.
+        vc - instance of voicechat, for control purposes.
+        player - instance of currently active player. DO NOT NULL, it will keep playing anyway.
+        queue - queue of player objects
+        vote_set - set of member ids for skip voting purposes, is emptied for every song
+        time_started - time of song load, for displaying duration
+        time_pause - time of pause star, for displaying duration properly with pausing
+        time_skip - total time paused, for displaying duration properly with pausing
+        run_timer - keep running the timer coroutine
+        """
         self.vc = False
         self.player = False
         self.queue = []
         self.vote_set = set()
+        self.time_started = 0
+        self.time_pause = 0
+        self.time_skip = 0
+        self.run_timer = True
+
+        loop = asyncio.new_event_loop()
+        self.timer = threading.Thread(target=self.start_timer, args=(loop,))
+        self.timer.setDaemon(True)
+        self.timer.start()
+
         # stuff from config
         self.no_perm_lines = c.no_permission_lines
         self.ytdl_options = c.ytdl_options
@@ -53,17 +75,16 @@ class MusicPlayer(BasePlugin):
         self.max_length = c.max_video_length
         self.max_queue = c.max_queue_length
         self.m_channel = c.music_channel if c.force_music_channel else False
-        self.time_started = 0
         self.allow_pause = c.allow_pause
-        self.time_pause = 0
-        self.time_skip = 0
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
 
-
     async def deactivate(self):
+        # stop the damn timer
+        self.run_timer = False
+        # serialise the queue. Hopefully.
         self.storage["serialized_queue"] = []
-        if self.player:
+        if self.player and not self.player.is_done():
             self.storage["serialized_queue"].append(self.player.url)
             print("Serializing the current player")
             self.player.stop()
@@ -149,7 +170,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
-        if self.player and self.player.is_done() and len(self.queue) > 0:
+        if (self.player and self.player.is_done() or not self.player) and len(self.queue) > 0:
             await self.play_next(data)
             await respond(self.client, data, "**AFFIRMATIVE. Forcing next song in queue.**")
             return
@@ -158,7 +179,11 @@ class MusicPlayer(BasePlugin):
         votes = len(self.vote_set)
         m_votes = (len(self.vc.channel.voice_members) - 1) / 2
         if votes >= m_votes or override:
-            await self.play_next(data)
+            if self.player and not self.player.is_done():
+                self.player.stop()
+                self.vote_set = set()
+            else:
+                await self.play_next(self)
             await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
             if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
@@ -193,12 +218,16 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
 
     @Command("stopsong",
-             perms={"mute_members"},
              category="music",
-             doc="Stops the music and empties the queue.")
+             doc="Stops the music and empties the queue."
+                 "\nRequires mute_members permission in the voice channel")
     async def _stopvc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            return
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
         if len(self.queue) > 0:
             self.queue = []
         if self.player:
@@ -211,12 +240,28 @@ class MusicPlayer(BasePlugin):
     async def _queuevc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
-        if len(self.queue) > 0:
-            t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```\n"
-                                             f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
+        t_string = "**ANALYSIS: Currently playing:**\n"
+        if self.player and not self.player.is_done():
+            t_bar = ceil((self.play_length() / self.player.duration)*58)
+            progress = self.play_length()
+            progress = f"{progress//60:02d}:{progress%60:02d}"
+            duration = f"{self.player.duration//60:02d}:{self.player.duration%60:02d}"
+            t_name = self.player.title[:37]
+            if len(t_name) == 37:
+                t_name += "..."
+            else:
+                t_name = t_name.ljust(40)
+            t_string = f"{t_string}```[{t_name}]     [{progress}/{duration}]\n" \
+                       f"[{'█' * int(t_bar)}{'-' * int(58 - t_bar)}]```"
         else:
-            await respond(self.client, data, "**ANALYSIS: Queue empty.**")
+            t_string = f"{t_string}```NOTHING PLAYING```"
+        if len(self.queue) > 0:
+            t_string = f"{t_string}\n```{self.build_queue()}```"
+        else:
+            t_string = f"{t_string}\n```QUEUE EMPTY```"
+        t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+        t_string = f"{t_string}\n**ANALYSIS: Current duration: {t_m}:{t_s:02d}**"
+        await respond(self.client, data, t_string)
 
     @Command("nowplaying",
              category="music",
@@ -233,6 +278,9 @@ class MusicPlayer(BasePlugin):
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
                        f"DURATION: {progress} {self.player.duration//60}:{self.player.duration%60:02d}```"
             await respond(self.client, data, t_string)
+        else:
+            await respond(self.client, data, "**ANALYSIS: Playing nothing.\nANALYSIS: If a song is stuck, "
+                                             "use !skipsong.**")
 
     @Command("pausesong",
              category="music",
@@ -269,20 +317,22 @@ class MusicPlayer(BasePlugin):
             self.player.resume()
             self.time_skip += time.time() - self.time_pause
             self.time_pause = 0
-            if args[1] == "FORCE":
-                self.player.start()
             await respond(self.client, data, "**AFFIRMATIVE. Resuming song.**")
         else:
             await respond(self.client, data, "**NEGATIVE. No song to resume.**")
 
     @Command("delsong",
              category="music",
-             perms={"mute_members"},
              syntax="[queue index]",
-             doc="Deletes a song from the queue by it's position number, starting from 1.")
+             doc="Deletes a song from the queue by it's position number, starting from 1."
+                 "\nRequires mute_members permission in the voice channel")
     async def _delvc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            return
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
         args = data.content.split(" ", 1)
         try:
             pos = int(args[1])
@@ -293,7 +343,10 @@ class MusicPlayer(BasePlugin):
         t_p = self.queue.pop(pos - 1)
         await respond(self.client, data, f"**AFFIRMATIVE. Removed song \"{t_p.title}\" from position {pos}.**")
 
-    @Command("musicban")
+    @Command("musicban",
+             category="music",
+             perms={"mute_members"},
+             doc="Bans members from using the music module.")
     async def _musicban(self, data):
         args = process_args(data.content.split())
         t_string = ""
@@ -308,8 +361,11 @@ class MusicPlayer(BasePlugin):
         await respond(self.client, data, f"**AFFIRMATIVE. Users banned from using music module:**\n"
                                          f"{t_string}")
 
-    @Command("musicunban")
-    async def _musicban(self, data):
+    @Command("musicunban",
+             category="music",
+             perms={"mute_members"},
+             doc="Unbans members from using the music module.")
+    async def _musicunban(self, data):
         args = process_args(data.content.split())
         t_string = ""
         for uid in args[1:]:
@@ -323,6 +379,48 @@ class MusicPlayer(BasePlugin):
         await respond(self.client, data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n"
                                          f"{t_string}")
 
+    @Command("dumpqueue",
+             category="music",
+             doc="Serializes and dumps the currently playing queue.\nRequires mute_members permission in the "
+                 "voice channel")
+    async def _dumpvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            return
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
+        t_string = ""
+        if self.player:
+            t_string = f"!\"{self.player.url}\" "
+        for player in self.queue:
+            t_string = f"{t_string}!\"{player.url}\" "
+        if t_string != "":
+            await respond(self.client, data, f"**AFFIRMATIVE. Current queue:**\n"
+                                             f"```{t_string}```")
+
+    @Command("appendqueue",
+             category="music",
+             doc="Appends a number of songs to the queue, takes output from dumpqueue."
+                 "\nRequires mute_members permission in the voice channel")
+    async def _appendvc(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
+        if not self.vc:
+            await self._joinvc(data)
+        if self.vc and not data.author.permissions_in(self.vc.channel).mute_members:
+            raise PermissionError
+        args = process_args(data.content.split())
+        if len(args) > 1:
+            await respond(self.client, data, "**AFFIRMATIVE. Extending queue.**")
+            for arg in args[1:]:
+                await self.add_song(arg, data)
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+            if not self.player or self.player and self.player.is_done():
+                await self.play_next(data)
+        else:
+            raise SyntaxError("Expected arguments!")
+
     # Music playing
 
     async def play_video(self, vid, data):
@@ -334,7 +432,7 @@ class MusicPlayer(BasePlugin):
         if self.player and self.player.error:
             print(self.player.error)
         before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
-        t_loop = get_event_loop()
+        t_loop = asyncio.get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
             try:
                 t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
@@ -342,7 +440,7 @@ class MusicPlayer(BasePlugin):
                                                             after=lambda: t_loop.create_task(self.play_next(data)))
             except DownloadError:
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
-                raise Exception
+                return
             if t_player.duration > self.max_length:
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
                                                  f"{self.max_length//60}:{self.max_length%60:02d}.**")
@@ -395,14 +493,46 @@ class MusicPlayer(BasePlugin):
 
     async def add_song(self, vid, data):
         before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        t_loop = asyncio.get_event_loop()
         try:
             t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
                                                         before_options=before_args,
-                                                        after=lambda: get_event_loop().create_task(self.play_next(data)))
+                                                        after=lambda: t_loop.create_task(
+                                                            self.play_next(data)))
         except DownloadError:
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
-            raise Exception
+            return
         self.queue.append(t_player)
+
+    def start_timer(self, loop):
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self.display_time())
+        except:
+            pass
+
+    async def display_time(self):
+        """
+        Updates client status every ten seconds based on music status.
+        """
+        playing = True
+        while self.run_timer:
+            await asyncio.sleep(10)
+            game = None
+            if self.player and not self.player.is_done():
+                if self.player.is_playing():
+                    progress = self.play_length()
+                    progress = f"{progress//60}:{progress%60:02d}"
+                    duration = self.player.duration
+                    duration = f"{duration//60}:{duration%60:02d}"
+                    game = discord.Game(name=f"[{progress}/{duration}]")
+                    playing = True
+                else:
+                    game = discord.Game(name=f"[PAUSED]")
+            if game or playing:
+                await self.client.change_presence(game=game)
+            if playing and not game:
+                playing = False
 
     # Utility functions
 
@@ -413,9 +543,9 @@ class MusicPlayer(BasePlugin):
         """
         t_string = ""
         for k, player in enumerate(self.queue):
-            title = player.title[0:36].ljust(39) if len(player.title) < 36 else player.title[0:36] + "..."
+            title = player.title[0:44].ljust(47) if len(player.title) < 44 else player.title[0:44] + "..."
             mins, secs = divmod(player.duration, 60)
-            t_string = f"{t_string}{k+1}:{title} [{mins}:{secs:02d}]\n"
+            t_string = f"{t_string}[{k+1:02d}][{title}][{mins:02d}:{secs:02d}]\n"
         return t_string
 
     def queue_length(self, queue):
@@ -442,7 +572,7 @@ class MusicPlayer(BasePlugin):
             t_skip = 0
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
-            t = ceil(time.time() - self.time_started - self.time_skip - t_skip)
+            t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration)
         return t
 
     def check_in(self, author):
