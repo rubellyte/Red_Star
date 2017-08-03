@@ -242,10 +242,14 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         t_string = "**ANALYSIS: Currently playing:**\n"
         if self.player and not self.player.is_done():
-            t_bar = ceil((self.play_length() / self.player.duration)*58)
+            if self.player.duration:
+                t_bar = ceil((self.play_length() / self.player.duration)*58)
+                duration = f"{self.player.duration//60:02d}:{self.player.duration%60:02d}"
+            else:
+                t_bar = 58
+                duration = " N/A "
             progress = self.play_length()
             progress = f"{progress//60:02d}:{progress%60:02d}"
-            duration = f"{self.player.duration//60:02d}:{self.player.duration%60:02d}"
             t_name = self.player.title[:37]
             if len(t_name) == 37:
                 t_name += "..."
@@ -272,11 +276,18 @@ class MusicPlayer(BasePlugin):
         if self.player and not self.player.is_done():
             progress = self.play_length()
             progress = f"{progress//60}:{progress%60:02d} /"
-            desc = self.player.description.replace('https://', '').replace('http://', '')[0:1000]
+            if self.player.duration:
+                duration = f"{self.player.duration//60}:{self.player.duration%60:02d}"
+            else:
+                duration = " N/A "
+            if self.player.description:
+                desc = self.player.description.replace('https://', '').replace('http://', '')[0:1000]
+            else:
+                desc = "No description."
             t_string = f"**CURRENTLY PLAYING:**\n```" \
                        f"TITLE: {self.player.title}\n{'='*60}\n" \
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
-                       f"DURATION: {progress} {self.player.duration//60}:{self.player.duration%60:02d}```"
+                       f"DURATION: {progress} {duration}```"
             await respond(self.client, data, t_string)
         else:
             await respond(self.client, data, "**ANALYSIS: Playing nothing.\nANALYSIS: If a song is stuck, "
@@ -296,9 +307,12 @@ class MusicPlayer(BasePlugin):
             self.player.pause()
             progress = self.play_length()
             progress = f"{progress//60}:{progress%60:02d} /"
+            if self.player.duration:
+                duration = f"{self.player.duration//60}:{self.player.duration%60:02d}"
+            else:
+                duration = " N/A "
             self.time_pause = time.time()
-            await respond(self.client, data, f"**AFFIRMATIVE. Song paused at {progress} "
-                                             f"{self.player.duration//60}:{self.player.duration%60:02d}**")
+            await respond(self.client, data, f"**AFFIRMATIVE. Song paused at {progress} {duration}**")
         else:
             await respond(self.client, data, f"**NEGATIVE. Invalid pause request.**")
 
@@ -448,6 +462,7 @@ class MusicPlayer(BasePlugin):
             if len(self.queue) < self.max_queue:
                 t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
                 self.queue.append(t_player)
+                self.logger.info(f"Adding {t_player.title} to music queue.")
                 await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
                                                  f"Current queue:**\n```{self.build_queue()}```\n"
                                                  f"**ANALYSIS: time until your song: {t_m}:{t_s:02d}**")
@@ -465,9 +480,10 @@ class MusicPlayer(BasePlugin):
             except DownloadError:
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
                 return
-            if self.player.duration <= self.max_length:
+            if self.player.duration and self.player.duration <= self.max_length:
                 self.player.volume = self.volume / 100
                 self.player.start()
+                self.logger.info(f"Playing {self.player.title}.")
                 self.time_started = time.time()
                 self.time_skip = 0
                 await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
@@ -483,6 +499,7 @@ class MusicPlayer(BasePlugin):
             self.player = self.queue.pop(0)
             self.player.volume = self.volume / 100
             self.player.start()
+            self.logger.info(f"Playing {self.player.title}.")
             self.time_started = time.time()
             self.time_skip = 0
             await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
@@ -502,6 +519,7 @@ class MusicPlayer(BasePlugin):
         except DownloadError:
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
             return
+        self.logger.info(f"Adding {t_player.title} to music queue.")
         self.queue.append(t_player)
 
     def start_timer(self, loop):
@@ -523,8 +541,11 @@ class MusicPlayer(BasePlugin):
                 if self.player.is_playing():
                     progress = self.play_length()
                     progress = f"{progress//60}:{progress%60:02d}"
-                    duration = self.player.duration
-                    duration = f"{duration//60}:{duration%60:02d}"
+                    if self.player.duration:
+                        duration = self.player.duration
+                        duration = f"{duration//60}:{duration%60:02d}"
+                    else:
+                        duration = "N/A"
                     game = discord.Game(name=f"[{progress}/{duration}]")
                     playing = True
                 else:
@@ -544,7 +565,10 @@ class MusicPlayer(BasePlugin):
         t_string = ""
         for k, player in enumerate(self.queue):
             title = player.title[0:44].ljust(47) if len(player.title) < 44 else player.title[0:44] + "..."
-            mins, secs = divmod(player.duration, 60)
+            if player.duration:
+                mins, secs = divmod(player.duration, 60)
+            else:
+                mins, secs = 99, 99
             t_string = f"{t_string}[{k+1:02d}][{title}][{mins:02d}:{secs:02d}]\n"
         return t_string
 
@@ -554,12 +578,13 @@ class MusicPlayer(BasePlugin):
         :param queue: the queue of player objects. Takes queue in case you want to keep something out
         :return: the duration in seconds
         """
-        if self.player and not self.player.is_done():
+        if self.player and not self.player.is_done() and self.player.duration:
             t = self.player.duration - self.play_length()
         else:
             t = 0
         for player in queue:
-            t += player.duration
+            if player.duration:
+                t += player.duration
         return t
 
     def play_length(self):
@@ -572,7 +597,8 @@ class MusicPlayer(BasePlugin):
             t_skip = 0
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
-            t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration)
+            t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration if
+            self.player.duration else self.max_length)
         return t
 
     def check_in(self, author):
