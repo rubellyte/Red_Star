@@ -1,11 +1,12 @@
 from plugin_manager import BasePlugin
 from utils import Command, respond, process_args
 from random import choice
-from asyncio import get_event_loop
+import asyncio
+import threading
 from math import ceil
 from youtube_dl.utils import DownloadError
 import time
-
+import discord.game
 
 class MusicPlayer(BasePlugin):
     name = "music_player"
@@ -62,6 +63,11 @@ class MusicPlayer(BasePlugin):
         self.time_skip = 0
         self.run_timer = True
 
+        loop = asyncio.new_event_loop()
+        self.timer = threading.Thread(target=self.start_timer, args=(loop,))
+        self.timer.setDaemon(True)
+        self.timer.start()
+
         # stuff from config
         self.no_perm_lines = c.no_permission_lines
         self.ytdl_options = c.ytdl_options
@@ -74,8 +80,11 @@ class MusicPlayer(BasePlugin):
             self.storage["banned_members"] = set()
 
     async def deactivate(self):
+        # stop the damn timer
+        self.run_timer = False
+        # serialise the queue. Hopefully.
         self.storage["serialized_queue"] = []
-        if self.player:
+        if self.player and not self.player.is_done():
             self.storage["serialized_queue"].append(self.player.url)
             print("Serializing the current player")
             self.player.stop()
@@ -383,7 +392,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError
         t_string = ""
         if self.player:
-            t_string = f"!\"{self.player.url}\""
+            t_string = f"!\"{self.player.url}\" "
         for player in self.queue:
             t_string = f"{t_string}!\"{player.url}\" "
         if t_string != "":
@@ -423,7 +432,7 @@ class MusicPlayer(BasePlugin):
         if self.player and self.player.error:
             print(self.player.error)
         before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
-        t_loop = get_event_loop()
+        t_loop = asyncio.get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
             try:
                 t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
@@ -484,7 +493,7 @@ class MusicPlayer(BasePlugin):
 
     async def add_song(self, vid, data):
         before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
-        t_loop = get_event_loop()
+        t_loop = asyncio.get_event_loop()
         try:
             t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
                                                         before_options=before_args,
@@ -494,6 +503,36 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
             return
         self.queue.append(t_player)
+
+    def start_timer(self, loop):
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self.display_time())
+        except:
+            pass
+
+    async def display_time(self):
+        """
+        Updates client status every ten seconds based on music status.
+        """
+        playing = True
+        while self.run_timer:
+            await asyncio.sleep(10)
+            game = None
+            if self.player and not self.player.is_done():
+                if self.player.is_playing():
+                    progress = self.play_length()
+                    progress = f"{progress//60}:{progress%60:02d}"
+                    duration = self.player.duration
+                    duration = f"{duration//60}:{duration%60:02d}"
+                    game = discord.Game(name=f"[{progress}/{duration}]")
+                    playing = True
+                else:
+                    game = discord.Game(name=f"[PAUSED]")
+            if game or playing:
+                await self.client.change_presence(game=game)
+            if playing and not game:
+                playing = False
 
     # Utility functions
 
