@@ -8,6 +8,7 @@ from youtube_dl.utils import DownloadError
 import time
 import discord.game
 
+
 class MusicPlayer(BasePlugin):
     name = "music_player"
     default_config = {
@@ -24,6 +25,7 @@ class MusicPlayer(BasePlugin):
         'max_queue_length': 30,
         'default_volume': 15,
         'allow_pause': True,
+        'twich_stream': False,
         'ytdl_options': {
             'format': 'bestaudio/best',
             'extractaudio': True,
@@ -76,6 +78,7 @@ class MusicPlayer(BasePlugin):
         self.max_queue = c.max_queue_length
         self.m_channel = c.music_channel if c.force_music_channel else False
         self.allow_pause = c.allow_pause
+        self.stream = c.twich_stream
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
 
@@ -85,12 +88,12 @@ class MusicPlayer(BasePlugin):
         # serialise the queue. Hopefully.
         self.storage["serialized_queue"] = []
         if self.player and not self.player.is_done():
-            self.storage["serialized_queue"].append(self.player.url)
+            self.storage["serialized_queue"].append((self.player.url, self.player.author))
             print("Serializing the current player")
             self.player.stop()
         if len(self.queue) > 0:
             for player in self.queue:
-                self.storage["serialized_queue"].append(player.url)
+                self.storage["serialized_queue"].append((player.url, player.author))
             print("Serializing the queue")
         self.queue = []
         if self.vc:
@@ -125,7 +128,9 @@ class MusicPlayer(BasePlugin):
                 if "serialized_queue" in self.storage and len(self.storage["serialized_queue"]) > 0:
                     await respond(self.client, data, "**RESTORING QUEUE. Thank you for your patience.**")
                     for x in self.storage["serialized_queue"]:
-                        await self.add_song(x, data)
+                        t_d = data
+                        t_d.author.id = x[1]
+                        await self.add_song(x[0], t_d)
                     await self.play_next(data)
                     await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
                     self.storage["serialized_queue"] = []
@@ -185,7 +190,7 @@ class MusicPlayer(BasePlugin):
             else:
                 await self.play_next(self)
             await respond(self.client, data, "**AFFIRMATIVE. Skipping current song.**"
-            if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+                          if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
         else:
             await respond(self.client, data, f"**Skip vote: ACCEPTED. {votes} out of required {ceil(m_votes)}**")
 
@@ -243,7 +248,7 @@ class MusicPlayer(BasePlugin):
         t_string = "**ANALYSIS: Currently playing:**\n"
         if self.player and not self.player.is_done():
             if self.player.duration:
-                t_bar = ceil((self.play_length() / self.player.duration)*58)
+                t_bar = ceil((self.play_length() / self.player.duration) * 58)
                 duration = f"{self.player.duration//60:02d}:{self.player.duration%60:02d}"
             else:
                 t_bar = 58
@@ -326,7 +331,6 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("Pause not allowed")
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
-        args = data.content.split(" ", 1)
         if self.player and not self.player.is_playing() and not self.player.is_done():
             self.player.resume()
             self.time_skip += time.time() - self.time_pause
@@ -416,7 +420,8 @@ class MusicPlayer(BasePlugin):
     @Command("appendqueue",
              category="music",
              doc="Appends a number of songs to the queue, takes output from dumpqueue."
-                 "\nRequires mute_members permission in the voice channel")
+                 "\nRequires mute_members permission in the voice channel",
+             syntax="[song] or [!\"ytsearch:song with spaces\"], accepts multiple.")
     async def _appendvc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
@@ -461,8 +466,9 @@ class MusicPlayer(BasePlugin):
                 return
             if len(self.queue) < self.max_queue:
                 t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+                t_player.author = data.author.id
                 self.queue.append(t_player)
-                self.logger.info(f"Adding {t_player.title} to music queue.")
+                self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
                 await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
                                                  f"Current queue:**\n```{self.build_queue()}```\n"
                                                  f"**ANALYSIS: time until your song: {t_m}:{t_s:02d}**")
@@ -481,9 +487,10 @@ class MusicPlayer(BasePlugin):
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
                 return
             if self.player.duration and self.player.duration <= self.max_length:
+                self.player.author = data.author.id
                 self.player.volume = self.volume / 100
                 self.player.start()
-                self.logger.info(f"Playing {self.player.title}.")
+                self.logger.info(f"Playing {self.player.title}. Submitted by {self.player.author}.")
                 self.time_started = time.time()
                 self.time_skip = 0
                 await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
@@ -499,7 +506,7 @@ class MusicPlayer(BasePlugin):
             self.player = self.queue.pop(0)
             self.player.volume = self.volume / 100
             self.player.start()
-            self.logger.info(f"Playing {self.player.title}.")
+            self.logger.info(f"Playing {self.player.title}. Submitted by {self.player.author}.")
             self.time_started = time.time()
             self.time_skip = 0
             await respond(self.client, data, f"**CURRENTLY PLAYING: \"{self.player.title}\"**")
@@ -515,11 +522,12 @@ class MusicPlayer(BasePlugin):
             t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
                                                         before_options=before_args,
                                                         after=lambda: t_loop.create_task(
-                                                            self.play_next(data)))
+                                                                self.play_next(data)))
         except DownloadError:
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
             return
-        self.logger.info(f"Adding {t_player.title} to music queue.")
+        self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
+        t_player.author = data.author.id
         self.queue.append(t_player)
 
     def start_timer(self, loop):
@@ -546,7 +554,10 @@ class MusicPlayer(BasePlugin):
                         duration = f"{duration//60}:{duration%60:02d}"
                     else:
                         duration = "N/A"
-                    game = discord.Game(name=f"[{progress}/{duration}]")
+                    if not self.stream:
+                        game = discord.Game(name=f"[{progress}/{duration}]")
+                    else:
+                        game = discord.Game(name=f"[{progress}/{duration}]", url=self.stream, type=1)
                     playing = True
                 else:
                     game = discord.Game(name=f"[PAUSED]")
@@ -570,7 +581,7 @@ class MusicPlayer(BasePlugin):
             else:
                 mins, secs = 99, 99
             t_string = f"{t_string}[{k+1:02d}][{title}][{mins:02d}:{secs:02d}]\n"
-        return t_string
+        return t_string if t_string != "" else f"[{'EMPTY'.center(58)}]"
 
     def queue_length(self, queue):
         """
@@ -598,7 +609,7 @@ class MusicPlayer(BasePlugin):
             if self.time_pause > 0:
                 t_skip = time.time() - self.time_pause
             t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.player.duration if
-            self.player.duration else self.max_length)
+                    self.player.duration else self.max_length)
         return t
 
     def check_in(self, author):
