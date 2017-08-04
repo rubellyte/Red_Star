@@ -103,8 +103,9 @@ class CommandDispatcher(BasePlugin):
                               f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
                 await respond(self.client, data, f"**WARNING: {err}.**")
-        except PermissionError:
-            await respond(self.client, data, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**")
+        except PermissionError as e:
+            err = f"\n ANALYSIS: {e}" if e else ""
+            await respond(self.client, data, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
         except Exception:
             self.logger.exception("Exception occurred in command. ", exc_info=True)
             await respond(self.client, data, "**WARNING: Error occurred while running command.**")

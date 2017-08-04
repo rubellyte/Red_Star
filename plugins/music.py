@@ -149,7 +149,7 @@ class MusicPlayer(BasePlugin):
         """
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
-        if not self.vc:
+        if not self.vc or (self.vc and not self.vc.is_connected()):
             await self._joinvc(data)
         if not self.check_in(data.author):
             raise PermissionError("Must be in voicechat.")
