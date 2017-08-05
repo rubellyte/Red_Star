@@ -617,7 +617,7 @@ class MusicPlayer(BasePlugin):
         :param author: author from message data
         :return: is he in same vc channel?
         """
-        return self.vc and author in self.vc.channel.voice_members
+        return self.vc and self.vc.is_connected() and author in self.vc.channel.voice_members
 
     def check_ban(self, uid):
         return uid in self.storage["banned_members"]

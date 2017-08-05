@@ -156,7 +156,11 @@ class PluginManager:
             time = 60
         await asyncio.sleep(time)
         self.logger.debug("Writing to shelve...")
-        self.shelve.sync()
+        try:
+            self.shelve.sync()
+        except Exception as e:
+            err = f"{e}." if e else ""
+            self.logger.error(f"Error writing to shelve. {err}")
         await self._write_to_shelve()
 
 
