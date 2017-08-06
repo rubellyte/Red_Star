@@ -245,6 +245,6 @@ class RoleCommands(BasePlugin):
         t_string = "**AFFIRMATIVE. Listing roles :**\n"
         for server in self.client.servers:
             for role in sorted(server.roles, key=lambda x: x.position):
-                t_string += f"`{role.name[:40].ljust(40)} [{role.position} | {role.colour}]`\n"
+                t_string += f"`{role.name[:40].ljust(40)} [{role.position:02d} | {role.colour}]`\n"
         for t in split_message(t_string, splitter="\n"):
             await respond(self.client, data, t)
