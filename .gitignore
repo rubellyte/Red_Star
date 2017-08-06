@@ -109,3 +109,6 @@ ENV/
 *.bak
 config/storage.dat
 *.dir
+
+# cache
+/cache
