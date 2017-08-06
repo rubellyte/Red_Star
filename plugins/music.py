@@ -41,7 +41,8 @@ class MusicPlayer(BasePlugin):
             'restrictfilenames': True,
             'noplaylist': True,
             'nocheckcertificate': True,
-            'ignoreerrors': False,
+            'nooverwrites': True,
+            'ignoreerrors': True,
             'logtostderr': False,
             'quiet': True,
             'no_warnings': False,
@@ -83,6 +84,7 @@ class MusicPlayer(BasePlugin):
         self.volume = c.default_volume
         self.max_length = c.max_video_length
         self.max_queue = c.max_queue_length
+        self.ytdl_options["playlistend"] = self.max_queue+5
         self.m_channel = c.music_channel if c.force_music_channel else False
         self.allow_pause = c.allow_pause
         self.stream = c.twich_stream
@@ -169,8 +171,8 @@ class MusicPlayer(BasePlugin):
         if len(args) > 1:
             if not (args[1].startswith("http://") or args[1].startswith("https://")):
                 args[1] = "ytsearch:" + args[1]
-            if args[1].find("list=") > -1:
-                raise SyntaxWarning("No playlists allowed!")
+            # if args[1].find("list=") > -1:
+            #     raise SyntaxWarning("No playlists allowed!")
             await self.play_video(args[1], data)
         else:
             raise SyntaxError("Expected URL or search query.")
@@ -275,13 +277,15 @@ class MusicPlayer(BasePlugin):
                        f"[{'█' * int(t_bar)}{'-' * int(58 - t_bar)}]```"
         else:
             t_string = f"{t_string}```NOTHING PLAYING```"
-        if len(self.queue) > 0:
-            t_string = f"{t_string}\n```{self.build_queue()}```"
-        else:
-            t_string = f"{t_string}\n```QUEUE EMPTY```"
-        t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
-        t_string = f"{t_string}\n**ANALYSIS: Current duration: {t_m}:{t_s:02d}**"
         await respond(self.client, data, t_string)
+        if len(self.queue) > 0:
+            t_string = f"{self.build_queue()}"
+        else:
+            t_string = f"QUEUE EMPTY"
+        for s in split_message(t_string, "\n"):
+            await respond(self.client, data, "```"+s+"```")
+        t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+        await respond(self.client, data, f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
 
     @Command("nowplaying",
              category="music",
@@ -445,7 +449,9 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, "**AFFIRMATIVE. Extending queue.**")
             for arg in args[1:]:
                 await self.add_song(arg, data)
-            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n```{self.build_queue()}```")
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**")
+            for s in split_message(self.build_queue(), "\n"):
+                await respond(self.client, data, f"```{s}```")
             if not self.player or self.player and self.player.is_done():
                 await self.play_next(data)
         else:
@@ -547,46 +553,86 @@ class MusicPlayer(BasePlugin):
         ydl = youtube_dl.YoutubeDL(opts)
         loop = asyncio.get_event_loop()
         func = functools.partial(ydl.extract_info, url, download=True)
-        info = await loop.run_in_executor(None, func)
-        if "entries" in info:
-            info = info['entries'][0]
+        data = await loop.run_in_executor(None, func)
+        if not data:
+            raise DownloadError("Could not download video(s).")
+        if "entries" in data:
+            t_players = []
+            for info in data["entries"]:
+                if info is not None:
+                    self.logger.info(f'processing URL {info["title"]}')
+                    filename = ydl.prepare_filename(info)
+                    self.storage["stored_songs"][filename] = time.time()
+                    t_player = self.vc.create_ffmpeg_player(filename, **kwargs)
+                    t_player.download_url = filename
+                    t_player.url = info.get('webpage_url')
+                    t_player.yt = ydl
+                    t_player.views = info.get('view_count')
+                    t_player.is_live = bool(info.get('is_live'))
+                    t_player.likes = info.get('like_count')
+                    t_player.dislikes = info.get('dislike_count')
+                    t_player.duration = info.get('duration', 0)
+                    t_player.uploader = info.get('uploader')
 
-        self.logger.info(f'playing URL {url}')
-        # download_url = info['url']  # used in ffmpeg before
-        download_url = ydl.prepare_filename(info)
-        self.storage["stored_songs"][download_url] = time.time()
-        player = self.vc.create_ffmpeg_player(download_url, **kwargs)
+                    is_twitch = 'twitch' in url
 
-        # set the dynamic attributes from the info extraction
-        player.download_url = download_url
-        player.url = url
-        player.yt = ydl
-        player.views = info.get('view_count')
-        player.is_live = bool(info.get('is_live'))
-        player.likes = info.get('like_count')
-        player.dislikes = info.get('dislike_count')
-        player.duration = info.get('duration')
-        player.uploader = info.get('uploader')
+                    if is_twitch:
+                        # twitch has 'title' and 'description' sort of mixed up.
+                        t_player.title = info.get('description')
+                        t_player.description = None
+                    else:
+                        t_player.title = info.get('title')
+                        t_player.description = info.get('description')
 
-        is_twitch = 'twitch' in url
-        if is_twitch:
-            # twitch has 'title' and 'description' sort of mixed up.
-            player.title = info.get('description')
-            player.description = None
+                    # upload date handling
+                    date = info.get('upload_date')
+                    if date:
+                        try:
+                            date = datetime.datetime.strptime(date, '%Y%M%d').date()
+                        except ValueError:
+                            date = None
+
+                    t_player.upload_date = date
+                    t_players.append(t_player)
+            return t_players, data.get('title', False)
         else:
-            player.title = info.get('title')
-            player.description = info.get('description')
+            info = data
+            self.logger.info(f'playing URL {url}')
+            # download_url = info['url']  # used in ffmpeg before
+            download_url = ydl.prepare_filename(info)
+            self.storage["stored_songs"][download_url] = time.time()
+            player = self.vc.create_ffmpeg_player(download_url, **kwargs)
 
-        # upload date handling
-        date = info.get('upload_date')
-        if date:
-            try:
-                date = datetime.datetime.strptime(date, '%Y%M%d').date()
-            except ValueError:
-                date = None
+            # set the dynamic attributes from the info extraction
+            player.download_url = download_url
+            player.url = info.get('webpage_url')
+            player.yt = ydl
+            player.views = info.get('view_count')
+            player.is_live = bool(info.get('is_live'))
+            player.likes = info.get('like_count')
+            player.dislikes = info.get('dislike_count')
+            player.duration = info.get('duration')
+            player.uploader = info.get('uploader')
 
-        player.upload_date = date
-        return player
+            is_twitch = 'twitch' in url
+            if is_twitch:
+                # twitch has 'title' and 'description' sort of mixed up.
+                player.title = info.get('description')
+                player.description = None
+            else:
+                player.title = info.get('title')
+                player.description = info.get('description')
+
+            # upload date handling
+            date = info.get('upload_date')
+            if date:
+                try:
+                    date = datetime.datetime.strptime(date, '%Y%M%d').date()
+                except ValueError:
+                    date = None
+
+            player.upload_date = date
+            return [player], False
 
     async def play_video(self, vid, data):
         """
@@ -599,39 +645,39 @@ class MusicPlayer(BasePlugin):
         before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
+            t_players = []
             try:
-                t_player = await self.create_player(vid, ytdl_options=self.ytdl_options,
-                                                    before_options=before_args,
-                                                    after=lambda: t_loop.create_task(self.play_next(data)))
-            except DownloadError:
-                await respond(self.client, data, "**NEGATIVE. Could not load song.**")
+                t_players, t_playlist = await self.create_player(vid, ytdl_options=self.ytdl_options,
+                                                                 before_options=before_args,
+                                                                 after=lambda: t_loop.create_task(self.play_next(
+                                                                         data)))
+            except DownloadError as e:
+                await respond(self.client, data, f"**NEGATIVE. Could not load song.\n{e}**")
                 return
-            if t_player.duration > self.max_length:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
-                                                 f"{self.max_length//60}:{self.max_length%60:02d}.**")
-                return
-            if len(self.queue) < self.max_queue:
-                t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
-                t_player.author = data.author.id
-                self.queue.append(t_player)
-                self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
-                await respond(self.client, data, f"**AFFIRMATIVE. ADDING \"{t_player.title}\" to queue.\n"
-                                                 f"Current queue:**\n```{self.build_queue()}```\n"
-                                                 f"**ANALYSIS: time until your song: {t_m}:{t_s:02d}**")
+            t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
+            if not t_playlist:
+                await respond(self.client, data, f"**AFFIRMATIVE. Adding \"{t_players[0].title}\" to queue.**")
             else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Queue full. Dropping \"{t_player.title}\".\n"
-                                                 f"Current queue:**\n```{self.build_queue()}```")
+                await respond(self.client, data, f"**AFFIRMATIVE. Adding \"{t_playlist}\" to queue.**")
+            await self.process_queue(t_players, data)
+            await respond(self.client, data, f"**ANALYSIS: Current queue:**\n")
+            for s in split_message(self.build_queue(), "\n"):
+                await respond(self.client, data, f"```{s}```")
+            await respond(self.client, data, f"**ANALYSIS: time until your song: {t_m}:{t_s:02d}**")
         else:
             self.vote_set = set()
             # self.logger.debug(time.time() - self.time_started)
             # creates a player with a callback to play next video
+            t_players = []
             try:
-                self.player = await self.create_player(vid, ytdl_options=self.ytdl_options,
-                                                       before_options=before_args,
-                                                       after=lambda: t_loop.create_task(self.play_next(data)))
-            except DownloadError:
-                await respond(self.client, data, "**NEGATIVE. Could not load song.**")
+                t_players, t_playlist = await self.create_player(vid, ytdl_options=self.ytdl_options,
+                                                                 before_options=before_args,
+                                                                 after=lambda: t_loop.create_task(self.play_next(
+                                                                         data)))
+            except DownloadError as e:
+                await respond(self.client, data, f"**NEGATIVE. Could not load song.\n{e}**")
                 return
+            self.player = t_players[0]
             if self.player.duration and self.player.duration <= self.max_length:
                 self.player.author = data.author.id
                 self.player.volume = self.volume / 100
@@ -644,9 +690,30 @@ class MusicPlayer(BasePlugin):
                 self.player.stop()
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
                                                  f"{self.max_length//60}:{self.max_length%60:02d}.**")
+            if len(t_players) > 1:
+                await self.process_queue(t_players[1:], data)
+                await respond(self.client, data, f"**ANALYSIS: Current queue:**")
+                for s in split_message(self.build_queue(), "\n"):
+                    await respond(self.client, data, f"```{s}```")
 
-    async def add_queue(self, players, data):
-        pass
+    async def process_queue(self, players, data):
+        if len(players) > 0:
+            for t_player in players:
+                if len(self.queue) < self.max_queue:
+                    if t_player.duration > self.max_length:
+                        await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song {t_player.title:40} over the "
+                                                         f"maximum duration of "
+                                                         f"{self.max_length//60}:{self.max_length%60:02d}.**")
+                    else:
+                        t_player.author = data.author.id
+                        self.queue.append(t_player)
+                        self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
+                else:
+                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Queue full. Dropping \"{t_player.title}"
+                                                     f"\".\nCurrent queue:**\n```{self.build_queue()}```")
+                    break
+        else:
+            return
 
     async def play_next(self, data):
         if len(self.queue) > 0:
@@ -668,14 +735,16 @@ class MusicPlayer(BasePlugin):
         before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         try:
-            t_player = await self.create_player(vid, ytdl_options=self.ytdl_options,before_options=before_args,
-                                                after=lambda: t_loop.create_task(self.play_next(data)))
+            t_players, t_playlist = await self.create_player(vid, ytdl_options=self.ytdl_options,
+                                                             before_options=before_args,
+                                                             after=lambda: t_loop.create_task(self.play_next(data)))
         except DownloadError:
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
             return
-        t_player.author = data.author.id
-        self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
-        self.queue.append(t_player)
+        for t_player in t_players:
+            t_player.author = data.author.id
+            self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
+            self.queue.append(t_player)
 
     def start_timer(self, loop):
         asyncio.set_event_loop(loop)
