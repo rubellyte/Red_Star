@@ -238,7 +238,8 @@ class MusicPlayer(BasePlugin):
     @Command("stopsong",
              category="music",
              doc="Stops the music and empties the queue."
-                 "\nRequires mute_members permission in the voice channel")
+                 "\nRequires mute_members permission in the voice channel",
+             syntax="(HARD) to erase the downloaded files.")
     async def _stopvc(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
@@ -250,6 +251,13 @@ class MusicPlayer(BasePlugin):
             self.queue = []
         if self.player:
             self.player.stop()
+        args = data.content.split()
+        if len(args)>1 and args[1] == 'HARD':
+            for song, _ in self.storage["stored_songs"].items():
+                try:
+                    os.remove(song)
+                except Exception:
+                    pass
         await respond(self.client, data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
 
     @Command("queue",
@@ -456,6 +464,16 @@ class MusicPlayer(BasePlugin):
                 await self.play_next(data)
         else:
             raise SyntaxError("Expected arguments!")
+
+    @Command("delqueue",
+             category="music",
+             doc="Erases serialised queue. Useful if bot was shut down with ridiculous queue saved.",
+             perms="mute_members")
+    async def _delqueue(self, data):
+        if self.check_ban(data.author.id):
+            raise PermissionError("You are banned from using the music module.")
+        await respond(self.client, data, "**AFFIRMATIVE. Purting.**")
+        self.storage["serialized_queue"] = []
 
     # Music playing
 
