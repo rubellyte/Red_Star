@@ -480,6 +480,15 @@ class MusicPlayer(BasePlugin):
 
     # Music playing
 
+    """
+        a bunch of functions that handle creation of players and queue.
+        create_player creates the player object, returning a list of players (playlist support) and a playlist name.
+        play_video receives a URL or search query and handles starting playback if nothing is playing
+        process_queue receives a list of players and adds it to queue
+        play_next stops current song and advances on next in queue
+        add_song creates a player and adds it to queue, no questions asked
+    """
+
     async def create_player(self, url, *, ytdl_options=None, **kwargs):
         """|coro|
 
@@ -668,7 +677,8 @@ class MusicPlayer(BasePlugin):
         """
         if self.player and self.player.error:
             print(self.player.error)
-        before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        before_args = "" if self.plugin_config["download_songs"] else " -reconnect 1 -reconnect_streamed 1 " \
+                                                                      "-reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
             t_players = []
@@ -775,7 +785,8 @@ class MusicPlayer(BasePlugin):
         :param data: message data for responding
         :return:
         """
-        before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        before_args = "" if self.plugin_config["download_songs"] else " -reconnect 1 -reconnect_streamed 1 " \
+                                                                      "-reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         try:
             t_players, t_playlist = await self.create_player(vid, ytdl_options=self.ytdl_options,
