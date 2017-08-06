@@ -30,8 +30,8 @@ class DiscordLogger(BasePlugin):
             contents = msg.clean_content
             self.logger.debug(f"User {uname}'s message was deleted. Contents: {contents}")
             await self.client.send_message(self.log_channel,
-                                           f"**WARNING: User {uname}'s message was deleted. ANALYSIS: "
-                                           f"Contents:**\n{contents}")
+                                           f"**WARNING: User {uname}'s message in {msg.channel.mention} was deleted. "
+                                           f"ANALYSIS: Contents:**\n{contents}")
 
     async def on_message_edit(self, before, after):
         if "message_edit" in self.log_events and after.author != self.client.user:
@@ -43,8 +43,9 @@ class DiscordLogger(BasePlugin):
             self.logger.debug(f"User {uname} edited their message.\nOld contents: {old_contents}\nNew contents: "
                               f"{contents}")
             await self.client.send_message(self.log_channel,
-                                           f"**WARNING: User {uname} edited their message. ANALYSIS:**\n**Old "
-                                           f"contents:** {old_contents}\n**New contents:** {contents}")
+                                           f"**WARNING: User {uname} edited their message in {after.channel.mention}. "
+                                           f"ANALYSIS:**\n**Old contents:** {old_contents}\n"
+                                           f"**New contents:** {contents}")
 
     async def on_member_join(self, user):
         if "member_join" in self.log_events:
