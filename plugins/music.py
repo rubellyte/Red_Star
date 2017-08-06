@@ -29,6 +29,7 @@ class MusicPlayer(BasePlugin):
         'max_queue_length': 30,
         'default_volume': 15,
         'allow_pause': True,
+        'allow_playlists': True,
         'twich_stream': False,
         'download_songs': True,
         'download_songs_timeout': 259200,
@@ -171,8 +172,9 @@ class MusicPlayer(BasePlugin):
         if len(args) > 1:
             if not (args[1].startswith("http://") or args[1].startswith("https://")):
                 args[1] = "ytsearch:" + args[1]
-            # if args[1].find("list=") > -1:
-            #     raise SyntaxWarning("No playlists allowed!")
+            if not self.plugin_config["allow_playlists"]:
+                if args[1].find("list=") > -1:
+                    raise SyntaxWarning("No playlists allowed!")
             await self.play_video(args[1], data)
         else:
             raise SyntaxError("Expected URL or search query.")
@@ -251,13 +253,14 @@ class MusicPlayer(BasePlugin):
             self.queue = []
         if self.player:
             self.player.stop()
-        args = data.content.split()
-        if len(args)>1 and args[1] == 'HARD':
-            for song, _ in self.storage["stored_songs"].items():
-                try:
-                    os.remove(song)
-                except Exception:
-                    pass
+        if self.plugin_config["download_songs"]:
+            args = data.content.split()
+            if len(args)>1 and args[1] == 'HARD':
+                for song, _ in self.storage["stored_songs"].items():
+                    try:
+                        os.remove(song)
+                    except Exception:
+                        pass
         await respond(self.client, data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
 
     @Command("queue",
@@ -570,7 +573,7 @@ class MusicPlayer(BasePlugin):
 
         ydl = youtube_dl.YoutubeDL(opts)
         loop = asyncio.get_event_loop()
-        func = functools.partial(ydl.extract_info, url, download=True)
+        func = functools.partial(ydl.extract_info, url, download=self.plugin_config["download_songs"])
         data = await loop.run_in_executor(None, func)
         if not data:
             raise DownloadError("Could not download video(s).")
@@ -579,7 +582,10 @@ class MusicPlayer(BasePlugin):
             for info in data["entries"]:
                 if info is not None:
                     self.logger.info(f'processing URL {info["title"]}')
-                    filename = ydl.prepare_filename(info)
+                    if self.plugin_config["download_songs"]:
+                        filename = ydl.prepare_filename(info)
+                    else:
+                        filename = info['url']
                     self.storage["stored_songs"][filename] = time.time()
                     t_player = self.vc.create_ffmpeg_player(filename, **kwargs)
                     t_player.download_url = filename
@@ -616,13 +622,15 @@ class MusicPlayer(BasePlugin):
         else:
             info = data
             self.logger.info(f'playing URL {url}')
-            # download_url = info['url']  # used in ffmpeg before
-            download_url = ydl.prepare_filename(info)
-            self.storage["stored_songs"][download_url] = time.time()
-            player = self.vc.create_ffmpeg_player(download_url, **kwargs)
+            if self.plugin_config["download_songs"]:
+                filename = ydl.prepare_filename(info)
+            else:
+                filename = info['url']
+            self.storage["stored_songs"][filename] = time.time()
+            player = self.vc.create_ffmpeg_player(filename, **kwargs)
 
             # set the dynamic attributes from the info extraction
-            player.download_url = download_url
+            player.download_url = filename
             player.url = info.get('webpage_url')
             player.yt = ydl
             player.views = info.get('view_count')
@@ -715,6 +723,12 @@ class MusicPlayer(BasePlugin):
                     await respond(self.client, data, f"```{s}```")
 
     async def process_queue(self, players, data):
+        """
+        A function to go over a list of players and add them to queue, checking length and queue length
+        :param players: a list of player objects
+        :param data: message data for responding
+        :return: nothing
+        """
         if len(players) > 0:
             for t_player in players:
                 if len(self.queue) < self.max_queue:
@@ -734,6 +748,11 @@ class MusicPlayer(BasePlugin):
             return
 
     async def play_next(self, data):
+        """
+        Plays next song in queue
+        :param data: message data for responding
+        :return:
+        """
         if len(self.queue) > 0:
             if self.player:
                 self.player.stop()
@@ -750,6 +769,12 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
 
     async def add_song(self, vid, data):
+        """
+        Adds songs to queue, no question asked
+        :param vid: URL or search query
+        :param data: message data for responding
+        :return:
+        """
         before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         try:
@@ -781,19 +806,19 @@ class MusicPlayer(BasePlugin):
             await asyncio.sleep(10)
 
             # check old songs
-
-            del_list = []
-            for song, time_added in self.storage["stored_songs"].items():
-                if time.time() - time_added > self.plugin_config["download_songs_timeout"]:
-                    del_list.append(song)
-            for song in del_list:
-                try:
-                    os.remove(song)
-                    self.storage["stored_songs"].pop(song)
-                    print(f"Attempting to remove {song}.")
-                except Exception as e:
-                    err = e if e else "Some error happened."
-                    self.logger.error(err)
+            if self.plugin_config["download_songs"]:
+                del_list = []
+                for song, time_added in self.storage["stored_songs"].items():
+                    if time.time() - time_added > self.plugin_config["download_songs_timeout"]:
+                        del_list.append(song)
+                for song in del_list:
+                    try:
+                        os.remove(song)
+                        self.storage["stored_songs"].pop(song)
+                        print(f"Attempting to remove {song}.")
+                    except Exception as e:
+                        err = e if e else "Some error happened."
+                        self.logger.error(err)
 
             # time display
             game = None
