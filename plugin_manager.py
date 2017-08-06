@@ -158,9 +158,8 @@ class PluginManager:
         self.logger.debug("Writing to shelve...")
         try:
             self.shelve.sync()
-        except Exception as e:
-            err = f"{e}." if e else ""
-            self.logger.error(f"Error writing to shelve. {err}")
+        except Exception:
+            self.logger.exception("Error writing to shelve. ", exc_info=True)
         await self._write_to_shelve()
 
 

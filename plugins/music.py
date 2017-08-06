@@ -23,16 +23,16 @@ class MusicPlayer(BasePlugin):
             "**NEGATIVE. Insufficient permissions for rocking you like a hurricane in channel: {}.**",
             "**NEGATIVE. Insufficient permissions for putting hands in the air in channel: {}.**",
             "**NEGATIVE. Insufficient permissions for wanting to rock in channel: {}.**",
-            "**NEGATIVE. Insufficient permissions for dropping the beat in channel: {}.**"
+            "**NEGATIVE. Insufficient permissions for dropping the base in channel: {}.**"
         ],
         'max_video_length': 1800,
         'max_queue_length': 30,
         'default_volume': 15,
         'allow_pause': True,
         'allow_playlists': True,
-        'twich_stream': False,
+        'twitch_stream': False,
         'download_songs': True,
-        'download_songs_timeout': 259200,
+        'download_songs_timeout': 259200,  # Default value of three days (3*24*60*60)
         'ytdl_options': {
             'format': 'bestaudio/best',
             "cachedir": "cache/",
@@ -88,7 +88,7 @@ class MusicPlayer(BasePlugin):
         self.ytdl_options["playlistend"] = self.max_queue+5
         self.m_channel = c.music_channel if c.force_music_channel else False
         self.allow_pause = c.allow_pause
-        self.stream = c.twich_stream
+        self.stream = c.twitch_stream
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
         if not "stored_songs" in self.storage:
@@ -475,18 +475,18 @@ class MusicPlayer(BasePlugin):
     async def _delqueue(self, data):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
-        await respond(self.client, data, "**AFFIRMATIVE. Purting.**")
+        await respond(self.client, data, "**AFFIRMATIVE. Purging.**")
         self.storage["serialized_queue"] = []
 
     # Music playing
 
     """
-        a bunch of functions that handle creation of players and queue.
-        create_player creates the player object, returning a list of players (playlist support) and a playlist name.
-        play_video receives a URL or search query and handles starting playback if nothing is playing
-        process_queue receives a list of players and adds it to queue
-        play_next stops current song and advances on next in queue
-        add_song creates a player and adds it to queue, no questions asked
+    a bunch of functions that handle creation of players and queue.
+    create_player creates the player object, returning a list of players (playlist support) and a playlist name.
+    play_video receives a URL or search query and handles starting playback if nothing is playing
+    process_queue receives a list of players and adds it to queue
+    play_next stops current song and advances on next in queue
+    add_song creates a player and adds it to queue, no questions asked
     """
 
     async def create_player(self, url, *, ytdl_options=None, **kwargs):
@@ -804,8 +804,8 @@ class MusicPlayer(BasePlugin):
         asyncio.set_event_loop(loop)
         try:
             loop.run_until_complete(self.display_time())
-        except Exception as e:
-            self.logger.error(f"ERROR {e}")
+        except Exception:
+            self.logger.exception("Error starting timer. ", exc_info=True)
 
     async def display_time(self):
         """
@@ -827,9 +827,8 @@ class MusicPlayer(BasePlugin):
                         os.remove(song)
                         self.storage["stored_songs"].pop(song)
                         print(f"Attempting to remove {song}.")
-                    except Exception as e:
-                        err = e if e else "Some error happened."
-                        self.logger.error(err)
+                    except Exception:
+                        self.logger.exception("Error pruning song cache. ", exc_info=True)
 
             # time display
             game = None
