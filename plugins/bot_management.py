@@ -1,7 +1,6 @@
 import urllib
 from plugin_manager import BasePlugin
 from utils import Command, respond
-from functools import reduce
 from discord import InvalidArgument
 
 class BotManagement(BasePlugin):

@@ -55,10 +55,10 @@ class Info(BasePlugin):
             doc = cmd.__doc__
             perms = cmd.perms
             cate = capwords(cmd.category, "_")
-            aliases = ", ".join([capwords(x, "_") for x in cmd._aliases])
+            aliases = f"(Aliases: {', '.join([capwords(x, '_') for x in cmd._aliases])})" if cmd._aliases else ""
             if not {x for x, y in data.author.server_permissions if y} >= perms:
                 raise PermissionError
-            text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) (Aliases: {aliases})\n{doc}\n" \
+            text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) {aliases}\n{doc}\n" \
                    f"Syntax: {syn}\n```"
             await respond(self.client, data, text)
         elif search in self.categories.keys():
