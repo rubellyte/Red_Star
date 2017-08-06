@@ -104,7 +104,7 @@ class CommandDispatcher(BasePlugin):
             else:
                 await respond(self.client, data, f"**WARNING: {err}.**")
         except PermissionError as e:
-            err = f"\n ANALYSIS: {e}" if e else ""
+            err = f"\nANALYSIS: {e}" if e else ""
             await respond(self.client, data, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
         except Exception:
             self.logger.exception("Exception occurred in command. ", exc_info=True)

@@ -1,12 +1,16 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, process_args
+from utils import Command, respond, process_args, split_message
+from youtube_dl.utils import DownloadError
+import discord.game
 from random import choice
+from math import ceil
 import asyncio
 import threading
-from math import ceil
-from youtube_dl.utils import DownloadError
+import youtube_dl
+import functools
+import datetime
 import time
-import discord.game
+import os
 
 
 class MusicPlayer(BasePlugin):
@@ -26,11 +30,14 @@ class MusicPlayer(BasePlugin):
         'default_volume': 15,
         'allow_pause': True,
         'twich_stream': False,
+        'download_songs': True,
+        'download_songs_timeout': 259200,
         'ytdl_options': {
             'format': 'bestaudio/best',
+            "cachedir": "cache/",
             'extractaudio': True,
             'audioformat': 'mp3',
-            'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+            'outtmpl': 'cache/%(extractor)s-%(id)s-%(title)s.%(ext)s',
             'restrictfilenames': True,
             'noplaylist': True,
             'nocheckcertificate': True,
@@ -81,6 +88,8 @@ class MusicPlayer(BasePlugin):
         self.stream = c.twich_stream
         if not "banned_members" in self.storage:
             self.storage["banned_members"] = set()
+        if not "stored_songs" in self.storage:
+            self.storage["stored_songs"] = {}
 
     async def deactivate(self):
         # stop the damn timer
@@ -113,7 +122,7 @@ class MusicPlayer(BasePlugin):
         if self.check_ban(data.author.id):
             raise PermissionError("You are banned from using the music module.")
         if self.vc:
-            self.vc.disconnect()
+            await self.vc.disconnect()
         for server in self.client.servers:
             # doublecheck, just in case bot crashed earlier and discord is being weird
             if self.client.is_voice_connected(server):
@@ -121,6 +130,8 @@ class MusicPlayer(BasePlugin):
             a_voice = self.m_channel
             if not self.m_channel:
                 a_voice = data.author.voice.voice_channel
+            if not a_voice:
+                raise PermissionError("Must be in voice chat.")
             perms = server.me.permissions_in(a_voice)
             if perms.connect and perms.speak and perms.use_voice_activation:
                 self.vc = await self.client.join_voice_channel(a_voice)
@@ -442,6 +453,141 @@ class MusicPlayer(BasePlugin):
 
     # Music playing
 
+    async def create_player(self, url, *, ytdl_options=None, **kwargs):
+        """|coro|
+
+        Creates a stream player for youtube or other services that launches
+        in a separate thread to play the audio.
+
+        The player uses the ``youtube_dl`` python library to get the information
+        required to get audio from the URL. Since this uses an external library,
+        you must install it yourself. You can do so by calling
+        ``pip install youtube_dl``.
+
+        You must have the ffmpeg or avconv executable in your path environment
+        variable in order for this to work.
+
+        The operations that can be done on the player are the same as those in
+        :meth:`create_stream_player`. The player has been augmented and enhanced
+        to have some info extracted from the URL. If youtube-dl fails to extract
+        the information then the attribute is ``None``. The ``yt``, ``url``, and
+        ``download_url`` attributes are always available.
+
+        +---------------------+---------------------------------------------------------+
+        |      Operation      |                       Description                       |
+        +=====================+=========================================================+
+        | player.yt           | The `YoutubeDL <ytdl>` instance.                        |
+        +---------------------+---------------------------------------------------------+
+        | player.url          | The URL that is currently playing.                      |
+        +---------------------+---------------------------------------------------------+
+        | player.download_url | The URL that is currently being downloaded to ffmpeg.   |
+        +---------------------+---------------------------------------------------------+
+        | player.title        | The title of the audio stream.                          |
+        +---------------------+---------------------------------------------------------+
+        | player.description  | The description of the audio stream.                    |
+        +---------------------+---------------------------------------------------------+
+        | player.uploader     | The uploader of the audio stream.                       |
+        +---------------------+---------------------------------------------------------+
+        | player.upload_date  | A datetime.date object of when the stream was uploaded. |
+        +---------------------+---------------------------------------------------------+
+        | player.duration     | The duration of the audio in seconds.                   |
+        +---------------------+---------------------------------------------------------+
+        | player.likes        | How many likes the audio stream has.                    |
+        +---------------------+---------------------------------------------------------+
+        | player.dislikes     | How many dislikes the audio stream has.                 |
+        +---------------------+---------------------------------------------------------+
+        | player.is_live      | Checks if the audio stream is currently livestreaming.  |
+        +---------------------+---------------------------------------------------------+
+        | player.views        | How many views the audio stream has.                    |
+        +---------------------+---------------------------------------------------------+
+
+        .. _ytdl: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py#L128-L278
+
+        Examples
+        ----------
+
+        Basic usage: ::
+
+            voice = await client.join_voice_channel(channel)
+            player = await voice.create_ytdl_player('https://www.youtube.com/watch?v=d62TYemN6MQ')
+            player.start()
+
+        Parameters
+        -----------
+        url : str
+            The URL that ``youtube_dl`` will take and download audio to pass
+            to ``ffmpeg`` or ``avconv`` to convert to PCM bytes.
+        ytdl_options : dict
+            A dictionary of options to pass into the ``YoutubeDL`` instance.
+            See `the documentation <ytdl>`_ for more details.
+        \*\*kwargs
+            The rest of the keyword arguments are forwarded to
+            :func:`create_ffmpeg_player`.
+
+        Raises
+        -------
+        ClientException
+            Popen failure from either ``ffmpeg``/``avconv``.
+
+        Returns
+        --------
+        StreamPlayer
+            An augmented StreamPlayer that uses ffmpeg.
+            See :meth:`create_stream_player` for base operations.
+        """
+        use_avconv = kwargs.get('use_avconv', False)
+        opts = {
+            'format': 'webm[abr>0]/bestaudio/best',
+            'prefer_ffmpeg': not use_avconv
+        }
+
+        if ytdl_options is not None and isinstance(ytdl_options, dict):
+            opts.update(ytdl_options)
+
+        ydl = youtube_dl.YoutubeDL(opts)
+        loop = asyncio.get_event_loop()
+        func = functools.partial(ydl.extract_info, url, download=True)
+        info = await loop.run_in_executor(None, func)
+        if "entries" in info:
+            info = info['entries'][0]
+
+        self.logger.info(f'playing URL {url}')
+        # download_url = info['url']  # used in ffmpeg before
+        download_url = ydl.prepare_filename(info)
+        self.storage["stored_songs"][download_url] = time.time()
+        player = self.vc.create_ffmpeg_player(download_url, **kwargs)
+
+        # set the dynamic attributes from the info extraction
+        player.download_url = download_url
+        player.url = url
+        player.yt = ydl
+        player.views = info.get('view_count')
+        player.is_live = bool(info.get('is_live'))
+        player.likes = info.get('like_count')
+        player.dislikes = info.get('dislike_count')
+        player.duration = info.get('duration')
+        player.uploader = info.get('uploader')
+
+        is_twitch = 'twitch' in url
+        if is_twitch:
+            # twitch has 'title' and 'description' sort of mixed up.
+            player.title = info.get('description')
+            player.description = None
+        else:
+            player.title = info.get('title')
+            player.description = info.get('description')
+
+        # upload date handling
+        date = info.get('upload_date')
+        if date:
+            try:
+                date = datetime.datetime.strptime(date, '%Y%M%d').date()
+            except ValueError:
+                date = None
+
+        player.upload_date = date
+        return player
+
     async def play_video(self, vid, data):
         """
         Processes provided video request, either starting to play it instantly or adding it to queue.
@@ -450,13 +596,13 @@ class MusicPlayer(BasePlugin):
         """
         if self.player and self.player.error:
             print(self.player.error)
-        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         if self.player and not self.player.is_done() or len(self.queue) > 0:
             try:
-                t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
-                                                            before_options=before_args,
-                                                            after=lambda: t_loop.create_task(self.play_next(data)))
+                t_player = await self.create_player(vid, ytdl_options=self.ytdl_options,
+                                                    before_options=before_args,
+                                                    after=lambda: t_loop.create_task(self.play_next(data)))
             except DownloadError:
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
                 return
@@ -480,9 +626,9 @@ class MusicPlayer(BasePlugin):
             # self.logger.debug(time.time() - self.time_started)
             # creates a player with a callback to play next video
             try:
-                self.player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
-                                                               before_options=before_args,
-                                                               after=lambda: t_loop.create_task(self.play_next(data)))
+                self.player = await self.create_player(vid, ytdl_options=self.ytdl_options,
+                                                       before_options=before_args,
+                                                       after=lambda: t_loop.create_task(self.play_next(data)))
             except DownloadError:
                 await respond(self.client, data, "**NEGATIVE. Could not load song.**")
                 return
@@ -498,6 +644,9 @@ class MusicPlayer(BasePlugin):
                 self.player.stop()
                 await respond(self.client, data, f"**NEGATIVE. ANALYSIS: Song over the maximum duration of "
                                                  f"{self.max_length//60}:{self.max_length%60:02d}.**")
+
+    async def add_queue(self, players, data):
+        pass
 
     async def play_next(self, data):
         if len(self.queue) > 0:
@@ -516,34 +665,50 @@ class MusicPlayer(BasePlugin):
             await respond(self.client, data, "**ANALYSIS: Queue complete.**")
 
     async def add_song(self, vid, data):
-        before_args = " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
+        before_args = ""  # " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         t_loop = asyncio.get_event_loop()
         try:
-            t_player = await self.vc.create_ytdl_player(vid, ytdl_options=self.ytdl_options,
-                                                        before_options=before_args,
-                                                        after=lambda: t_loop.create_task(
-                                                                self.play_next(data)))
+            t_player = await self.create_player(vid, ytdl_options=self.ytdl_options,before_options=before_args,
+                                                after=lambda: t_loop.create_task(self.play_next(data)))
         except DownloadError:
             await respond(self.client, data, "**NEGATIVE. Could not load song.**")
             return
-        self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
         t_player.author = data.author.id
+        self.logger.info(f"Adding {t_player.title} to music queue. Submitted by {t_player.author}.")
         self.queue.append(t_player)
 
     def start_timer(self, loop):
         asyncio.set_event_loop(loop)
         try:
             loop.run_until_complete(self.display_time())
-        except:
-            pass
+        except Exception as e:
+            self.logger.error(f"ERROR {e}")
 
     async def display_time(self):
         """
         Updates client status every ten seconds based on music status.
+        Also runs the every-few-second stuff
         """
         playing = True
         while self.run_timer:
             await asyncio.sleep(10)
+
+            # check old songs
+
+            del_list = []
+            for song, time_added in self.storage["stored_songs"].items():
+                if time.time() - time_added > self.plugin_config["download_songs_timeout"]:
+                    del_list.append(song)
+            for song in del_list:
+                try:
+                    os.remove(song)
+                    self.storage["stored_songs"].pop(song)
+                    print(f"Attempting to remove {song}.")
+                except Exception as e:
+                    err = e if e else "Some error happened."
+                    self.logger.error(err)
+
+            # time display
             game = None
             if self.player and not self.player.is_done():
                 if self.player.is_playing():
@@ -620,11 +785,15 @@ class MusicPlayer(BasePlugin):
         return self.vc and self.vc.is_connected() and author in self.vc.channel.voice_members
 
     def check_ban(self, uid):
-        return uid in self.storage["banned_members"]
+        if "banned_members" in self.storage:
+            return uid in self.storage["banned_members"]
+        else:
+            self.storage["banned_members"] = set()
+            return False
 
     def find_member(self, uid):
         for member in self.client.get_all_members():
-            if member.nick.find(uid) > -1 or member.id == uid:
+            if member.display_name.find(uid) > -1 or member.id == uid:
                 return member
         else:
             return None
