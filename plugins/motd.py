@@ -112,19 +112,47 @@ class MOTD(BasePlugin):
             self.logger.debug(day)
             raise SyntaxError("Month or day is invalid. Please use full names.")
 
+    @Command("addholiday",
+             doc="Adds a holiday. Holidays do not draw from the \"any-day\" MotD pools.",
+             perms={"manage_server"},
+             category="bot_management",
+             syntax="(month/Any) (day/weekday/Any)")
+    async def _addholiday(self, data):
+        args = data.clean_content.split()[1:]
+        try:
+            month = args[0].capitalize()
+            day = args[1].capitalize()
+        except IndexError:
+            raise SyntaxError
+        if month not in self.valid_months or day not in self.valid_days:
+            self.logger.debug(month)
+            self.logger.debug(day)
+            raise SyntaxError("Month or day is invalid. Please use full names.")
+        holidaystr = month + "/" + day
+        if holidaystr not in self.motds["holidays"]:
+            self.motds["holidays"].append(holidaystr)
+            await respond(self.client, data, f"**ANALYSIS: Holiday {holidaystr} added successfully.**")
+        else:
+            await respond(self.client, data, f"**ANALYSIS: {holidaystr} is already a holiday.**")
+
     @Command("testmotds",
              doc="Used for testing MOTD lines.",
              perms={"manage_server"},
              category="debug",
-             syntax="(month/Any) (day/weekday/Any)")
+             syntax="(month/Any) (day/Any) (weekday/Any)")
     async def _testmotd(self, data):
         try:
             args = data.clean_content.split()[1:]
-            month = args[0]
-            day = args[1]
-            weekday = args[2]
+            month = args[0].capitalize()
+            day = args[1].capitalize()
+            weekday = args[2].capitalize()
+            if month not in self.valid_months or day not in self.valid_days or weekday not in self.valid_days:
+                raise SyntaxError("One of the arguments is not valid.")
+            month = "" if month == "Any" else month
+            day = "" if day == "Any" else day
+            weekday = "" if weekday == "Any" else weekday
         except IndexError:
-            raise SyntaxError
+            raise SyntaxError("Missing arguments.")
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
             await respond(self.client, data, choice(holiday_lines))
