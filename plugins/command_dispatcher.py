@@ -7,8 +7,7 @@ class CommandDispatcher(BasePlugin):
     name = "command_dispatcher"
     default_config = {
         "command_prefix": "!",
-        "use_command_channel": True,
-        "command_channel": ""
+        "use_command_channel": True
     }
 
     async def activate(self):
@@ -88,9 +87,9 @@ class CommandDispatcher(BasePlugin):
         except KeyError:
             return
         try:
-            if self.plugin_config.use_command_channel:
-                chan = self.client.get_channel(self.plugin_config.command_channel)
-                if not fn.run_anywhere and data.channel != chan:
+            if self.plugin_config.use_command_channel and not fn.run_anywhere:
+                cmd_channel = self.plugins.channel_manager.get_channel(data.server, "commands")
+                if data.channel != cmd_channel:
                     return
             await fn(data)
             if fn.delcall:

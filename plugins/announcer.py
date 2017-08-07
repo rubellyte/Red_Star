@@ -8,35 +8,29 @@ class Announcer(BasePlugin):
     default_config = {
         "greeting_enabled": True,
         # UFP distributed command AI ONLINE. DESIGNATION: Red Star. MINE SHALL BE THE FINAL WORD.
-        "greeting_message": "Sample message to be broadcasted on bot load.", 
-        "greeting_channel": "CHANNEL ID AS STRING",
+        "greeting_message": "Sample message to be broadcasted on bot load.",
         "new_member_announce_enabled": True,
         # GREETINGS, <usermention>. Welcome to Ivaldi RP.
         "new_member_announce_message": "Message for new players. Replaces"
-        " <username> with their name and <usermention> with a mention.",
-        "new_member_announce_channel": "CHANNEL ID AS STRING"
+        " <username> with their name and <usermention> with a mention."
     }
 
     async def activate(self):
         c = self.plugin_config
         if c.greeting_enabled:
-            self.greet_channel = self.client.get_channel(c.greeting_channel)
             asyncio.ensure_future(self._greet())
-        if c.new_member_announce_enabled:
-            self.new_member_announce_channel = self.client.get_channel(c.new_member_announce_channel)
 
     async def _greet(self):
-            try:
-                c = self.plugin_config
-                await self.client.send_message(self.greet_channel, c.greeting_message)
-            except TypeError:
-                self.logger.error("Greeting channel invalid!")
+            msg = self.plugin_config.greeting_message
+            for server in self.client.servers:
+                greet_channel = self.plugins.channel_manager.get_channel(server, "default")
+                await self.client.send_message(greet_channel, msg)
 
     # Event hooks
 
     async def on_member_join(self, data):
         if self.plugin_config.new_member_announce_enabled:
-            c = self.plugin_config
-            msg = c.new_member_announce_message
+            msg = self.plugin_config.new_member_announce_message
             msg = sub_user_data(data, msg)
-            await self.client.send_message(self.new_member_announce_channel, msg)
+            chan = self.plugins.channel_manager.get_channel(data.server, "welcome")
+            await self.client.send_message(chan, msg)

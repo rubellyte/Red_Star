@@ -10,8 +10,7 @@ from utils import Command, respond
 class MOTD(BasePlugin):
     name = "motd"
     default_config = {
-        "motd_file": "config/motds.json",
-        "motd_channel": "CHANNEL ID HERE"
+        "motd_file": "config/motds.json"
     }
 
     async def activate(self):
@@ -52,9 +51,10 @@ class MOTD(BasePlugin):
         day = str(today.day)
         weekday = today.strftime("%A")
         holiday_lines = self._get_holiday(month, day, weekday)
-        chan = self.client.get_channel(self.plugin_config.motd_channel)
         if holiday_lines:
-            asyncio.ensure_future(self.client.send_message(chan, choice(holiday_lines)))
+            for server in self.client.servers:
+                chan = self.plugins.channel_manager.get_channel(server, "default")
+                asyncio.ensure_future(self.client.send_message(chan, choice(holiday_lines)))
         else:
             lines = []
             lines += self.motds.get("Any", {}).get("Any", [])
@@ -63,7 +63,9 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get("Any", [])
             lines += self.motds.get(month, {}).get(day, [])
             lines += self.motds.get(month, {}).get(weekday, [])
-            asyncio.ensure_future(self.client.send_message(chan, choice(lines)))
+            for server in self.client.servers:
+                chan = self.plugins.channel_manager.get_channel(server, "default")
+                asyncio.ensure_future(self.client.send_message(chan, choice(lines)))
 
     def _get_holiday(self, month, day, weekday):
         holidays = self.motds["holidays"]
