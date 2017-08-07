@@ -17,29 +17,26 @@ class ChannelManager(BasePlugin):
     def _add_server(self, server):
         if server.id not in self.plugin_config:
             self.plugin_config[server.id] = DotDict({
-                "name": server.name,
-                "channels": {
-                    "default": server.default_channel.id
-                }
+                "default": server.default_channel.id
             })
             if server.afk_channel:
-                self.plugin_config[server.id].channels["voice_afk"] = server.afk_channel.id
+                self.plugin_config[server.id].voice_afk = server.afk_channel.id
             self.config_manager.save_config()
 
     def get_channel(self, server, type):
         if server.id not in self.plugin_config:
             self._add_server(server)
-        if type.lower() in self.plugin_config[server.id].channels:
-            chan = self.plugin_config[server.id].channels[type.lower()]
+        if type.lower() in self.plugin_config[server.id]:
+            chan = self.plugin_config[server.id][type.lower()]
             return self.client.get_channel(chan)
         else:
-            self.plugin_config[server.id].channels[type.lower()] = None
+            self.plugin_config[server.id][type.lower()] = None
             return None
 
     def set_channel(self, server, type, channel):
         if server.id not in self.plugin_config:
             self._add_server(server)
-        self.plugins[server.id].channels[type.lower()] = channel.id
+        self.plugins[server.id][type.lower()] = channel.id
         self.config_manager.save_config()
 
     @Command("get_channel",
@@ -54,7 +51,7 @@ class ChannelManager(BasePlugin):
             self._add_server(data.server)
         if chantype:
             try:
-                chan = self.client.get_channel(self.plugin_config[data.server.id].channels[chantype])
+                chan = self.client.get_channel(self.plugin_config[data.server.id][chantype])
                 if chan:
                     await respond(self.client, data, f"**ANALYSIS: The {chantype} channel for this server is "
                                                      f"{chan.mention}.**")
@@ -64,9 +61,9 @@ class ChannelManager(BasePlugin):
             except KeyError:
                 await respond(self.client, data, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
         else:
-            self.logger.debug(self.plugin_config[data.server.id].channels)
+            self.logger.debug(self.plugin_config[data.server.id])
             chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name}"
-                                   for x, y in self.plugin_config[data.server.id].channels.items() if y is not None])
+                                   for x, y in self.plugin_config[data.server.id].items() if y is not None])
             await respond(self.client, data, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
     @Command("set_channel",
@@ -93,7 +90,7 @@ class ChannelManager(BasePlugin):
                 raise SyntaxError("No channel provided.")
         if data.server.id not in self.plugin_config:
             self._add_server(data.server)
-        self.plugin_config[data.server.id].channels[chantype] = channel.id
+        self.plugin_config[data.server.id][chantype] = channel.id
         self.config_manager.save_config()
         await respond(self.client, data, f"**ANALYSIS: The {chantype} channel for this server has been set to "
                                          f"{channel.mention}.**")

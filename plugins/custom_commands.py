@@ -53,7 +53,7 @@ class CustomCommands(BasePlugin):
             cnt = data.content
             if cnt.startswith(deco):
                 cmd = cnt[len(deco):].split()[0].lower()
-                if cmd in self.ccs:
+                if cmd in self.ccs[data.server.id]:
                     await self.run_cc(cmd, data)
                 else:
                     await respond(self.client, data, f"**WARNING: No such custom command {cmd}.**")
@@ -74,7 +74,7 @@ class CustomCommands(BasePlugin):
             content = " ".join(args[1:])
         except IndexError:
             raise SyntaxError("No content provided.")
-        if name in self.ccs:
+        if name in self.ccs[data.server.id]:
             await respond(self.client, data, f"**WARNING: Custom command {args[0]} already exists.**")
         else:
             newcc = {
@@ -86,7 +86,9 @@ class CustomCommands(BasePlugin):
                 "locked": False,
                 "times_run": 0
             }
-            self.ccs[args[0].lower()] = newcc
+            if data.server.id not in self.ccs:
+                self.ccs[data.server.id] = {}
+            self.ccs[data.server.id][args[0].lower()] = newcc
             self._save_ccs()
             await respond(self.client, data, f"**ANALYSIS: Custom command {name} created successfully.**")
 
@@ -104,12 +106,12 @@ class CustomCommands(BasePlugin):
             content = " ".join(args[1:])
         except IndexError:
             raise SyntaxError("No content provided.")
-        if name in self.ccs:
-            ccdata = self.ccs[name]
+        if name in self.ccs[data.server.id]:
+            ccdata = self.ccs[data.server.id][name]
             if ccdata["author"] == data.author.id or data.author.server_permissions.manage_messages:
                 ccdata["content"] = content
                 ccdata["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
-                self.ccs[name] = ccdata
+                self.ccs[data.server.id][name] = ccdata
                 self._save_ccs()
                 await respond(self.client, data, f"**ANALYSIS: Custom command {name} edited successfully.**")
             else:
@@ -126,9 +128,10 @@ class CustomCommands(BasePlugin):
             name = data.clean_content.split()[1].lower()
         except IndexError:
             raise SyntaxError("No name provided.")
-        if name in self.ccs:
-            if self.ccs[name]["author"] == data.author.id or data.author.server_permissions.manage_messages:
-                del self.ccs[name]
+        if name in self.ccs[data.server.id]:
+            if self.ccs[data.server.id][name]["author"] == data.author.id or \
+                    data.author.server_permissions.manage_messages:
+                del self.ccs[data.server.id][name]
                 self._save_ccs()
                 await respond(self.client, data, f"**ANALYSIS: Custom command {name} deleted successfully.**")
             else:
@@ -145,8 +148,8 @@ class CustomCommands(BasePlugin):
             name = data.clean_content.split()[1].lower()
         except IndexError:
             raise SyntaxError("No name provided.")
-        if name in self.ccs:
-            ccdata = self.ccs[name]
+        if name in self.ccs[data.server.id]:
+            ccdata = self.ccs[data.server.id][name]
             last_edited = f"Last Edited: {ccdata['last_edited']}\n" if ccdata["last_edited"] else ""
             cc_locked = "Yes" if ccdata["locked"] else "No"
             author = discord.utils.get(data.server.members, id=ccdata["author"])
@@ -170,7 +173,7 @@ class CustomCommands(BasePlugin):
         if not search:
             raise SyntaxError("No search provided.")
         res = []
-        for cc in self.ccs.keys():
+        for cc in self.ccs[data.server.id].keys():
             if search in cc:
                 res.append(cc)
         if res:
@@ -189,9 +192,9 @@ class CustomCommands(BasePlugin):
             name = data.clean_content.split()[1].lower()
         except IndexError:
             raise SyntaxError("No name provided.")
-        if name in self.ccs:
-            self.ccs[name]["locked"] = not self.ccs[name]["locked"]
-            lock_status = "locked" if self.ccs[name]["locked"] else "unlocked"
+        if name in self.ccs[data.server.id]:
+            self.ccs[data.server.id][name]["locked"] = not self.ccs[data.server.id][name]["locked"]
+            lock_status = "locked" if self.ccs[data.server.id][name]["locked"] else "unlocked"
             await respond(self.client, data, f"**ANALYSIS: Custom command {name} has been {lock_status}.**")
         else:
             await respond(self.client, data, f"**WARNING: No such custom command {name}.**")
@@ -199,10 +202,10 @@ class CustomCommands(BasePlugin):
     # Custom command machinery
 
     async def run_cc(self, cmd, data):
-        if self.ccs[cmd]["locked"] and not data.author.server_permissions.manage_messages:
+        if self.ccs[data.server.id][cmd]["locked"] and not data.author.server_permissions.manage_messages:
             await respond(self.client, data, f"**WARNING: Custom command {cmd} is locked.**")
         else:
-            ccdat = self.ccs[cmd]["content"]
+            ccdat = self.ccs[data.server.id][cmd]["content"]
             try:
                 res = self._find_tags(ccdat, data)
             except (SyntaxError, SyntaxWarning) as e:
@@ -214,7 +217,7 @@ class CustomCommands(BasePlugin):
             else:
                 await respond(self.client, data, res)
                 self.args = None
-                self.ccs[cmd]["times_run"] += 1
+                self.ccs[data.server.id][cmd]["times_run"] += 1
                 self._save_ccs()
 
     def _save_ccs(self):
@@ -285,11 +288,11 @@ class CustomCommands(BasePlugin):
         return msg.author.mention
 
     def _authorname(self, args, msg):
-        author = self.ccs[msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
+        author = self.ccs[msg.server.id][msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
         return discord.utils.get(msg.server.members, id=author).name
 
     def _authornick(self, args, msg):
-        author = self.ccs[msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
+        author = self.ccs[msg.server.id][msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
         return discord.utils.get(msg.server.members, id=author).display_name
 
     def _if(self, args, msg):
