@@ -231,9 +231,14 @@ class MusicPlayer(BasePlugin):
                 vol = 0
             if vol > 200:
                 raise SyntaxError("Expected integer value between 0 and 200!")
+            oldvol = self.volume
             self.volume = vol
             if self.player:
                 self.player.volume = vol / 100
+            if oldvol != self.volume:
+                await respond(self.client, data, f"**ANALYSIS: Volume set from {oldvol}% to {self.volume}%.**")
+            else:
+                await respond(self.client, data, f"**ANALYSIS: Volume is already set to {self.volume}%.**")
         else:
             await respond(self.client, data, f"**ANALYSIS: Current volume: {self.volume}%.**")
 
