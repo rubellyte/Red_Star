@@ -84,7 +84,7 @@ class BotManagement(BasePlugin):
                                          f"Inactive: {inactive_plgs}\n```")
 
     @Command("get_config",
-             doc="Gets the config value at the specified path.",
+             doc="Gets the config value at the specified path. Use <server> to fill in the server ID.",
              syntax="(path/to/value)",
              category="bot_management",
              perms={"manage_server"})
@@ -92,6 +92,7 @@ class BotManagement(BasePlugin):
         conf = self.config_manager.config
         args = data.clean_content.split()[1:]
         path = args[0]
+        path = path.replace("<server>", data.server.id)
         if path.startswith("/"):
             path = path[1:]
         path = path.split("/")
@@ -112,29 +113,26 @@ class BotManagement(BasePlugin):
         await respond(self.client, data, f"**ANALYSIS: Value of {args[0]}:** `{val}`")
 
     @Command("set_config",
-             doc="Edits the config key at the specified path.",
+             doc="Edits the config key at the specified path. Use <server> to fill in the server ID.",
              syntax="(path/to/edit) (value)",
              category="bot_management",
              perms={"manage_server"})
     async def _set_config(self, data):
         conf = self.config_manager.config
         args = data.clean_content.split()[1:]
-        self.logger.debug(args)
         try:
             path = args[0]
+            path = path.replace("<server>", data.server.id)
             if path.startswith("/"):
                 path = path[1:]
             path = path.split("/")
-            self.logger.debug(path)
             key = path.pop()
-            self.logger.debug(key)
             value = " ".join(args[1:])
             if not value:
                 raise SyntaxError("Missing new config value.")
         except IndexError:
             raise SyntaxError("Missing path to config value.")
         val = conf
-        self.logger.debug(path)
         for k in path:
             try:
                 val = val[k]
