@@ -149,16 +149,39 @@ class BotManagement(BasePlugin):
             except KeyError:
                 raise SyntaxError(f"Path {args[0]} is invalid.")
         try:
-            val[key] = value
+            orig = val[key]
         except TypeError:
             try:
-                i = int(key)
-                val[i] = value
+                key = int(key)
+                orig = val[key]
             except ValueError:
                 raise SyntaxError(f"{k} is not a valid integer.")
             except IndexError:
                 raise SyntaxError(f"Path {args[0]} is invalid.")
         except KeyError:
             raise SyntaxError(f"Path {args[0]} is invalid.")
+        if isinstance(orig, str):
+            val[key] = value
+        elif isinstance(orig, bool):
+            if value.lower() == "true":
+                val[key] = True
+            elif value.lower() == "false":
+                val[key] = False
+            else:
+                raise SyntaxError(f"{value} is not a valid boolean value (true/false).")
+        elif isinstance(orig, int):
+            try:
+                value = int(value)
+                val[key] = value
+            except ValueError:
+                raise SyntaxError(f"{value} is not a valid integer.")
+        elif isinstance(orig, float):
+            try:
+                value = float(value)
+                val[key] = value
+            except ValueError:
+                raise SyntaxError(f"{value} is not a valid floating-point number.")
+        else:
+            raise SyntaxError(f"{args[0]} is an object or array.")
         self.config_manager.save_config()
         await respond(self.client, data, f"**ANALYSIS: Config value {args[0]} edited to** `{value}` **successfully.**")
