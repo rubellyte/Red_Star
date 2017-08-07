@@ -603,7 +603,7 @@ class MusicPlayer(BasePlugin):
                     t_player.is_live = bool(info.get('is_live'))
                     t_player.likes = info.get('like_count')
                     t_player.dislikes = info.get('dislike_count')
-                    t_player.duration = info.get('duration', 0)
+                    t_player.duration = ceil(info.get('duration', 0))
                     t_player.uploader = info.get('uploader')
 
                     is_twitch = 'twitch' in url
@@ -645,7 +645,7 @@ class MusicPlayer(BasePlugin):
             player.is_live = bool(info.get('is_live'))
             player.likes = info.get('like_count')
             player.dislikes = info.get('dislike_count')
-            player.duration = info.get('duration')
+            player.duration = ceil(info.get('duration', 0))
             player.uploader = info.get('uploader')
 
             is_twitch = 'twitch' in url
