@@ -70,6 +70,27 @@ def sub_user_data(user, text):
     return text
 
 
+def find_user(server, search, return_all=False):
+    """
+    Convenience function to find users via several checks.
+    :param server: The discord.Server object in which to search.
+    :param search: The search string.
+    :param return_all: Whether to return all users that match the criteria or just the first one.
+    :return: discord.Member: The Member that matches the criteria, or none.
+    """
+    funcs = (lambda x: x.id == search, lambda x: x.mention == search, lambda x: str(x).lower() == search.lower(),
+             lambda x: x.display_name.lower() == search.lower(), lambda x: x.name.lower() == search.lower())
+    final = []
+    for func in funcs:
+        found = tuple(filter(func, server.members))
+        if found:
+            if return_all:
+                final += found
+            else:
+                return found[0]
+    return final
+
+
 async def respond(client, data, response, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain

@@ -196,7 +196,7 @@ class RoleCommands(BasePlugin):
         else:
             raise SyntaxError
 
-    @Command("roleinfo","inforole",
+    @Command("roleinfo", "inforole",
              category="roles",
              syntax="(role name).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Returns all the info about the given role.")
@@ -234,7 +234,7 @@ class RoleCommands(BasePlugin):
         else:
             raise SyntaxError
 
-    @Command("listroles","listrole",
+    @Command("listroles", "listrole",
              category="roles",
              perms={"manage_roles"},
              doc="Lists all roles.")

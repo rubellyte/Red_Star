@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, process_args, split_message
+from utils import Command, respond, process_args, split_message, find_user
 from youtube_dl.utils import DownloadError
 import discord.game
 from random import choice
@@ -395,13 +395,10 @@ class MusicPlayer(BasePlugin):
         args = process_args(data.content.split())
         t_string = ""
         for uid in args[1:]:
-            t_member = self.find_member(uid)
+            t_member = find_user(data.server, uid)
             if t_member:
                 self.storage["banned_members"].add(t_member.id)
                 t_string = f"{t_string} <@{t_member.id}>\n"
-        for t_member in data.mentions:
-            self.storage["banned_members"].add(t_member.id)
-            t_string = f"{t_string} <@{t_member.id}>"
         await respond(self.client, data, f"**AFFIRMATIVE. Users banned from using music module:**\n"
                                          f"{t_string}")
 
@@ -413,13 +410,10 @@ class MusicPlayer(BasePlugin):
         args = process_args(data.content.split())
         t_string = ""
         for uid in args[1:]:
-            t_member = self.find_member(uid)
+            t_member = find_user(data.server, uid)
             if t_member:
                 self.storage["banned_members"].remove(t_member.id)
                 t_string = f"{t_string} <@{t_member.id}>\n"
-        for t_member in data.mentions:
-            self.storage["banned_members"].remove(t_member.id)
-            t_string = f"{t_string} <@{t_member.id}>"
         await respond(self.client, data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n"
                                          f"{t_string}")
 
@@ -912,10 +906,3 @@ class MusicPlayer(BasePlugin):
         else:
             self.storage["banned_members"] = set()
             return False
-
-    def find_member(self, uid):
-        for member in self.client.get_all_members():
-            if member.display_name.find(uid) > -1 or member.id == uid:
-                return member
-        else:
-            return None

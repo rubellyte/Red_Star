@@ -26,7 +26,7 @@ class DiscordLogger(BasePlugin):
 
     async def on_message_delete(self, msg):
         if "message_delete" in self.log_events and msg.author != self.client.user:
-            uname = f"{msg.author.name}#{msg.author.discriminator}"
+            uname = str(msg.author)
             contents = msg.clean_content
             self.logger.debug(f"User {uname}'s message was deleted. Contents: {contents}")
             await self.client.send_message(self.log_channel,
@@ -35,7 +35,7 @@ class DiscordLogger(BasePlugin):
 
     async def on_message_edit(self, before, after):
         if "message_edit" in self.log_events and after.author != self.client.user:
-            uname = f"{after.author.name}#{after.author.discriminator}"
+            uname = str(after.author)
             old_contents = before.clean_content
             contents = after.clean_content
             if old_contents == contents:
@@ -49,12 +49,12 @@ class DiscordLogger(BasePlugin):
 
     async def on_member_join(self, user):
         if "member_join" in self.log_events:
-            uname = f"{user.name}#{user.discriminator}"
+            uname = str(user)
             self.logger.debug(f"User {uname} joined the server.")
             await self.client.send_message(self.log_channel, f"**NEW USER DETECTED: {uname}.**")
 
     async def on_member_remove(self, user):
         if "member_remove" in self.log_events:
-            uname = f"{user.name}#{user.discriminator}"
+            uname = str(user)
             self.logger.debug(f"User {uname} left the server.")
             await self.client.send_message(self.log_channel, f"**User {uname} has left the server.**")
