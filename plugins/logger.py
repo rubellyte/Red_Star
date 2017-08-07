@@ -22,10 +22,17 @@ class DiscordLogger(BasePlugin):
             log_channel = self.plugins.channel_manager.get_channel(msg.server, "logs")
             uname = str(msg.author)
             contents = msg.clean_content
-            self.logger.debug(f"User {uname}'s message in {msg.channel.name} was deleted. Contents: {contents}")
+            attaches = ""
+            links = ""
+            if msg.attachments:
+                self.logger.debug(msg.attachments)
+                links = ", ".join([x["url"] for x in msg.attachments])
+                attaches = f"\n**Attachments:** `{links}`"
+            self.logger.debug(f"User {uname}'s message in {msg.channel.name} was deleted."
+                              f"\nContents: {contents}\nAttachments: {links}")
             await self.client.send_message(log_channel,
                                            f"**WARNING: User {uname}'s message in {msg.channel.mention} was deleted. "
-                                           f"ANALYSIS: Contents:**\n{contents}")
+                                           f"ANALYSIS: Contents:**\n{contents}{attaches}")
 
     async def on_message_edit(self, before, after):
         if "message_edit" in self.log_events and after.author != self.client.user:
