@@ -67,7 +67,7 @@ class ChannelManager(BasePlugin):
             self.logger.debug(self.plugin_config[data.server.id].channels)
             chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name}"
                                    for x, y in self.plugin_config[data.server.id].channels.items() if y is not None])
-            await respond(self.client, data, f"**ANALYSIS: Channel types for this server:```\n{chantypes}```")
+            await respond(self.client, data, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
     @Command("set_channel",
              doc="Sets the specified channel type to the specified channel for this server.",

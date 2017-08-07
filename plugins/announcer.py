@@ -1,6 +1,6 @@
 import asyncio
 from plugin_manager import BasePlugin
-from utils import sub_user_data
+from utils import sub_user_data, DotDict
 
 
 class Announcer(BasePlugin):
@@ -21,16 +21,27 @@ class Announcer(BasePlugin):
             asyncio.ensure_future(self._greet())
 
     async def _greet(self):
-            msg = self.plugin_config.greeting_message
             for server in self.client.servers:
+                if server.id not in self.plugin_config:
+                    self.plugin_config[server.id] = DotDict(self.default_config)
+                elif "greeting_message" not in self.plugin_config[server.id]:
+                    self.plugin_config[server.id].greeting_message = self.default_config["greeting_message"]
+                msg = self.plugin_config[server.id].greeting_message
                 greet_channel = self.plugins.channel_manager.get_channel(server, "default")
-                await self.client.send_message(greet_channel, msg)
+                if self.plugin_config[server.id].greeting_enabled:
+                    await self.client.send_message(greet_channel, msg)
 
     # Event hooks
 
     async def on_member_join(self, data):
         if self.plugin_config.new_member_announce_enabled:
-            msg = self.plugin_config.new_member_announce_message
+            if data.server.id not in self.plugin_config:
+                self.plugin_config[data.server.id] = DotDict(self.default_config)
+            if "new_member_announce_message" not in self.plugin_config[data.server.id]:
+                self.plugin_config[data.server.id].new_member_announce_message = \
+                    self.default_config["new_member_announce_message"]
+            msg = self.plugin_config[data.server.id].new_member_announce_message
             msg = sub_user_data(data, msg)
             chan = self.plugins.channel_manager.get_channel(data.server, "welcome")
-            await self.client.send_message(chan, msg)
+            if self.plugin_config[data.server.id].new_member_announce_enabled:
+                await self.client.send_message(chan, msg)
