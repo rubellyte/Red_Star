@@ -1,7 +1,7 @@
 import re
 import asyncio
 from plugin_manager import BasePlugin
-from utils import Command, respond
+from utils import Command, respond, find_user
 
 
 class AdminCommands(BasePlugin):
@@ -26,24 +26,26 @@ class AdminCommands(BasePlugin):
         except ValueError:
             raise SyntaxError("Count to delete is not a valid number.")
         if len(cnt) > 2:
-            self.searchstr = " ".join(cnt[2:])
+            searchstr = " ".join(cnt[2:])
         else:
-            self.searchstr = ""
+            searchstr = ""
         await self.client.delete_message(data)
         deleted = await self.client.purge_from(
-            data.channel, limit=count, check=self.search)
+            data.channel, limit=count, check=lambda x: self.search(x, searchstr))
         self.searchstr = ""
         fb = await respond(self.client, data, f"**PURGE COMPLETE: {len(deleted)} messages purged.**")
         await asyncio.sleep(5)
         await self.client.delete_message(fb)
 
-    def search(self, data):
-        if self.searchstr:
-            if self.searchstr.startswith("re:"):
-                search = self.searchstr[3:]
-                self.logger.debug(search)
-                return re.match(search, data.content)
+    def search(self, msg, searchstr):
+        if searchstr:
+            if searchstr.startswith("re:"):
+                search = searchstr[3:]
+                return re.match(search, msg.content)
+            elif searchstr.startswith("author:"):
+                search = searchstr[7:]
+                return find_user(msg.server, search) == msg.author
             else:
-                return self.searchstr in data.content
+                return searchstr in msg.content
         else:
             return True
