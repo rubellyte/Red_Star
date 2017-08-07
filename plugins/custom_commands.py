@@ -5,7 +5,7 @@ import datetime
 from asyncio import ensure_future
 from plugin_manager import BasePlugin
 import discord.utils
-from utils import respond, Command
+from utils import respond, Command, DotDict
 
 
 class CustomCommands(BasePlugin):
@@ -48,7 +48,9 @@ class CustomCommands(BasePlugin):
     # Event hooks
 
     async def on_message(self, data):
-        deco = self.plugin_config.cc_prefix
+        if data.server.id not in self.plugin_config:
+            self.plugin_config[data.server.id] = DotDict({"cc_prefix": self.default_config["cc_prefix"]})
+        deco = self.plugin_config[data.server.id].cc_prefix
         if data.author != self.client.user:
             cnt = data.content
             if cnt.startswith(deco):

@@ -1,6 +1,6 @@
 import inspect
 from plugin_manager import BasePlugin
-from utils import respond
+from utils import respond, DotDict
 
 
 class CommandDispatcher(BasePlugin):
@@ -87,7 +87,7 @@ class CommandDispatcher(BasePlugin):
         except KeyError:
             return
         try:
-            if self.plugin_config.use_command_channel and not fn.run_anywhere:
+            if self.plugin_config[data.server.id].use_command_channel and not fn.run_anywhere:
                 cmd_channel = self.plugins.channel_manager.get_channel(data.server, "commands")
                 if data.channel != cmd_channel:
                     return
@@ -112,6 +112,8 @@ class CommandDispatcher(BasePlugin):
     # Event hooks
 
     async def on_message(self, data):
+        if data.server.id not in self.plugin_config:
+            self.plugin_config[data.server.id] = DotDict(self.default_config)
         deco = self.plugin_config.command_prefix
         if data.author != self.client.user:
             cnt = data.content
