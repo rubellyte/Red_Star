@@ -26,38 +26,37 @@ class RoleCommands(BasePlugin):
         """
         args = process_args(data.content.split())
         if len(args) > 1:
-            for server in self.client.servers:
-                for role in server.roles:
-                    if args[1].lower() == role.name.lower():  # found role
-                        t_dict = {}
-                        for arg in args[2:]:
-                            t_arg = arg.split("=")
-                            if len(t_arg) > 1:  # beautiful
-                                if t_arg[0].lower() == "name":
-                                    t_dict["name"] = t_arg[1]
-                                elif t_arg[0].lower() == "colour":
-                                    t_dict["colour"] = Colour(int(t_arg[1], 16))
-                                elif t_arg[0].lower() == "color":
-                                    t_dict["colour"] = Colour(int(t_arg[1], 16))
-                                elif t_arg[0].lower() == "hoist":
-                                    t_dict["hoist"] = t_arg[1].lower() == "true"
-                                elif t_arg[0].lower() == "mentionable":
-                                    t_dict["mentionable"] = t_arg[1].lower() == "true"
-                        if len(t_dict) == 0:  # you're wasting my time
-                            raise SyntaxError
-                        try:
-                            await self.client.edit_role(server, role, **t_dict)
-                        except Forbidden:
-                            raise PermissionError
-                        t_string = ""
-                        for k, v in t_dict.items():
-                            t_string = f"{t_string}{k}: {v!s}\n"
-                        name = args[1].capitalize()
-                        await respond(self.client, data,
-                                      f"**AFFIRMATIVE. Role {name} modified with parameters :**\n ```{t_string}```")
-                        break
-                else:
-                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+            for role in data.server.roles:
+                if args[1].lower() == role.name.lower():  # found role
+                    t_dict = {}
+                    for arg in args[2:]:
+                        t_arg = arg.split("=")
+                        if len(t_arg) > 1:  # beautiful
+                            if t_arg[0].lower() == "name":
+                                t_dict["name"] = t_arg[1]
+                            elif t_arg[0].lower() == "colour":
+                                t_dict["colour"] = Colour(int(t_arg[1], 16))
+                            elif t_arg[0].lower() == "color":
+                                t_dict["colour"] = Colour(int(t_arg[1], 16))
+                            elif t_arg[0].lower() == "hoist":
+                                t_dict["hoist"] = t_arg[1].lower() == "true"
+                            elif t_arg[0].lower() == "mentionable":
+                                t_dict["mentionable"] = t_arg[1].lower() == "true"
+                    if len(t_dict) == 0:  # you're wasting my time
+                        raise SyntaxError
+                    try:
+                        await self.client.edit_role(data.server, role, **t_dict)
+                    except Forbidden:
+                        raise PermissionError
+                    t_string = ""
+                    for k, v in t_dict.items():
+                        t_string = f"{t_string}{k}: {v!s}\n"
+                    name = args[1].capitalize()
+                    await respond(self.client, data,
+                                  f"**AFFIRMATIVE. Role {name} modified with parameters :**\n ```{t_string}```")
+                    break
+            else:
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
             raise SyntaxError
 
@@ -75,55 +74,54 @@ class RoleCommands(BasePlugin):
         """
         args = process_args(data.content.split())
         if len(args) > 2:
-            for server in self.client.servers:
-                for role in server.roles:
-                    if args[2].lower() == role.name.lower():
-                        # copying the existing role (especially permissions)
-                        t_dict = {
-                            "name": args[1],
-                            "permissions": role.permissions,
-                            "colour": role.colour,
-                            "hoist": role.hoist,
-                            "mentionable": role.mentionable,
-                            "position": role.position
-                        }
-                        for arg in args[3:]:
-                            t_arg = arg.split("=")
-                            if len(t_arg) > 1:  # beautiful
-                                if t_arg[0].lower() == "name":
-                                    t_dict["name"] = t_arg[1]
-                                elif t_arg[0].lower() == "colour":
-                                    t_dict["colour"] = Colour(int(t_arg[1], 16))
-                                elif t_arg[0].lower() == "color":
-                                    t_dict["colour"] = Colour(int(t_arg[1], 16))
-                                elif t_arg[0].lower() == "hoist":
-                                    t_dict["hoist"] = t_arg[1].lower() == "true"
-                                elif t_arg[0].lower() == "mentionable":
-                                    t_dict["mentionable"] = t_arg[1].lower() == "true"
-                        t_role = await self.client.create_role(server, **t_dict)
-                        try:
-                            # since I can't create a role with a preset position :T
-                            await self.client.move_role(server, t_role, t_dict["position"])
-                        except (InvalidArgument, HTTPException, Forbidden):
-                            # oh hey, why are we copying this role again?
-                            name = args[1].capitalize()
-                            await self.client.delete_role(server, t_role)
-                            await respond(self.client, data,
-                                          f'**WARNING: Failed to move role {name} to position {t_dict["position"]}.**')
-                            raise PermissionError  # yeah, we're not copying this
-                        t_string = ""
-                        for k, v in t_dict.items():
-                            if k != "permissions":
-                                t_string = f"{t_string}{k}: {v!s}\n"
-                            else:
-                                t_string += k + ": " + ", ".join({x.upper() for x, y in v if y}) + "\n"
+            for role in data.server.roles:
+                if args[2].lower() == role.name.lower():
+                    # copying the existing role (especially permissions)
+                    t_dict = {
+                        "name": args[1],
+                        "permissions": role.permissions,
+                        "colour": role.colour,
+                        "hoist": role.hoist,
+                        "mentionable": role.mentionable,
+                        "position": role.position
+                    }
+                    for arg in args[3:]:
+                        t_arg = arg.split("=")
+                        if len(t_arg) > 1:  # beautiful
+                            if t_arg[0].lower() == "name":
+                                t_dict["name"] = t_arg[1]
+                            elif t_arg[0].lower() == "colour":
+                                t_dict["colour"] = Colour(int(t_arg[1], 16))
+                            elif t_arg[0].lower() == "color":
+                                t_dict["colour"] = Colour(int(t_arg[1], 16))
+                            elif t_arg[0].lower() == "hoist":
+                                t_dict["hoist"] = t_arg[1].lower() == "true"
+                            elif t_arg[0].lower() == "mentionable":
+                                t_dict["mentionable"] = t_arg[1].lower() == "true"
+                    t_role = await self.client.create_role(data.server, **t_dict)
+                    try:
+                        # since I can't create a role with a preset position :T
+                        await self.client.move_role(data.server, t_role, t_dict["position"])
+                    except (InvalidArgument, HTTPException, Forbidden):
+                        # oh hey, why are we copying this role again?
                         name = args[1].capitalize()
+                        await self.client.delete_role(data.server, t_role)
                         await respond(self.client, data,
-                                      f"**AFFIRMATIVE. Created role {name} with parameters :**\n ```{t_string}```")
-                        break
-                else:
+                                      f'**WARNING: Failed to move role {name} to position {t_dict["position"]}.**')
+                        raise PermissionError  # yeah, we're not copying this
+                    t_string = ""
+                    for k, v in t_dict.items():
+                        if k != "permissions":
+                            t_string = f"{t_string}{k}: {v!s}\n"
+                        else:
+                            t_string += k + ": " + ", ".join({x.upper() for x, y in v if y}) + "\n"
+                    name = args[1].capitalize()
                     await respond(self.client, data,
-                                  f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
+                                  f"**AFFIRMATIVE. Created role {name} with parameters :**\n ```{t_string}```")
+                    break
+            else:
+                await respond(self.client, data,
+                              f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
         else:
             raise SyntaxError
 
@@ -141,24 +139,23 @@ class RoleCommands(BasePlugin):
                 try:
                     pos = int(args[2])
                 except ValueError:
-                    raise SyntaxWarning
-            for server in self.client.servers:
-                for role in server.roles:
-                    # delete if name matches, and if pos is not -1 - if position matches
-                    if (args[1].lower() == role.name.lower()) and (((pos >= 0) and (role.position == pos)) or pos < 0):
-                        t_position = role.position
-                        try:
-                            await self.client.delete_role(server, role)
-                        except Forbidden:
-                            raise PermissionError
-                        else:
-                            await respond(self.client, data,
-                                          f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
-                        break
-                else:
-                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
+                    raise SyntaxWarning("Position should be integer.")
+            for role in data.server.roles:
+                # delete if name matches, and if pos is not -1 - if position matches
+                if (args[1].lower() == role.name.lower()) and (((pos >= 0) and (role.position == pos)) or pos < 0):
+                    t_position = role.position
+                    try:
+                        await self.client.delete_role(data.server, role)
+                    except Forbidden:
+                        raise PermissionError
+                    else:
+                        await respond(self.client, data,
+                                      f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
+                    break
+            else:
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
-            raise SyntaxError
+            raise SyntaxError("Expected role name.")
 
     @Command("moverole",
              perms={"manage_roles"},
@@ -174,27 +171,26 @@ class RoleCommands(BasePlugin):
             try:
                 new_position = int(args[2])
             except ValueError:
-                raise SyntaxError
-            for server in self.client.servers:
-                for role in server.roles:
-                    if args[1].lower() == role.name.lower():
-                        t_position = role.position
-                        try:
-                            await self.client.move_role(server, role, new_position)
-                        except (InvalidArgument, HTTPException, Forbidden):
-                            name = args[1].capitalize()
-                            await respond(self.client, data,
-                                          f'**WARNING: Failed to move role {name} to position {new_position}.**')
-                            raise PermissionError
-                        else:
-                            name = args[1].capitalize()
-                            await respond(self.client, data,
-                                          f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
-                        break
-                else:
-                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+                raise SyntaxError("Position should be integer.")
+            for role in data.server.roles:
+                if args[1].lower() == role.name.lower():
+                    t_position = role.position
+                    try:
+                        await self.client.move_role(data.server, role, new_position)
+                    except (InvalidArgument, HTTPException, Forbidden):
+                        name = args[1].capitalize()
+                        await respond(self.client, data,
+                                      f'**WARNING: Failed to move role {name} to position {new_position}.**')
+                        raise PermissionError
+                    else:
+                        name = args[1].capitalize()
+                        await respond(self.client, data,
+                                      f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
+                    break
+            else:
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
-            raise SyntaxError
+            raise SyntaxError("Expected position.")
 
     @Command("roleinfo", "inforole",
              category="roles",
@@ -207,30 +203,29 @@ class RoleCommands(BasePlugin):
         args = process_args(data.content.split())
         if len(args) > 1:
             name = capwords(args[1])
-            for server in self.client.servers:
-                for role in server.roles:
-                    if args[1].lower() == role.name.lower():
-                        t_dict = {
-                            "name": role.name,
-                            "permissions": role.permissions,
-                            "colour": role.colour,
-                            "hoist": role.hoist,
-                            "mentionable": role.mentionable,
-                            "position": role.position,
-                            "created_at": role.created_at,
-                            "id": role.id
-                        }
-                        t_string = ""
-                        for k, v in t_dict.items():
-                            if k != "permissions":
-                                t_string = f"{t_string}{k}: {v!s}\n"
-                            else:
-                                t_string += k + ": " + ", ".join({x.upper() for x, y in v if y}) + "\n"
-                        await respond(self.client, data,
-                                      f"**ANALYSIS: role {name} has parameters :**\n ```{t_string}```")
-                        break
-                else:
-                    await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
+            for role in data.server.roles:
+                if args[1].lower() == role.name.lower():
+                    t_dict = {
+                        "name": role.name,
+                        "permissions": role.permissions,
+                        "colour": role.colour,
+                        "hoist": role.hoist,
+                        "mentionable": role.mentionable,
+                        "position": role.position,
+                        "created_at": role.created_at,
+                        "id": role.id
+                    }
+                    t_string = ""
+                    for k, v in t_dict.items():
+                        if k != "permissions":
+                            t_string = f"{t_string}{k}: {v!s}\n"
+                        else:
+                            t_string += k + ": " + ", ".join({x.upper() for x, y in v if y}) + "\n"
+                    await respond(self.client, data,
+                                  f"**ANALYSIS: role {name} has parameters :**\n ```{t_string}```")
+                    break
+            else:
+                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError
 
@@ -243,8 +238,7 @@ class RoleCommands(BasePlugin):
         lists all roles along with position and color
         """
         t_string = "**AFFIRMATIVE. Listing roles :**\n"
-        for server in self.client.servers:
-            for role in sorted(server.roles, key=lambda x: x.position):
-                t_string += f"`{role.name[:40].ljust(40)} [{role.position:02d} | {role.colour}]`\n"
+        for role in data.server.role_hierarchy:
+            t_string += f"`{role.name[:40].ljust(40)} [{role.position:02d} | {role.colour}]`\n"
         for t in split_message(t_string, splitter="\n"):
             await respond(self.client, data, t)
