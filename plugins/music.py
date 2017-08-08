@@ -24,7 +24,9 @@ class MusicPlayer(BasePlugin):
             'max_queue_length': 30,
             'default_volume': 15,
             'allow_pause': True,
-            'allow_playlists': True
+            'allow_playlists': True,
+            'idle_time': 30,  # seconds/10
+            'idle_terminate': 60  # seconds/10
         },
         'no_permission_lines': [
             "**NEGATIVE. Insufficient permissions for funky beats in channel: {}.**",
@@ -69,6 +71,8 @@ class MusicPlayer(BasePlugin):
         time_pause = 0  # time of pause start
         time_skip = 0  # total time spent paused
 
+        idle_count = 0
+
         volume = 10
 
         def __init__(self, parent, srv, config):
@@ -94,8 +98,8 @@ class MusicPlayer(BasePlugin):
             if self.vc:
                 await self.vc.disconnect()
             if self.config["force_music_channel"]:
-                m_channel = self.config["music_channel"]
-                m_channel = self.parent.get_channel(m_channel)
+                m_channel = self.parent.plugins.channel_manager.get_channel(self.server, "voice_music")
+                m_channel = self.parent.client.get_channel(m_channel)
             elif data.author.voice.voice_channel:
                 m_channel = data.author.voice.voice_channel
             else:
@@ -104,6 +108,8 @@ class MusicPlayer(BasePlugin):
             if perms.connect and perms.speak and perms.use_voice_activation:
                 try:
                     self.vc = await self.parent.client.join_voice_channel(m_channel)
+                    if self.player and not self.player.is_done() and not self.player.is_playing():
+                        self.player.resume()
                     return m_channel
                 except(InvalidArgument, ClientException):
                     self.parent.logger.exception("Error connecting to voice chat. ", exc_info=True)
@@ -121,6 +127,23 @@ class MusicPlayer(BasePlugin):
             """
             if self.vc:
                 await self.vc.disconnect()
+
+        async def check_connection(self):
+            if self.vc:
+                t_me = self.server.me
+                for t_member in self.vc.channel.voice_members:
+                    if t_member != t_me:
+                        self.idle_count = 0
+                        break
+                else:
+                    self.idle_count += 1
+                if self.idle_count == self.config["idle_time"]:
+                    self.pause_song()
+                    await self.disconnect()
+                    self.parent.logger.info(f"Leaving voice on {self.server.name} due to inactivity.")
+                if self.idle_count == self.config["idle_terminate"]:
+                    self.stop_song()
+                    self.parent.logger.info(f"Terminating queue on {self.server.name} due to inactivity.")
 
         # Playback functions
 
@@ -348,15 +371,14 @@ class MusicPlayer(BasePlugin):
         run_timer - keep running the timer coroutine
         """
         self.run_timer = True
-
-        loop = asyncio.new_event_loop()
-        self.timer = threading.Thread(target=self.start_timer, args=(loop,))
-        self.timer.setDaemon(True)
-        self.timer.start()
-
-        # stuff from config
         self.stream = c.twitch_stream
         self.players = {}
+
+        loop = asyncio.new_event_loop()
+        t_loop = asyncio.get_event_loop()
+        self.timer = threading.Thread(target=self.start_timer, args=[loop, t_loop])
+        self.timer.setDaemon(True)
+        self.timer.start()
 
         if "banned_members" not in self.storage:
             self.storage["banned_members"] = {}
@@ -866,14 +888,14 @@ class MusicPlayer(BasePlugin):
 
     # Utility functions
 
-    def start_timer(self, loop):
+    def start_timer(self, loop, t_loop):
         asyncio.set_event_loop(loop)
         try:
-            loop.run_until_complete(self.display_time())
+            loop.run_until_complete(self.display_time(t_loop))
         except Exception:
             self.logger.exception("Error starting timer. ", exc_info=True)
 
-    async def display_time(self):
+    async def display_time(self, t_loop):
         """
         Updates client status every ten seconds based on music status.
         Also runs the every-few-second stuff
@@ -895,6 +917,10 @@ class MusicPlayer(BasePlugin):
                         print(f"Attempting to remove {song}.")
                     except Exception:
                         self.logger.exception("Error pruning song cache. ", exc_info=True)
+
+            # check that people are still listening
+            for _, t_player in self.players.items():
+                asyncio.ensure_future(t_player.check_connection(), loop=t_loop)
 
             # time display (only if playing on *one* server, since status is cross-server
             if len(self.client.servers) == 1:
