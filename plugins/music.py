@@ -99,7 +99,6 @@ class MusicPlayer(BasePlugin):
                 await self.vc.disconnect()
             if self.config["force_music_channel"]:
                 m_channel = self.parent.plugins.channel_manager.get_channel(self.server, "voice_music")
-                m_channel = self.parent.client.get_channel(m_channel)
             elif data.author.voice.voice_channel:
                 m_channel = data.author.voice.voice_channel
             else:
