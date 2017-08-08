@@ -135,8 +135,8 @@ class MusicPlayer(BasePlugin):
                                                                   before_options=before_args,
                                                                   after=lambda: t_loop.create_task(self.play_next(
                                                                           data)))
-            except DownloadError:
-                self.parent.logger.exception("Error loading songs. ", exc_info=True)
+            except DownloadError as e:
+                self.parent.logger.info(f"Error loading songs. {e}")
                 return False
             t_count = len(t_players)
             t_added = 0
@@ -171,7 +171,7 @@ class MusicPlayer(BasePlugin):
             return t_queue + t_added, t_count if t_queue else False
 
         async def play_next(self, data):
-            if self.player and not self.player.is_done:
+            if self.player and not self.player.is_done():
                 self.player.stop()
             elif len(self.queue) > 0:
                 self.player = self.queue.pop(0)
@@ -220,8 +220,8 @@ class MusicPlayer(BasePlugin):
                                                                   before_options=before_args,
                                                                   after=lambda: t_loop.create_task(self.play_next(
                                                                           data)))
-            except DownloadError:
-                self.parent.logger.exception("Error loading songs. ", exc_info=True)
+            except DownloadError as e:
+                self.parent.logger.info(f"Error loading songs. {e}")
                 return False
             for t_player in t_players:
                 self.parent.logger.info(f"Adding {t_player.title} to music queue.")
@@ -522,7 +522,7 @@ class MusicPlayer(BasePlugin):
             t_string = f"QUEUE EMPTY"
         for s in split_message(t_string, "\n"):
             await respond(self.client, data, "```" + s + "```")
-        t_m, t_s = divmod(ceil(t_play.queue_length()), 60)
+        t_m, t_s = divmod(ceil(t_play.queue_length(t_play.queue)), 60)
         await respond(self.client, data, f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
 
     @Command("nowplaying",
