@@ -492,7 +492,7 @@ class MusicPlayer(BasePlugin):
     @Command("stopsong",
              category="music",
              doc="Stops the music and empties the queue."
-                 "\nRequires mute_members permission in the voice channel",
+                 "\nRequires mute_members permission in the voice channel.",
              syntax="(HARD) to erase the downloaded files.")
     async def _stopvc(self, data):
         if self.check_ban(data):
@@ -612,7 +612,7 @@ class MusicPlayer(BasePlugin):
              category="music",
              syntax="[queue index]",
              doc="Deletes a song from the queue by it's position number, starting from 1."
-                 "\nRequires mute_members permission in the voice channel")
+                 "\nRequires mute_members permission in the voice channel.")
     async def _delvc(self, data):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
@@ -680,7 +680,7 @@ class MusicPlayer(BasePlugin):
     @Command("appendqueue",
              category="music",
              doc="Appends a number of songs to the queue, takes output from dumpqueue."
-                 "\nRequires mute_members permission in the voice channel",
+                 "\nRequires mute_members permission in the voice channel.",
              syntax="[song] or [!\"ytsearch:song with spaces\"], accepts multiple.")
     async def _appendvc(self, data):
         if self.check_ban(data):
@@ -701,6 +701,23 @@ class MusicPlayer(BasePlugin):
                 await t_play.play_next(data)
         else:
             raise SyntaxError("Expected arguments!")
+
+    @Command("leavevc", "leavevoice",
+             category="music",
+             doc="Leaves voicechat.\nRequires mute_members permission in the voice channel to exit while playing.")
+    async def _leavevc(self, data):
+        if self.check_ban(data):
+            raise PermissionError("You are banned from using the music module.")
+        t_play = self.players[data.server.id]
+        if not t_play.player or t_play.player.is_done():
+            await t_play.disconnect()
+            await respond(self.client, data, "**AFFIRMATIVE. Leaving voice chat.**")
+        elif t_play.check_perm(data):
+            t_play.pause_song()
+            await t_play.disconnect()
+            await respond(self.client, data, "**AFFIRMATIVE. Override accepted. Leaving voice chat.**")
+        else:
+            await respond(self.client, data, "**NEGATIVE.**")
 
     # Music playing
 
