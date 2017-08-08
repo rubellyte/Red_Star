@@ -1,5 +1,6 @@
 import asyncio
 from plugin_manager import BasePlugin
+from plugins.channel_manager import ChannelNotFoundError
 from utils import sub_user_data, DotDict
 
 
@@ -27,9 +28,12 @@ class Announcer(BasePlugin):
                 elif "greeting_message" not in self.plugin_config[server.id]:
                     self.plugin_config[server.id].greeting_message = self.default_config["greeting_message"]
                 msg = self.plugin_config[server.id].greeting_message
-                greet_channel = self.plugins.channel_manager.get_channel(server, "default")
-                if self.plugin_config[server.id].greeting_enabled:
-                    await self.client.send_message(greet_channel, msg)
+                try:
+                    greet_channel = self.plugins.channel_manager.get_channel(server, "default")
+                    if self.plugin_config[server.id].greeting_enabled:
+                        await self.client.send_message(greet_channel, msg)
+                except ChannelNotFoundError:
+                    self.logger.error(f"Server {server.name} has no default channel set!")
 
     # Event hooks
 
@@ -42,6 +46,13 @@ class Announcer(BasePlugin):
                     self.default_config["new_member_announce_message"]
             msg = self.plugin_config[data.server.id].new_member_announce_message
             msg = sub_user_data(data, msg)
-            chan = self.plugins.channel_manager.get_channel(data.server, "welcome")
-            if self.plugin_config[data.server.id].new_member_announce_enabled:
-                await self.client.send_message(chan, msg)
+            try:
+                chan = self.plugins.channel_manager.get_channel(data.server, "welcome")
+                if self.plugin_config[data.server.id].new_member_announce_enabled:
+                    await self.client.send_message(chan, msg)
+            except ChannelNotFoundError:
+                try:
+                    chan = self.plugins.channel_manager.get_channel(data.server, "default")
+                    await self.client.send_message(chan, "**WARNING: No welcome channel is set.**")
+                except ChannelNotFoundError:
+                    self.logger.error(f"Server {data.server.name} has no welcome or default channel set!")

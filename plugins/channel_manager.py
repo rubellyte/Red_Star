@@ -4,6 +4,10 @@ from discord.enums import ChannelType
 from utils import respond, Command, DotDict
 
 
+class ChannelNotFoundError(TypeError):
+    pass
+
+
 class ChannelManager(BasePlugin):
     name = "channel_manager"
 
@@ -28,10 +32,12 @@ class ChannelManager(BasePlugin):
             self._add_server(server)
         if type.lower() in self.plugin_config[server.id]:
             chan = self.plugin_config[server.id][type.lower()]
-            return self.client.get_channel(chan)
+            chan = self.client.get_channel(chan)
+            if not chan:
+                raise ChannelNotFoundError(type.lower())
+            return chan
         else:
-            self.plugin_config[server.id][type.lower()] = None
-            return None
+            raise ChannelNotFoundError(type.lower())
 
     def set_channel(self, server, type, channel):
         if server.id not in self.plugin_config:

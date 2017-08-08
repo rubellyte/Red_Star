@@ -1,5 +1,6 @@
 import inspect
 from plugin_manager import BasePlugin
+from plugins.channel_manager import ChannelNotFoundError
 from utils import respond, DotDict
 
 
@@ -105,6 +106,8 @@ class CommandDispatcher(BasePlugin):
         except PermissionError as e:
             err = f"\nANALYSIS: {e}" if e else ""
             await respond(self.client, data, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
+        except ChannelNotFoundError as e:
+            await respond(self.client, data, f"**NEGATIVE. Channel type `{e}` is not set on this server.**")
         except Exception:
             self.logger.exception("Exception occurred in command. ", exc_info=True)
             await respond(self.client, data, "**WARNING: Error occurred while running command.**")
