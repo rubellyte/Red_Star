@@ -396,6 +396,25 @@ class MusicPlayer(BasePlugin):
         for k, player in self.players.items():
             await player.disconnect()
 
+    # Event functions
+
+    async def on_server_join(self, server):
+        if server.id not in self.plugin_config:
+            self.plugin_config[server.id] = self.plugin_config["default"]
+        if server.id not in self.storage["banned_members"]:
+            self.storage["banned_members"][server.id] = set()
+        self.players[server.id] = self.ServerStorage(self, server, self.plugin_config[server.id])
+
+    async def on_server_remove(self, server):
+        if server.id in self.players:
+            self.players[server.id].stop_song()
+            await self.players[server.id].disconnect()
+            self.players.pop(server.id)
+        if server.id in self.storage["banned_members"]:
+            self.storage["banned_members"].pop(server.id)
+        if server.id in self.plugin_config:
+            self.plugin_config.pop(server.id)
+
     # Command functions
 
     @Command("joinvoice", "joinvc",
