@@ -18,7 +18,6 @@ class MusicPlayer(BasePlugin):
     name = "music_player"
     default_config = {
         'default': {
-            'music_channel': "CHANNEL ID HERE",
             'force_music_channel': False,
             'max_video_length': 1800,
             'max_queue_length': 30,
