@@ -89,41 +89,41 @@ class RedStar(discord.Client):
     async def on_member_update(self, before, after):
         await self.plugin_manager.hook_event("on_member_update", before, after)
 
-    async def on_server_join(self, server):
-        await self.plugin_manager.hook_event("on_server_join", server)
+    async def on_guild_join(self, guild):
+        await self.plugin_manager.hook_event("on_guild_join", guild)
 
-    async def on_server_remove(self, server):
-        await self.plugin_manager.hook_event("on_server_remove", server)
+    async def on_guild_remove(self, guild):
+        await self.plugin_manager.hook_event("on_guild_remove", guild)
 
-    async def on_server_update(self, before, after):
-        await self.plugin_manager.hook_event("on_server_update", before, after)
+    async def on_guild_update(self, before, after):
+        await self.plugin_manager.hook_event("on_guild_update", before, after)
 
-    async def on_server_role_create(self, role):
-        await self.plugin_manager.hook_event("on_server_role_create", role)
+    async def on_guild_role_create(self, role):
+        await self.plugin_manager.hook_event("on_guild_role_create", role)
 
-    async def on_server_role_delete(self, role):
-        await self.plugin_manager.hook_event("on_server_role_delete", role)
+    async def on_guild_role_delete(self, role):
+        await self.plugin_manager.hook_event("on_guild_role_delete", role)
 
-    async def on_server_role_update(self, before, after):
-        await self.plugin_manager.hook_event("on_server_role_update", before, after)
+    async def on_guild_role_update(self, before, after):
+        await self.plugin_manager.hook_event("on_guild_role_update", before, after)
 
-    async def on_server_emojis_update(self, before, after):
-        await self.plugin_manager.hook_event("on_server_emojis_update", before, after)
+    async def on_guild_emojis_update(self, before, after):
+        await self.plugin_manager.hook_event("on_guild_emojis_update", before, after)
 
-    async def on_server_available(self, server):
+    async def on_guild_available(self, guild):
         if not self.server_ready:
             self.logger.info("A server is now available.")
             if self.logged_in:
                 self.logger.info("Logged in with server; activating plugins.")
                 await self.plugin_manager.activate_all()
             self.server_ready = True
-        await self.plugin_manager.hook_event("on_server_available", server)
+        await self.plugin_manager.hook_event("on_guild_available", guild)
 
-    async def on_server_unavailable(self, server):
-        await self.plugin_manager.hook_event("on_server_unavailable", server)
+    async def on_guild_unavailable(self, guild):
+        await self.plugin_manager.hook_event("on_guild_unavailable", guild)
 
-    async def on_voice_state_update(self, before, after):
-        await self.plugin_manager.hook_event("on_voice_state_update", before, after)
+    async def on_voice_state_update(self, member, before, after):
+        await self.plugin_manager.hook_event("on_voice_state_update", member, before, after)
 
     async def on_member_ban(self, member):
         await self.plugin_manager.hook_event("on_member_ban", member)

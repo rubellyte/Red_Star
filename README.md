@@ -14,11 +14,12 @@ Features:
 
 # Installation
 - Install [Python 3.6+](https://www.python.org/)
-- Install [discord.py](https://github.com/Rapptz/discord.py)
+- Install [discord.py](https://github.com/Rapptz/discord.py), rewrite branch
 - For music playing:
-  - Install discord.py[voice]
+  - Install discord.py\[voice]
   - Install [ffmpeg](http://ffmpeg.zeranoe.com/builds/) and add it to your PATH
   - Install [PyNaCl](https://github.com/pyca/pynacl)
+  - Install [youtube-dl](https://github.com/rg3/youtube-dl)
 - For MotD:
   - Install [schedule](https://github.com/dbader/schedule)
 - Clone the `Red_Star` repository to your computer.

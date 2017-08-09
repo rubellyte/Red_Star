@@ -82,45 +82,46 @@ class CommandDispatcher(BasePlugin):
             for alias in fn._aliases:
                 self.deregister(fn, alias, is_alias=True)
 
-    async def run_command(self, command, data):
+    async def run_command(self, command, msg):
         try:
             fn = self.commands[command]
         except KeyError:
             return
         try:
-            if self.plugin_config[data.server.id].use_command_channel and not fn.run_anywhere:
-                cmd_channel = self.plugins.channel_manager.get_channel(data.server, "commands")
-                if data.channel != cmd_channel:
+            gid = str(msg.guild.id)
+            if self.plugin_config[gid].use_command_channel and not fn.run_anywhere:
+                cmd_channel = self.plugins.channel_manager.get_channel(msg.guild, "commands")
+                if msg.channel != cmd_channel:
                     return
-            await fn(data)
+            await fn(msg)
             if fn.delcall:
-                await self.client.delete_message(data)
+                await msg.delete()
         except (SyntaxError, SyntaxWarning) as e:
             err = e if e else "Invalid syntax."
             if fn.syntax:
                 deco = self.plugin_config.command_prefix
-                await respond(self.client, data,
-                              f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
+                await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
-                await respond(self.client, data, f"**WARNING: {err}.**")
+                await respond(msg, f"**WARNING: {err}.**")
         except PermissionError as e:
             err = f"\nANALYSIS: {e}" if e else ""
-            await respond(self.client, data, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
+            await respond(msg, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
         except ChannelNotFoundError as e:
-            await respond(self.client, data, f"**NEGATIVE. Channel type `{e}` is not set on this server.**")
+            await respond(msg, f"**NEGATIVE. Channel type `{e}` is not set on this server.**")
         except Exception:
             self.logger.exception("Exception occurred in command. ", exc_info=True)
-            await respond(self.client, data, "**WARNING: Error occurred while running command.**")
+            await respond(msg, "**WARNING: Error occurred while running command.**")
 
     # Event hooks
 
-    async def on_message(self, data):
-        if data.server.id not in self.plugin_config:
-            self.plugin_config[data.server.id] = DotDict(self.default_config)
+    async def on_message(self, msg):
+        gid = str(msg.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = DotDict(self.default_config)
         deco = self.plugin_config.command_prefix
-        if data.author != self.client.user:
-            cnt = data.content
+        if msg.author != self.client.user:
+            cnt = msg.content
             if cnt.startswith(deco):
                 cmd = cnt[len(deco):].split()[0].lower()
                 if cmd in self.commands:
-                    await self.run_command(cmd, data)
+                    await self.run_command(cmd, msg)

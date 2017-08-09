@@ -12,26 +12,26 @@ class ChannelManager(BasePlugin):
     name = "channel_manager"
 
     async def activate(self):
-        for server in self.client.servers:
-            self._add_server(server)
+        for guild in self.client.guilds:
+            self._add_guild(guild)
 
-    async def on_server_join(self, server):
-        self._add_server(server)
+    async def on_guild_join(self, guild):
+        self._add_guild(guild)
 
-    def _add_server(self, server):
-        if server.id not in self.plugin_config:
-            self.plugin_config[server.id] = DotDict({
-                "default": server.default_channel.id
-            })
-            if server.afk_channel:
-                self.plugin_config[server.id].voice_afk = server.afk_channel.id
+    def _add_guild(self, guild):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = DotDict({})
+            if guild.afk_channel:
+                self.plugin_config[gid].voice_afk = guild.afk_channel.id
             self.config_manager.save_config()
 
-    def get_channel(self, server, type):
-        if server.id not in self.plugin_config:
-            self._add_server(server)
-        if type.lower() in self.plugin_config[server.id]:
-            chan = self.plugin_config[server.id][type.lower()]
+    def get_channel(self, guild, type):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self._add_guild(guild)
+        if type.lower() in self.plugin_config[gid]:
+            chan = self.plugin_config[gid][type.lower()]
             chan = self.client.get_channel(chan)
             if not chan:
                 raise ChannelNotFoundError(type.lower())
@@ -39,10 +39,11 @@ class ChannelManager(BasePlugin):
         else:
             raise ChannelNotFoundError(type.lower())
 
-    def set_channel(self, server, type, channel):
-        if server.id not in self.plugin_config:
-            self._add_server(server)
-        self.plugins[server.id][type.lower()] = channel.id
+    def set_channel(self, guild, type, channel):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self._add_guild(guild)
+        self.plugins[gid][type.lower()] = channel.id
         self.config_manager.save_config()
 
     @Command("get_channel",
@@ -50,53 +51,51 @@ class ChannelManager(BasePlugin):
                  "server.",
              syntax="[channel type]",
              category="bot_management",
-             perms={"manage_server"})
-    async def _get_channel_cmd(self, data):
-        chantype = " ".join(data.clean_content.split()[1:]).lower()
-        if data.server.id not in self.plugin_config:
-            self._add_server(data.server)
+             perms={"manage_guild"})
+    async def _get_channel_cmd(self, msg):
+        gid = str(msg.guild.id)
+        chantype = " ".join(msg.clean_content.split()[1:]).lower()
+        if gid not in self.plugin_config:
+            self._add_guild(msg.guild)
         if chantype:
             try:
-                chan = self.client.get_channel(self.plugin_config[data.server.id][chantype])
+                chan = self.client.get_channel(self.plugin_config[gid][chantype])
                 if chan:
-                    await respond(self.client, data, f"**ANALYSIS: The {chantype} channel for this server is "
-                                                     f"{chan.mention}.**")
+                    await respond(msg, f"**ANALYSIS: The {chantype} channel for this server is {chan.mention}.**")
                 else:
-                    await respond(self.client, data, f"**WARNING: The {chantype} channel for this server is "
-                                                     f"invalid.**")
+                    await respond(msg, f"**WARNING: The {chantype} channel for this server is invalid.**")
             except KeyError:
-                await respond(self.client, data, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
+                await respond(msg, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
         else:
-            self.logger.debug(self.plugin_config[data.server.id])
             chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name}"
-                                   for x, y in self.plugin_config[data.server.id].items() if y is not None])
-            await respond(self.client, data, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
+                                   for x, y in self.plugin_config[gid].items() if y is not None])
+            await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
     @Command("set_channel",
              doc="Sets the specified channel type to the specified channel for this server.",
              syntax="(chantype) (channel)",
              category="bot_management",
-             perms={"manage_server"},
+             perms={"manage_guild"},
              run_anywhere=True)
-    async def _set_channel_cmd(self, data):
+    async def _set_channel_cmd(self, msg):
         try:
-            chantype = data.clean_content.split()[1].lower()
+            chantype = msg.clean_content.split()[1].lower()
         except IndexError:
             raise SyntaxError("No channel type provided.")
         if chantype.startswith("voice"):
-            channel = data.clean_content.split()[2].lower()
+            channel = msg.clean_content.split()[2].lower()
             channel = utils.find(lambda x: x.type == ChannelType.voice and x.name.lower() == channel,
-                                 data.server.channels)
+                                 msg.guild.channels)
             if not channel:
-                raise SyntaxError(f"Voice channel {data.clean_content.split()[2].lower()} not found.")
+                raise SyntaxError(f"Voice channel {msg.clean_content.split()[2].lower()} not found.")
         else:
             try:
-                channel = data.channel_mentions[0]
+                channel = msg.channel_mentions[0]
             except IndexError:
                 raise SyntaxError("No channel provided.")
-        if data.server.id not in self.plugin_config:
-            self._add_server(data.server)
-        self.plugin_config[data.server.id][chantype] = channel.id
+        gid = str(msg.guild.id)
+        if gid not in self.plugin_config:
+            self._add_guild(msg.guild)
+        self.plugin_config[gid][chantype] = channel.id
         self.config_manager.save_config()
-        await respond(self.client, data, f"**ANALYSIS: The {chantype} channel for this server has been set to "
-                                         f"{channel.mention}.**")
+        await respond(msg, f"**ANALYSIS: The {chantype} channel for this server has been set to {channel.mention}.**")

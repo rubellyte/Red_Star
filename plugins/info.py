@@ -37,14 +37,14 @@ class Info(BasePlugin):
              doc="Displays information on commands.",
              syntax="[category/command]",
              category="info")
-    async def _help(self, data):
+    async def _help(self, msg):
         if not self.categories:
             await self.build_help()
         try:
-            search = data.clean_content.split(" ")[1].lower()
+            search = msg.clean_content.split(" ")[1].lower()
         except IndexError:
             cates = "\n".join(sorted([capwords(x, "_") for x in self.categories.keys()]))
-            await respond(self.client, data, f"**ANALYSIS: Command categories:**```\n{cates}\n```")
+            await respond(msg, f"**ANALYSIS: Command categories:**```\n{cates}\n```")
             return
         if search in [x.lower() for x in self.commands.keys()]:
             cmd = self.commands[search]
@@ -56,32 +56,31 @@ class Info(BasePlugin):
             perms = cmd.perms
             cate = capwords(cmd.category, "_")
             aliases = f"(Aliases: {', '.join([capwords(x, '_') for x in cmd._aliases])})" if cmd._aliases else ""
-            if not {x for x, y in data.author.server_permissions if y} >= perms:
+            if not {x for x, y in msg.author.guild_permissions if y} >= perms:
                 raise PermissionError
             text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) {aliases}\n{doc}\n" \
                    f"Syntax: {syn}\n```"
-            await respond(self.client, data, text)
+            await respond(msg, text)
         elif search in self.categories.keys():
             name = capwords(search, "_")
-            userperms = {x for x, y in data.author.server_permissions if y}
+            userperms = {x for x, y in msg.author.guild_permissions if y}
             cmds = [capwords(x.name, "_") for x in self.categories[search].values() if userperms >= x.perms]
             cmds = sorted(list(set(cmds)))
             if cmds:
                 text = "\n".join(cmds)
-                await respond(self.client, data, f"**ANALYSIS: Category {name}:**```\n{text}\n```")
+                await respond(msg, f"**ANALYSIS: Category {name}:**```\n{text}\n```")
             else:
-                await respond(self.client, data, "**WARNING: You do not have permission for any command in this "
-                                                 "category.**")
+                await respond(msg, "**WARNING: You do not have permission for any command in this category.**")
         else:
-            await respond(self.client, data, f"**WARNING: No such category or command {search}**")
+            await respond(msg, f"**WARNING: No such category or command {search}**")
 
     @Command("about",
              doc="Displays information about the bot.",
              category="info")
-    async def _about(self, data):
+    async def _about(self, msg):
         deco = self.plugins.command_dispatcher.plugin_config.command_prefix
         desc = f"Red Star: General purpose command AI for Discord.\nUse {deco}help for command information."
         em = Embed(title="About Red Star", color=0xFF0000, description=desc)
         em.set_thumbnail(url="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png")
         em.add_field(name="GitHub", value="https://github.com/medeor413/Red_Star")
-        await self.client.send_message(data.channel, embed=em)
+        await respond(msg, None, embed=em)

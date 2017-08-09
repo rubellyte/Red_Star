@@ -1,5 +1,5 @@
 import re
-import asyncio
+from asyncio import sleep
 from plugin_manager import BasePlugin
 from utils import Command, respond, find_user
 
@@ -13,8 +13,8 @@ class AdminCommands(BasePlugin):
              category="admin",
              run_anywhere=True,
              perms={"manage_messages"})
-    async def _purge(self, data):
-        cnt = data.content.split()
+    async def _purge(self, msg):
+        cnt = msg.content.split()
         try:
             count = int(cnt[1])
             if count > 250:
@@ -29,13 +29,11 @@ class AdminCommands(BasePlugin):
             searchstr = " ".join(cnt[2:])
         else:
             searchstr = ""
-        await self.client.delete_message(data)
-        deleted = await self.client.purge_from(
-            data.channel, limit=count, check=lambda x: self.search(x, searchstr))
-        self.searchstr = ""
-        fb = await respond(self.client, data, f"**PURGE COMPLETE: {len(deleted)} messages purged.**")
-        await asyncio.sleep(5)
-        await self.client.delete_message(fb)
+        await msg.delete()
+        deleted = await msg.channel.purge(limit=count, check=lambda x: self.search(x, searchstr))
+        fb = await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**")
+        await sleep(5)
+        await fb.delete()
 
     def search(self, msg, searchstr):
         if searchstr:
@@ -44,7 +42,7 @@ class AdminCommands(BasePlugin):
                 return re.match(search, msg.content)
             elif searchstr.startswith("author:"):
                 search = searchstr[7:]
-                return find_user(msg.server, search) == msg.author
+                return find_user(msg.guild, search) == msg.author
             else:
                 return searchstr in msg.content
         else:

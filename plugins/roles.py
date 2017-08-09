@@ -16,7 +16,7 @@ class RoleCommands(BasePlugin):
                  " and mentionable properties.\n"
                  "WARNING: Options must be specified as option=value. No spaces around `=`.\n"
                  "ANALYSIS: Colour can be reset by setting it to 0.")
-    async def _editrole(self, data):
+    async def _editrole(self, msg):
         """
         a command for editing a role.
         !editrole (role name) [name=name][colour=colour][hoist=hoist][mentionable=mentionable]
@@ -24,9 +24,9 @@ class RoleCommands(BasePlugin):
         colour is a colour object (value converted from hexadecimal string)
         hoist and mentionable are boolean
         """
-        args = process_args(data.content.split())
+        args = process_args(msg.content.split())
         if len(args) > 1:
-            for role in data.server.roles:
+            for role in msg.guild.roles:
                 if args[1].lower() == role.name.lower():  # found role
                     t_dict = {}
                     for arg in args[2:]:
@@ -45,18 +45,17 @@ class RoleCommands(BasePlugin):
                     if len(t_dict) == 0:  # you're wasting my time
                         raise SyntaxError
                     try:
-                        await self.client.edit_role(data.server, role, **t_dict)
+                        await role.edit(**t_dict)
                     except Forbidden:
                         raise PermissionError
                     t_string = ""
                     for k, v in t_dict.items():
                         t_string = f"{t_string}{k}: {v!s}\n"
                     name = args[1].capitalize()
-                    await respond(self.client, data,
-                                  f"**AFFIRMATIVE. Role {name} modified with parameters :**\n ```{t_string}```")
+                    await respond(msg, f"**AFFIRMATIVE. Role {name} modified with parameters :**\n ```{t_string}```")
                     break
             else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+                await respond(msg, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
             raise SyntaxError
 
@@ -67,14 +66,14 @@ class RoleCommands(BasePlugin):
              "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Creates a role based on an existing role (for position and permissions), "
              "with parameters similar to editrole")
-    async def _createrole(self, data):
+    async def _createrole(self, msg):
         """
         a command for creating a role
         takes names for new role and a role that will be copied for position/permissions
         """
-        args = process_args(data.content.split())
+        args = process_args(msg.content.split())
         if len(args) > 2:
-            for role in data.server.roles:
+            for role in msg.guild.roles:
                 if args[2].lower() == role.name.lower():
                     # copying the existing role (especially permissions)
                     t_dict = {
@@ -98,16 +97,15 @@ class RoleCommands(BasePlugin):
                                 t_dict["hoist"] = t_arg[1].lower() == "true"
                             elif t_arg[0].lower() == "mentionable":
                                 t_dict["mentionable"] = t_arg[1].lower() == "true"
-                    t_role = await self.client.create_role(data.server, **t_dict)
+                    t_role = await msg.guild.create_role(**t_dict)
                     try:
                         # since I can't create a role with a preset position :T
-                        await self.client.move_role(data.server, t_role, t_dict["position"])
+                        await t_role.edit(position=t_dict["position"])
                     except (InvalidArgument, HTTPException, Forbidden):
                         # oh hey, why are we copying this role again?
                         name = args[1].capitalize()
-                        await self.client.delete_role(data.server, t_role)
-                        await respond(self.client, data,
-                                      f'**WARNING: Failed to move role {name} to position {t_dict["position"]}.**')
+                        await role.delete()
+                        await respond(msg, f"**WARNING: Failed to move role {name} to position {t_dict['position']}.**")
                         raise PermissionError  # yeah, we're not copying this
                     t_string = ""
                     for k, v in t_dict.items():
@@ -116,12 +114,10 @@ class RoleCommands(BasePlugin):
                         else:
                             t_string += k + ": " + ", ".join({x.upper() for x, y in v if y}) + "\n"
                     name = args[1].capitalize()
-                    await respond(self.client, data,
-                                  f"**AFFIRMATIVE. Created role {name} with parameters :**\n ```{t_string}```")
+                    await respond(msg, f"**AFFIRMATIVE. Created role {name} with parameters :**\n ```{t_string}```")
                     break
             else:
-                await respond(self.client, data,
-                              f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
+                await respond(msg, f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
         else:
             raise SyntaxError
 
@@ -130,8 +126,8 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role name) [position].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Deletes first encounter of the role with the given name and optionally position.")
-    async def _deleterole(self, data):
-        args = process_args(data.content.split())
+    async def _deleterole(self, msg):
+        args = process_args(msg.content.split())
         if len(args) > 1:
             name = args[1].capitalize()
             pos = -1
@@ -140,20 +136,19 @@ class RoleCommands(BasePlugin):
                     pos = int(args[2])
                 except ValueError:
                     raise SyntaxWarning("Position should be integer.")
-            for role in data.server.roles:
+            for role in msg.guild.roles:
                 # delete if name matches, and if pos is not -1 - if position matches
                 if (args[1].lower() == role.name.lower()) and (((pos >= 0) and (role.position == pos)) or pos < 0):
                     t_position = role.position
                     try:
-                        await self.client.delete_role(data.server, role)
+                        await role.delete()
                     except Forbidden:
                         raise PermissionError
                     else:
-                        await respond(self.client, data,
-                                      f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
+                        await respond(msg, f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
                     break
             else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
+                await respond(msg, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError("Expected role name.")
 
@@ -162,33 +157,31 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role name) (position).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Moves a role to a provided position.\nWARNING: position must be below the bot role position.")
-    async def _moverole(self, data):
+    async def _moverole(self, msg):
         """
         moves a role to a designated position
         """
-        args = process_args(data.content.split())
+        args = process_args(msg.content.split())
         if len(args) > 2:
             try:
                 new_position = int(args[2])
             except ValueError:
                 raise SyntaxError("Position should be integer.")
-            for role in data.server.roles:
+            for role in msg.guild.roles:
                 if args[1].lower() == role.name.lower():
                     t_position = role.position
                     try:
-                        await self.client.move_role(data.server, role, new_position)
+                        await role.edit(position=new_position)
                     except (InvalidArgument, HTTPException, Forbidden):
                         name = args[1].capitalize()
-                        await respond(self.client, data,
-                                      f'**WARNING: Failed to move role {name} to position {new_position}.**')
+                        await respond(msg, f"**WARNING: Failed to move role {name} to position {new_position}.**")
                         raise PermissionError
                     else:
                         name = args[1].capitalize()
-                        await respond(self.client, data,
-                                      f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
+                        await respond(msg, f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
                     break
             else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+                await respond(msg, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
             raise SyntaxError("Expected position.")
 
@@ -196,14 +189,14 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role name).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Returns all the info about the given role.")
-    async def _inforole(self, data):
+    async def _inforole(self, msg):
         """
         provides an infodump of a role, including permissions and position
         """
-        args = process_args(data.content.split())
+        args = process_args(msg.content.split())
         if len(args) > 1:
             name = capwords(args[1])
-            for role in data.server.roles:
+            for role in msg.guild.roles:
                 if args[1].lower() == role.name.lower():
                     t_dict = {
                         "name": role.name,
@@ -221,11 +214,10 @@ class RoleCommands(BasePlugin):
                             t_string = f"{t_string}{k}: {v!s}\n"
                         else:
                             t_string += k + ": " + ", ".join({x.upper() for x, y in v if y}) + "\n"
-                    await respond(self.client, data,
-                                  f"**ANALYSIS: role {name} has parameters :**\n ```{t_string}```")
+                    await respond(msg, f"**ANALYSIS: role {name} has parameters :**\n ```{t_string}```")
                     break
             else:
-                await respond(self.client, data, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
+                await respond(msg, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError
 
@@ -233,12 +225,12 @@ class RoleCommands(BasePlugin):
              category="roles",
              perms={"manage_roles"},
              doc="Lists all roles.")
-    async def _listroles(self, data):
+    async def _listroles(self, msg):
         """
         lists all roles along with position and color
         """
         t_string = "**AFFIRMATIVE. Listing roles :**\n"
-        for role in data.server.role_hierarchy:
+        for role in msg.guild.role_hierarchy:
             t_string += f"`{role.name[:40].ljust(40)} [{role.position:02d} | {role.colour}]`\n"
         for t in split_message(t_string, splitter="\n"):
-            await respond(self.client, data, t)
+            await respond(msg, t)

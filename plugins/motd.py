@@ -52,9 +52,9 @@ class MOTD(BasePlugin):
         weekday = today.strftime("%A")
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
-            for server in self.client.servers:
-                chan = self.plugins.channel_manager.get_channel(server, "default")
-                asyncio.ensure_future(self.client.send_message(chan, choice(holiday_lines)))
+            for guild in self.client.guilds:
+                chan = self.plugins.channel_manager.get_channel(guild, "general")
+                asyncio.ensure_future(chan.send(choice(holiday_lines)))
         else:
             lines = []
             lines += self.motds.get("Any", {}).get("Any", [])
@@ -63,9 +63,9 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get("Any", [])
             lines += self.motds.get(month, {}).get(day, [])
             lines += self.motds.get(month, {}).get(weekday, [])
-            for server in self.client.servers:
-                chan = self.plugins.channel_manager.get_channel(server, "default")
-                asyncio.ensure_future(self.client.send_message(chan, choice(lines)))
+            for guild in self.client.guilds:
+                chan = self.plugins.channel_manager.get_channel(guild, "general")
+                asyncio.ensure_future(chan.send(choice(lines)))
 
     def _get_holiday(self, month, day, weekday):
         holidays = self.motds["holidays"]
@@ -84,11 +84,11 @@ class MOTD(BasePlugin):
 
     @Command("addmotd",
              doc="Adds a MotD message.",
-             perms={"manage_server"},
+             perms={"manage_guild"},
              category="bot_management",
              syntax="(month/Any) (day/weekday/Any) (message)")
-    async def _addmotd(self, data):
-        args = data.clean_content.split()[1:]
+    async def _addmotd(self, msg):
+        args = msg.clean_content.split()[1:]
         try:
             month = args[0].capitalize()
             day = args[1].capitalize()
@@ -106,7 +106,7 @@ class MOTD(BasePlugin):
                 self.motds[month][day] = []
             self.motds[month][day].append(msg)
             self._save_motds()
-            await respond(self.client, data, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
+            await respond(msg, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
         except KeyError:
             self.logger.debug(month)
             self.logger.debug(day)
@@ -114,11 +114,11 @@ class MOTD(BasePlugin):
 
     @Command("addholiday",
              doc="Adds a holiday. Holidays do not draw from the \"any-day\" MotD pools.",
-             perms={"manage_server"},
+             perms={"manage_guild"},
              category="bot_management",
              syntax="(month/Any) (day/weekday/Any)")
-    async def _addholiday(self, data):
-        args = data.clean_content.split()[1:]
+    async def _addholiday(self, msg):
+        args = msg.clean_content.split()[1:]
         try:
             month = args[0].capitalize()
             day = args[1].capitalize()
@@ -131,18 +131,18 @@ class MOTD(BasePlugin):
         holidaystr = month + "/" + day
         if holidaystr not in self.motds["holidays"]:
             self.motds["holidays"].append(holidaystr)
-            await respond(self.client, data, f"**ANALYSIS: Holiday {holidaystr} added successfully.**")
+            await respond(msg, f"**ANALYSIS: Holiday {holidaystr} added successfully.**")
         else:
-            await respond(self.client, data, f"**ANALYSIS: {holidaystr} is already a holiday.**")
+            await respond(msg, f"**ANALYSIS: {holidaystr} is already a holiday.**")
 
     @Command("testmotds",
              doc="Used for testing MOTD lines.",
-             perms={"manage_server"},
+             perms={"manage_guild"},
              category="debug",
              syntax="(month/Any) (day/Any) (weekday/Any)")
-    async def _testmotd(self, data):
+    async def _testmotd(self, msg):
         try:
-            args = data.clean_content.split()[1:]
+            args = msg.clean_content.split()[1:]
             month = args[0].capitalize()
             day = args[1].capitalize()
             weekday = args[2].capitalize()
@@ -155,7 +155,7 @@ class MOTD(BasePlugin):
             raise SyntaxError("Missing arguments.")
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
-            await respond(self.client, data, choice(holiday_lines))
+            await respond(msg, choice(holiday_lines))
         else:
             lines = []
             lines += self.motds.get("Any", {}).get("Any", [])
@@ -164,4 +164,4 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get("Any", [])
             lines += self.motds.get(month, {}).get(day, [])
             lines += self.motds.get(month, {}).get(weekday, [])
-            await respond(self.client, data, "\n".join(lines))
+            await respond(msg, "\n".join(lines))

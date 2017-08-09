@@ -70,10 +70,10 @@ def sub_user_data(user, text):
     return text
 
 
-def find_user(server, search, return_all=False):
+def find_user(guild, search, return_all=False):
     """
     Convenience function to find users via several checks.
-    :param server: The discord.Server object in which to search.
+    :param guild: The discord.Guild object in which to search.
     :param search: The search string.
     :param return_all: Whether to return all users that match the criteria or just the first one.
     :return: discord.Member: The Member that matches the criteria, or none.
@@ -82,7 +82,7 @@ def find_user(server, search, return_all=False):
              lambda x: x.display_name.lower() == search.lower(), lambda x: x.name.lower() == search.lower())
     final = []
     for func in funcs:
-        found = tuple(filter(func, server.members))
+        found = tuple(filter(func, guild.members))
         if found:
             if return_all:
                 final += found
@@ -91,25 +91,25 @@ def find_user(server, search, return_all=False):
     return final
 
 
-async def respond(client, data, response, **kwargs):
+async def respond(msg, response, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.
-    :param client: The discord.Client object used for sending.
-    :param data: The message to respond to.
+    :param msg: The message to respond to.
     :param response: The text to respond with.
     :return discord.Message: The Message sent.
     """
-    text = sub_user_data(data.author, response)
+    text = sub_user_data(msg.author, response)
     if len(text) > 2000:
         # shoulda split it first
         # this is just a last-ditch error check
         text = text[:2000]
-    if text:
-        m = await client.send_message(data.channel, text, **kwargs)
-        return m
+    if not text and not kwargs:
+        # It's empty, raise an error.
+        raise SyntaxError
     else:
-        return
+        m = await msg.channel.send(text, **kwargs)
+        return m
 
 
 def split_message(message, splitter=None):
@@ -202,16 +202,15 @@ class Command:
         :return: The now-wrapped command, with all the trappings.
         """
 
-        def wrapped(s, data):
-            user_perms = data.author.permissions_in(data.channel)
+        def wrapped(s, msg):
+            user_perms = msg.author.permissions_in(msg.channel)
             user_perms = {x for x, y in user_perms if y}
             try:
                 if not user_perms >= self.perms:
                     raise PermissionError
-                return asyncio.ensure_future(f(s, data))
+                return asyncio.ensure_future(f(s, msg))
             except PermissionError:
-                return asyncio.ensure_future(respond(s.client, data,
-                                                     "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
+                return asyncio.ensure_future(respond(msg, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
 
         wrapped._command = True
         wrapped._aliases = self.aliases
