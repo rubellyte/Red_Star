@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from discord import utils
+from discord import utils, VoiceChannel
 from discord.enums import ChannelType
 from utils import respond, Command, DotDict
 
@@ -84,7 +84,7 @@ class ChannelManager(BasePlugin):
             raise SyntaxError("No channel type provided.")
         if chantype.startswith("voice"):
             channel = msg.clean_content.split()[2].lower()
-            channel = utils.find(lambda x: x.type == ChannelType.voice and x.name.lower() == channel,
+            channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
                                  msg.guild.channels)
             if not channel:
                 raise SyntaxError(f"Voice channel {msg.clean_content.split()[2].lower()} not found.")
