@@ -12,7 +12,9 @@ class CustomCommands(BasePlugin):
     name = "custom_commands"
     default_config = {
         "cc_file": "config/ccs.json",
-        "cc_prefix": "!!"
+        "default": {
+            "cc_prefix": "!!"
+        }
     }
 
     async def activate(self):
@@ -50,7 +52,7 @@ class CustomCommands(BasePlugin):
     async def on_message(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict({"cc_prefix": self.default_config["cc_prefix"]})
+            self.plugin_config[gid] = DotDict(self.default_config["default"])
             self.config_manager.save_config()
         deco = self.plugin_config[gid].cc_prefix
         if msg.author != self.client.user:

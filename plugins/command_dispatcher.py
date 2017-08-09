@@ -8,8 +8,10 @@ from utils import respond, DotDict
 class CommandDispatcher(BasePlugin):
     name = "command_dispatcher"
     default_config = {
-        "command_prefix": "!",
-        "use_command_channel": True
+        "default": {
+            "command_prefix": "!",
+            "use_command_channel": True
+        }
     }
 
     async def activate(self):
