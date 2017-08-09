@@ -63,7 +63,7 @@ class RoleCommands(BasePlugin):
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
-             "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
+                    "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Creates a role based on an existing role (for position and permissions), "
              "with parameters similar to editrole")
     async def _createrole(self, msg):

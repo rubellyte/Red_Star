@@ -399,6 +399,7 @@ class MusicPlayer(BasePlugin):
     # Event functions
 
     async def on_server_join(self, server):
+        self.client.change_presence(game=None)
         if server.id not in self.plugin_config:
             self.plugin_config[server.id] = self.plugin_config["default"]
         if server.id not in self.storage["banned_members"]:
@@ -949,6 +950,9 @@ class MusicPlayer(BasePlugin):
                         os.remove(song)
                         self.storage["stored_songs"].pop(song)
                         print(f"Attempting to remove {song}.")
+                    except FileNotFoundError:
+                        self.storage["stored_songs"].pop(song)
+                        self.logger.warning(f"Song {song} already deleted. Removing reference.")
                     except Exception:
                         self.logger.exception("Error pruning song cache. ", exc_info=True)
 
