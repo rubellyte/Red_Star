@@ -99,17 +99,18 @@ async def respond(msg, response, **kwargs):
     :param response: The text to respond with.
     :return discord.Message: The Message sent.
     """
-    text = sub_user_data(msg.author, response)
-    if len(text) > 2000:
-        # shoulda split it first
-        # this is just a last-ditch error check
-        text = text[:2000]
-    if not text and not kwargs:
+    text = None
+    if response:
+        text = sub_user_data(msg.author, response)
+        if len(text) > 2000:
+            # shoulda split it first
+            # this is just a last-ditch error check
+            text = text[:2000]
+    elif not kwargs:
         # It's empty, raise an error.
         raise SyntaxError
-    else:
-        m = await msg.channel.send(text, **kwargs)
-        return m
+    m = await msg.channel.send(text, **kwargs)
+    return m
 
 
 def split_message(message, splitter=None):
