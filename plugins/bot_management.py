@@ -90,7 +90,10 @@ class BotManagement(BasePlugin):
     async def _get_config(self, msg):
         conf = self.config_manager.config
         args = msg.clean_content.split()[1:]
-        path = args[0]
+        try:
+            path = args[0]
+        except IndexError:
+            raise SyntaxError("Missing path to config value.")
         path = path.replace("<server>", str(msg.guild.id))
         if path.startswith("/"):
             path = path[1:]
