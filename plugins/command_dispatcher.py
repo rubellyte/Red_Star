@@ -1,6 +1,7 @@
 import inspect
 from plugin_manager import BasePlugin
 from plugins.channel_manager import ChannelNotFoundError
+from discord import Forbidden
 from utils import respond, DotDict
 
 
@@ -106,6 +107,8 @@ class CommandDispatcher(BasePlugin):
         except PermissionError as e:
             err = f"\nANALYSIS: {e}" if e else ""
             await respond(msg, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
+        except Forbidden:
+            await respond(msg, "**NEGATIVE. This unit does not have permission to perform that action.**")
         except ChannelNotFoundError as e:
             await respond(msg, f"**NEGATIVE. Channel type `{e}` is not set on this server.**")
         except Exception:

@@ -42,6 +42,13 @@ class RoleCommands(BasePlugin):
                                 t_dict["hoist"] = t_arg[1].lower() == "true"
                             elif t_arg[0].lower() == "mentionable":
                                 t_dict["mentionable"] = t_arg[1].lower() == "true"
+                            elif t_arg[0].lower() == "position":
+                                if t_arg[1].isdecimal():
+                                    pos = int(t_arg[1])
+                                    if pos >= 0:
+                                        t_dict["position"] = pos
+                                else:
+                                    raise SyntaxError("Position must be a positive integer.")
                     if len(t_dict) == 0:  # you're wasting my time
                         raise SyntaxError
                     try:
@@ -81,9 +88,9 @@ class RoleCommands(BasePlugin):
                         "permissions": role.permissions,
                         "colour": role.colour,
                         "hoist": role.hoist,
-                        "mentionable": role.mentionable,
-                        "position": role.position
+                        "mentionable": role.mentionable
                     }
+                    rolepos = role.position
                     for arg in args[3:]:
                         t_arg = arg.split("=")
                         if len(t_arg) > 1:  # beautiful
@@ -97,15 +104,22 @@ class RoleCommands(BasePlugin):
                                 t_dict["hoist"] = t_arg[1].lower() == "true"
                             elif t_arg[0].lower() == "mentionable":
                                 t_dict["mentionable"] = t_arg[1].lower() == "true"
+                            elif t_arg[0].lower() == "position":
+                                if t_arg[1].isdecimal():
+                                    pos = int(t_arg[1])
+                                    if pos > 0:
+                                        rolepos = pos
+                                else:
+                                    raise SyntaxError("Position must be a positive integer.")
                     t_role = await msg.guild.create_role(**t_dict)
                     try:
                         # since I can't create a role with a preset position :T
-                        await t_role.edit(position=t_dict["position"])
-                    except (InvalidArgument, HTTPException, Forbidden):
+                        await t_role.edit(position=rolepos)
+                    except (InvalidArgument, HTTPException):
                         # oh hey, why are we copying this role again?
                         name = args[1].capitalize()
-                        await role.delete()
-                        await respond(msg, f"**WARNING: Failed to move role {name} to position {t_dict['position']}.**")
+                        await t_role.delete()
+                        await respond(msg, f"**WARNING: Failed to move role {name} to position {rolepos}.**")
                         raise PermissionError  # yeah, we're not copying this
                     t_string = ""
                     for k, v in t_dict.items():
@@ -151,39 +165,6 @@ class RoleCommands(BasePlugin):
                 await respond(msg, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
             raise SyntaxError("Expected role name.")
-
-    @Command("moverole",
-             perms={"manage_roles"},
-             category="roles",
-             syntax="(role name) (position).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
-             doc="Moves a role to a provided position.\nWARNING: position must be below the bot role position.")
-    async def _moverole(self, msg):
-        """
-        moves a role to a designated position
-        """
-        args = process_args(msg.content.split())
-        if len(args) > 2:
-            try:
-                new_position = int(args[2])
-            except ValueError:
-                raise SyntaxError("Position should be integer.")
-            for role in msg.guild.roles:
-                if args[1].lower() == role.name.lower():
-                    t_position = role.position
-                    try:
-                        await role.edit(position=new_position)
-                    except (InvalidArgument, HTTPException, Forbidden):
-                        name = args[1].capitalize()
-                        await respond(msg, f"**WARNING: Failed to move role {name} to position {new_position}.**")
-                        raise PermissionError
-                    else:
-                        name = args[1].capitalize()
-                        await respond(msg, f"**AFFIRMATIVE. Moved role {name} from {t_position} to {new_position}.**")
-                    break
-            else:
-                await respond(msg, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
-        else:
-            raise SyntaxError("Expected position.")
 
     @Command("roleinfo", "inforole",
              category="roles",
