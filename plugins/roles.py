@@ -51,10 +51,7 @@ class RoleCommands(BasePlugin):
                                     raise SyntaxError("Position must be a positive integer.")
                     if len(t_dict) == 0:  # you're wasting my time
                         raise SyntaxError
-                    try:
-                        await role.edit(**t_dict)
-                    except Forbidden:
-                        raise PermissionError
+                    await role.edit(**t_dict)
                     t_string = ""
                     for k, v in t_dict.items():
                         t_string = f"{t_string}{k}: {v!s}\n"
@@ -120,7 +117,7 @@ class RoleCommands(BasePlugin):
                         name = args[1].capitalize()
                         await t_role.delete()
                         await respond(msg, f"**WARNING: Failed to move role {name} to position {rolepos}.**")
-                        raise PermissionError  # yeah, we're not copying this
+                        raise Forbidden  # yeah, we're not copying this
                     t_string = ""
                     for k, v in t_dict.items():
                         if k != "permissions":
@@ -154,12 +151,8 @@ class RoleCommands(BasePlugin):
                 # delete if name matches, and if pos is not -1 - if position matches
                 if (args[1].lower() == role.name.lower()) and (((pos >= 0) and (role.position == pos)) or pos < 0):
                     t_position = role.position
-                    try:
-                        await role.delete()
-                    except Forbidden:
-                        raise PermissionError
-                    else:
-                        await respond(msg, f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
+                    await role.delete()
+                    await respond(msg, f"**AFFIRMATIVE. Deleted role: {name} in position: {str(t_position)}.**")
                     break
             else:
                 await respond(msg, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
