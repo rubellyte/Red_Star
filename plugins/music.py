@@ -405,7 +405,7 @@ class MusicPlayer(BasePlugin):
 
     # Event functions
 
-    async def on_server_join(self, guild):
+    async def on_guild_join(self, guild):
         self.client.change_presence(game=None)
         if guild.id not in self.plugin_config:
             self.plugin_config[str(guild.id)] = self.plugin_config["default"]
@@ -413,7 +413,7 @@ class MusicPlayer(BasePlugin):
             self.storage["banned_members"][guild.id] = set()
         self.players[guild.id] = self.ServerStorage(self, guild, self.plugin_config[str(guild.id)])
 
-    async def on_server_remove(self, guild):
+    async def on_guild_remove(self, guild):
         if guild.id in self.players:
             self.players[guild.id].stop_song()
             await self.players[guild.id].disconnect()
