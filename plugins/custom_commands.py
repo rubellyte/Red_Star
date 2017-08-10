@@ -38,11 +38,11 @@ class CustomCommands(BasePlugin):
             "delcall": self._delcall
         }
         try:
-            with open(self.plugin_config.cc_file, "r") as f:
+            with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
                 self.ccs = json.load(f)
         except FileNotFoundError:
             self.ccs = {}
-            with open(self.plugin_config.cc_file, "w") as f:
+            with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
                 f.write("{}")
         except json.decoder.JSONDecodeError:
             self.logger.exception("Could not decode ccs.json! ", exc_info=True)
@@ -245,8 +245,8 @@ class CustomCommands(BasePlugin):
                 self._save_ccs()
 
     def _save_ccs(self):
-        with open(self.plugin_config.cc_file, "w") as f:
-            json.dump(self.ccs, f, indent=2)
+        with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
+            json.dump(self.ccs, f, indent=2, ensure_ascii=False)
 
     def _find_tags(self, text, msg):
         def tag_iter(level=0):

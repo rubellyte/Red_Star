@@ -15,12 +15,12 @@ class MOTD(BasePlugin):
 
     async def activate(self):
         try:
-            with open(self.plugin_config.motd_file, "r") as f:
+            with open(self.plugin_config.motd_file, "r", encoding="utf8") as f:
                 self.motds = json.load(f)
                 schedule.every().day.at("00:00").do(self._display_motd)
                 asyncio.ensure_future(self._run_motd())
         except FileNotFoundError:
-            with open(self.plugin_config.motd_file, "w") as f:
+            with open(self.plugin_config.motd_file, "w", encoding="utf8") as f:
                 self.motds = {}
                 f.write("{}")
         except json.decoder.JSONDecodeError:
@@ -42,8 +42,8 @@ class MOTD(BasePlugin):
             await asyncio.sleep(60)
 
     def _save_motds(self):
-        with open(self.plugin_config.motd_file, "w") as f:
-            json.dump(self.motds, f, indent=2)
+        with open(self.plugin_config.motd_file, "w", encoding="utf8") as f:
+            json.dump(self.motds, f, indent=2, ensure_ascii=False)
 
     def _display_motd(self):
         today = datetime.date.today()
