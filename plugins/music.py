@@ -957,9 +957,9 @@ class MusicPlayer(BasePlugin):
 
             # time display (only if playing on *one* server, since status is cross-server
             if len(self.client.guilds) == 1:
-                t_player = self.players[next(iter(self.client.servers)).id]
+                t_player = self.players[next(iter(self.client.guilds)).id]
                 game = None
-                if t_player.vc.source:
+                if hasattr(t_player.vc, "source") and t_player.vc.source:
                     if t_player.player.is_playing():
                         progress = t_player.play_length()
                         progress = f"{progress//60}:{progress%60:02d}"
