@@ -105,6 +105,8 @@ class MusicPlayer(BasePlugin):
             if perms.connect and perms.speak and perms.use_voice_activation:
                 try:
                     self.vc = await m_channel.connect()
+                    if self.queue:
+                        await self.skip_song(data)
                     return m_channel
                 except(InvalidArgument, ClientException):
                     self.parent.logger.exception("Error connecting to voice chat. ", exc_info=True)
@@ -274,7 +276,7 @@ class MusicPlayer(BasePlugin):
         def set_volume(self, volume):
             self.volume = volume
             if self.vc.source:
-                self.vc.volume = volume / 100
+                self.vc.source.volume = volume / 100
 
         def stop_song(self):
             if self.queue:
@@ -718,7 +720,7 @@ class MusicPlayer(BasePlugin):
             for s in split_message(t_play.build_queue(), "\n"):
                 await respond(data, f"```{s}```")
             if not t_play.vc.source:
-                await t_play.play_next(data)
+                await t_play.play_next(data, None)
         else:
             raise SyntaxError("Expected arguments!")
 
