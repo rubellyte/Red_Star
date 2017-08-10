@@ -59,6 +59,8 @@ class CustomCommands(BasePlugin):
             cnt = msg.content
             if cnt.startswith(deco):
                 cmd = cnt[len(deco):].split()[0].lower()
+                if gid not in self.ccs:
+                    self.ccs[gid] = {}
                 if cmd in self.ccs[gid]:
                     await self.run_cc(cmd, msg)
                 else:
@@ -81,6 +83,8 @@ class CustomCommands(BasePlugin):
             content = " ".join(args[1:])
         except IndexError:
             raise SyntaxError("No content provided.")
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
         if name in self.ccs[gid]:
             await respond(msg, f"**WARNING: Custom command {args[0]} already exists.**")
         else:
@@ -93,8 +97,6 @@ class CustomCommands(BasePlugin):
                 "locked": False,
                 "times_run": 0
             }
-            if gid not in self.ccs:
-                self.ccs[gid] = {}
             self.ccs[gid][args[0].lower()] = newcc
             self._save_ccs()
             await respond(msg, f"**ANALYSIS: Custom command {name} created successfully.**")
@@ -114,6 +116,8 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise SyntaxError("No content provided.")
         gid = str(msg.guild.id)
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
         if name in self.ccs[gid]:
             ccdata = self.ccs[gid][name]
             if ccdata["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
@@ -137,6 +141,8 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise SyntaxError("No name provided.")
         gid = str(msg.guild.id)
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
         if name in self.ccs[gid]:
             if self.ccs[gid][name]["author"] == msg.author.id or \
                     msg.author.guild_permissions.manage_messages:
@@ -158,6 +164,8 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise SyntaxError("No name provided.")
         gid = str(msg.guild.id)
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
         if name in self.ccs[gid]:
             ccdata = self.ccs[gid][name]
             last_edited = f"Last Edited: {ccdata['last_edited']}\n" if ccdata["last_edited"] else ""
@@ -183,6 +191,8 @@ class CustomCommands(BasePlugin):
         if not search:
             raise SyntaxError("No search provided.")
         res = []
+        if msg.guild.id not in self.ccs:
+            self.ccs[msg.guild.id] = {}
         for cc in self.ccs[str(msg.guild.id)].keys():
             if search in cc:
                 res.append(cc)
@@ -203,6 +213,8 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise SyntaxError("No name provided.")
         gid = str(msg.guild.id)
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
         if name in self.ccs[gid]:
             self.ccs[gid][name]["locked"] = not self.ccs[gid][name]["locked"]
             lock_status = "locked" if self.ccs[gid][name]["locked"] else "unlocked"
