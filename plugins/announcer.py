@@ -18,10 +18,8 @@ class Announcer(BasePlugin):
         }
     }
 
-    async def activate(self):
-        c = self.plugin_config
-        if c.greeting_enabled:
-            asyncio.ensure_future(self._greet())
+    async def on_all_plugins_loaded(self):
+        await self._greet()
 
     async def _greet(self):
             for guild in self.client.guilds:

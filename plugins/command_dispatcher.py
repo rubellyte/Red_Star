@@ -102,7 +102,7 @@ class CommandDispatcher(BasePlugin):
         except (SyntaxError, SyntaxWarning) as e:
             err = e if e else "Invalid syntax."
             if fn.syntax:
-                deco = self.plugin_config.command_prefix
+                deco = self.plugin_config[gid].command_prefix
                 await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
                 await respond(msg, f"**WARNING: {err}.**")
@@ -123,7 +123,7 @@ class CommandDispatcher(BasePlugin):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = DotDict(self.default_config)
-        deco = self.plugin_config.command_prefix
+        deco = self.plugin_config[gid].command_prefix
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):

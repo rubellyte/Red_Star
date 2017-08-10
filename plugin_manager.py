@@ -87,8 +87,12 @@ class PluginManager:
 
     async def activate_all(self):
         self.logger.info("Activating plugins.")
+        if "disabled_plugins" not in self.config_manager.config:
+            self.config_manager.config.disabled_plugins = []
+            self.config_manager.save_config()
+        to_load = self.config_manager.config.disabled_plugins
         for n, plugin in self.plugins.items():
-            if n not in self.active_plugins:
+            if n not in self.active_plugins and n not in to_load:
                 self.logger.info("Activated " + plugin.name)
                 await plugin.activate()
                 self.active_plugins[n] = plugin

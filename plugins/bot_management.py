@@ -36,14 +36,21 @@ class BotManagement(BasePlugin):
 
     @Command("activate",
              doc="Activates an inactive plugin.",
-             syntax="(plugin)",
+             syntax="(plugin) [permanent]",
              category="bot_management",
              perms={"manage_guild"})
     async def _activate(self, msg):
-        plgname = " ".join(msg.content.split()[1:]).lower()
+        plgname = msg.content.split()[1]
+        try:
+            permanent = msg.content.split()[2].lower() == "true"
+        except IndexError:
+            permanent = False
         all_plugins = self.plugin_manager.plugins
         if plgname in all_plugins:
             if plgname not in self.plugins:
+                if plgname in self.config_manager.config.disabled_plugins and permanent:
+                    self.config_manager.config.disabled_plugins.remove(plgname)
+                    self.config_manager.save_config()
                 await self.plugin_manager.activate(plgname)
                 await respond(msg, f"**ANALYSIS: Plugin {plgname} was activated successfully.**")
             else:
@@ -53,14 +60,21 @@ class BotManagement(BasePlugin):
 
     @Command("deactivate",
              doc="Deactivates an active plugin.",
-             syntax="(plugin)",
+             syntax="(plugin) [permanent]",
              category="bot_management",
              perms={"manage_guild"})
     async def _deactivate(self, msg):
-        plgname = " ".join(msg.content.split()[1:]).lower()
+        plgname = msg.content.split()[1].lower()
+        try:
+            permanent = msg.content.split()[2].lower() == "true"
+        except IndexError:
+            permanent = False
         if plgname == self.name:
             await respond(msg, f"**WARNING: Cannot deactivate {self.name}.**")
         elif plgname in self.plugins:
+            if plgname not in self.config_manager.config.disabled_plugins and permanent:
+                self.config_manager.config.disabled_plugins.append(plgname)
+                self.config_manager.save_config()
             await self.plugin_manager.deactivate(plgname)
             await respond(msg, f"**ANALYSIS: Plugin {plgname} was deactivated successfully.**")
         else:
