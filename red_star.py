@@ -125,11 +125,11 @@ class RedStar(discord.Client):
     async def on_voice_state_update(self, member, before, after):
         await self.plugin_manager.hook_event("on_voice_state_update", member, before, after)
 
-    async def on_member_ban(self, member):
-        await self.plugin_manager.hook_event("on_member_ban", member)
+    async def on_member_ban(self, guild, member):
+        await self.plugin_manager.hook_event("on_member_ban", guild, member)
 
-    async def on_member_unban(self, member):
-        await self.plugin_manager.hook_event("on_member_unban", member)
+    async def on_member_unban(self, guild, member):
+        await self.plugin_manager.hook_event("on_member_unban", guild, member)
 
     async def on_typing(self, channel, user, when):
         await self.plugin_manager.hook_event("on_typing", channel, user, when)
