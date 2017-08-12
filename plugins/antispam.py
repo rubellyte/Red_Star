@@ -192,6 +192,7 @@ class AntiSpam(BasePlugin):
     # Commands
 
     @Command("spam_emoji",
+             category="anti_spam",
              perms={"manage_guild"},
              doc="Sets the emoji to react to early spam with, or turns that off.",
              syntax="[emoji]")
@@ -218,7 +219,23 @@ class AntiSpam(BasePlugin):
             self.plugin_config[str(msg.guild.id)]["spam_reaction"] = False
             await respond(msg, f"**AFFIRMATIVE. Spam reaction disabled.**")
 
+    @Command("spam_delete",
+             category="anti_spam",
+             doc="Enables or disables deletion of detected spam.",
+             syntax="(enable/on/disable/off)")
+    async def _spamdelete(self, msg):
+        args = msg.content.split()
+        if len(args) > 1 and (args[1].lower() == "enable" or args[1].lower() == "on"):
+            self.plugin_config[str(msg.guild.id)]["spam_delete"] = True
+            await respond(msg, "**AFFIRMATIVE. Spam deleting enabled.**")
+        elif len(args) > 1 and (args[1].lower() == "disable" or args[1].lower() == "off"):
+            self.plugin_config[str(msg.guild.id)]["spam_delete"] = False
+            await respond(msg, "**AFFIRMATIVE. Spam deleting disabled.**")
+        else:
+            raise SyntaxError("Expected arguments.")
+
     @Command("spam_role",
+             category="anti_spam",
              perms={"manage_guild"},
              doc="Sets the role to apply on sufficient infractions and duration, or disables it.",
              syntax="(disable/off) | (set) (role ID or Name) | (time/duration) (time in seconds)")
@@ -254,6 +271,7 @@ class AntiSpam(BasePlugin):
             await respond(msg, "**AFFIRMATIVE. Anti-spam role disabled.**")
 
     @Command("spam_ban",
+             category="anti_spam",
              perms={"manage_guild"},
              doc="Enables or disables banning for excessive spamming.",
              syntax="(enable/on/disable/off)")
@@ -269,6 +287,7 @@ class AntiSpam(BasePlugin):
             raise SyntaxError("Expected arguments.")
 
     @Command("spam_list",
+             category="anti_spam",
              doc="Prints a list of all people with non-zero infractions currently.")
     async def _spamlist(self, msg):
         t_string = ""
