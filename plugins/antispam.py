@@ -208,8 +208,8 @@ class AntiSpam(BasePlugin):
                     self.plugin_config[str(msg.guild.id)]["spam_reaction"] = args[1]
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New spam reaction emoji: {args[1]}.**")
                     await msg.remove_reaction(args[1], msg.guild.me)
-            elif re.fullmatch("<:\w{1,32}:\d{18}>", args[1]):
-                t_emoji = re.search("\d{18}", args[1])[0]
+            elif re.fullmatch("<:\w{1,32}:\d{1,20}>", args[1]):
+                t_emoji = re.search("\d{1,20}", args[1])[0]
                 if self.client.get_emoji(int(t_emoji)):
                     self.plugin_config[str(msg.guild.id)]["spam_reaction"] = t_emoji
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New spam reaction emoji: {args[1]}.**")
@@ -243,7 +243,7 @@ class AntiSpam(BasePlugin):
         args = msg.content.split(" ", 2)
         if len(args) > 2:
             if args[1].lower() == "set":
-                if re.fullmatch("\d{18}", args[2]):
+                if re.fullmatch("\d{1,20}", args[2]):
                     for role in msg.guild.roles:
                         if role.id == int(args[2]):
                             self.plugin_config[str(msg.guild.id)]["spam_role"] = args[2]
@@ -326,42 +326,25 @@ class AntiSpam(BasePlugin):
             for arg in t_args[2:]:
                 t_arg = arg.split("=")
                 if len(t_arg) == 2:
+                    try:
+                        t_val = max(1, int(t_arg[1]))
+                    except ValueError:
+                            raise SyntaxError("Expected integer value.")
                     if t_arg[0] in react_strings:
-                        try:
-                            t_cfg["thresholds"][0] = max(1, int(t_arg[1]))
-                        except ValueError:
-                            raise SyntaxError("Expected integer value.")
-                        else:
-                            t_string = f"{t_string}{'Reaction'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
+                        t_cfg["thresholds"][0] = t_val
+                        t_string = f"{t_string}{'Reaction'.ljust(20)}: {t_val} infringements.\n"
                     elif t_arg[0] in del_strings:
-                        try:
-                            t_cfg["thresholds"][1] = max(1, int(t_arg[1]))
-                        except ValueError:
-                            raise SyntaxError("Expected integer value.")
-                        else:
-                            t_string = f"{t_string}{'Deletion'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
+                        t_cfg["thresholds"][1] = t_val
+                        t_string = f"{t_string}{'Deletion'.ljust(20)}: {t_val} infringements.\n"
                     elif t_arg[0] in role_strings:
-                        try:
-                            t_cfg["thresholds"][2] = max(1, int(t_arg[1]))
-                        except ValueError:
-                            raise SyntaxError("Expected integer value.")
-                        else:
-                            t_string = f"{t_string}{'Role application'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
+                        t_cfg["thresholds"][2] = t_val
+                        t_string = f"{t_string}{'Role application'.ljust(20)}: {t_val} infringements.\n"
                     elif t_arg[0] in ban_strings:
-                        try:
-                            t_cfg["thresholds"][3] = max(1, int(t_arg[1]))
-                        except ValueError:
-                            raise SyntaxError("Expected integer value.")
-                        else:
-                            t_string = f"{t_string}{'Ban'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
+                        t_cfg["thresholds"][3] = t_val
+                        t_string = f"{t_string}{'Ban'.ljust(20)}: {t_val} infringements.\n"
                     elif t_arg[0] in time_strings:
-                        try:
-                            t_cfg["infraction_timeout"] = max(1, int(t_arg[1]))
-                        except ValueError:
-                            raise SyntaxError("Expected integer value.")
-                        else:
-                            t_string = f"{t_string}{'Infraction timeout'.ljust(20)}: " \
-                                       f"{p_time(max(1, int(t_arg[1])))}.\n"
+                        t_cfg["infraction_timeout"] = t_val
+                        t_string = f"{t_string}{'Infraction timeout'.ljust(20)}: {p_time(t_val)}.\n"
             if t_string != "":
                 self.calc_thresholds(msg.guild)
                 await respond(msg, f"**AFFIRMATIVE. ANALYSIS: applied infraction threshold options:**\n"
@@ -373,46 +356,30 @@ class AntiSpam(BasePlugin):
                 # allows user-friendly one-option commands like
                 # !spam_infs set react 1
                 t_arg = args[2].lower()
+                try:
+                    t_val = max(1, int(args[3]))
+                except ValueError:
+                    raise SyntaxError("Expected integer value.")
                 if t_arg in react_strings:
-                    try:
-                        t_cfg["thresholds"][0] = max(1, int(args[3]))
-                    except ValueError:
-                        raise SyntaxError("Expected integer value.")
-                    else:
+                        t_cfg["thresholds"][0] = t_val
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to emoji reaction on "
-                                           f"{ordinal(max(1, int(args[3])))} infraction.**")
+                                           f"{ordinal(t_val)} infraction.**")
                 elif t_arg in del_strings:
-                    try:
-                        t_cfg["thresholds"][1] = max(1, int(args[3]))
-                    except ValueError:
-                        raise SyntaxError("Expected integer value.")
-                    else:
+                        t_cfg["thresholds"][1] = t_val
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to deletion on "
-                                           f"{ordinal(max(1, int(args[3])))} infraction after previous level.**")
+                                           f"{ordinal(t_val)} infraction after previous level.**")
                 elif t_arg in role_strings:
-                    try:
-                        t_cfg["thresholds"][2] = max(1, int(args[3]))
-                    except ValueError:
-                        raise SyntaxError("Expected integer value.")
-                    else:
+                        t_cfg["thresholds"][2] = t_val
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to role application on "
-                                           f"{ordinal(max(1, int(args[3])))} infraction after previous level.**")
+                                           f"{ordinal(t_val)} infraction after previous level.**")
                 elif t_arg in ban_strings:
-                    try:
-                        t_cfg["thresholds"][3] = max(1, int(args[3]))
-                    except ValueError:
-                        raise SyntaxError("Expected integer value.")
-                    else:
+                        t_cfg["thresholds"][3] = t_val
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to banning on "
-                                           f"{ordinal(max(1, int(args[3])))} infraction after previous level.**")
+                                           f"{ordinal(t_val)} infraction after previous level.**")
                 elif t_arg in time_strings:
-                    try:
-                        t_cfg["infraction_timeout"] = max(1, int(args[3]))
-                    except ValueError:
-                        raise SyntaxError("Expected integer value.")
-                    else:
+                        t_cfg["infraction_timeout"] = t_val
                         await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every "
-                                           f"{p_time(max(1, int(args[3])))}.")
+                                           f"{p_time(t_val)}.")
                 self.calc_thresholds(msg.guild)
         elif len(args) > 2:
             if args[1].lower() in time_strings:
@@ -459,20 +426,16 @@ class AntiSpam(BasePlugin):
                 t_string = ""
                 for t_arg in [x.split("=") for x in t_args]:
                     if len(t_arg) > 1:
+                        try:
+                            t_val = max(1, int(t_arg[1]))
+                        except ValueError:
+                            raise SyntaxError("Expected integer value.")
                         if t_arg[0].lower() in msg_strings:
-                            try:
-                                t_cfg["message_count"] = max(1, int(t_arg[1]))
-                            except ValueError:
-                                raise SyntaxError("Expected integer value.")
-                            else:
-                                t_string = f"{t_string}{'Message count'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
+                            t_cfg["message_count"] = t_val
+                            t_string = f"{t_string}{'Message count'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
                         elif t_arg[0].lower() in time_strings:
-                            try:
-                                t_cfg["timeout"] = max(1, int(t_arg[1]))
-                            except ValueError:
-                                raise SyntaxError("Expected integer value.")
-                            else:
-                                t_string = f"{t_string}{'Spam timeout'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
+                            t_cfg["timeout"] = t_val
+                            t_string = f"{t_string}{'Spam timeout'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
                 if t_string != "":
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: Applied spam filter options:**\n```{t_string}```")
                 else:
