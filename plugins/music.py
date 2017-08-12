@@ -198,7 +198,6 @@ class MusicPlayer(BasePlugin):
                 self.parent.logger.warning(exc)
             if self.vc.is_playing():
                 self.vc.stop()
-                self.vc.source.cleanup()
             elif len(self.queue) > 0:
                 t_loop = asyncio.get_event_loop()
 
@@ -960,7 +959,7 @@ class MusicPlayer(BasePlugin):
                 t_player = self.players[next(iter(self.client.guilds)).id]
                 game = None
                 if hasattr(t_player.vc, "source") and t_player.vc.source:
-                    if t_player.player.is_playing():
+                    if not t_player.vc.is_paused():
                         progress = t_player.play_length()
                         progress = f"{progress//60}:{progress%60:02d}"
                         if t_player.player.duration:
