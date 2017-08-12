@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from config_manager import ConfigManager
 from plugin_manager import PluginManager
@@ -150,7 +151,11 @@ if __name__ == "__main__":
     ch = logging.StreamHandler()
     ch.setLevel(loglevel)
     ch.setFormatter(formatter)
+    fl = RotatingFileHandler("red_star.log", maxBytes=10485760, backupCount=3, encoding="utf-8")
+    fl.setLevel(loglevel)
+    fl.setFormatter(formatter)
     logger.addHandler(ch)
+    logger.addHandler(fl)
     bot = RedStar()
     loop = asyncio.get_event_loop()
     main_logger = logging.getLogger("MAIN")
