@@ -218,7 +218,10 @@ class AntiSpam(BasePlugin):
             self.plugin_config[str(msg.guild.id)]["spam_reaction"] = False
             await respond(msg, f"**AFFIRMATIVE. Spam reaction disabled.**")
 
-    @Command("spam_role")
+    @Command("spam_role",
+             perms={"manage_guild"},
+             doc="Sets the role to apply on sufficient infractions, or turns that off.",
+             syntax="[role ID or Name]")
     async def _getrole(self, msg):
         args = msg.content.split()
         if len(args) > 1:
@@ -237,11 +240,25 @@ class AntiSpam(BasePlugin):
                         await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role: {role.name}**")
                         break
                 else:
-                    await respond(msg, "**NEGATIVE. Invalid role ID.**")
+                    await respond(msg, "**NEGATIVE. Invalid role Name.**")
         else:
-            await respond(msg, "**NEGATIVE. Expected role ID or Name.**")
+            await respond(msg, "**AFFIRMATIVE. Spam role disabled.**")
 
-    @Command("spam_list")
+    @Command("spam_ban",
+             perms={"manage_guild"},
+             doc="Enables or disables banning for excessive spamming.",
+             syntax="[Enable/Disable]")
+    async def _spamban(self, msg):
+        args = msg.content.split()
+        if len(args) > 1 and args[1].lower() == "enable":
+            self.plugin_config[str(msg.guild.id)]["spam_ban"] = True
+            await respond(msg, "**AFFIRMATIVE. Spam banning enabled.**")
+        else:
+            self.plugin_config[str(msg.guild.id)]["spam_ban"] = False
+            await respond(msg, "**AFFIRMATIVE. Spam banning disabled.**")
+
+    @Command("spam_list",
+             doc="Prints a list of all people with non-zero infractions currently.")
     async def _spamlist(self, msg):
         t_string = ""
         for _, t_member in self.storage["members"][msg.guild.id].items():
@@ -254,6 +271,11 @@ class AntiSpam(BasePlugin):
     # Miscellaneous
 
     def calc_thresholds(self, guild):
+        """
+        Turns the additive numbers in the config into progressive numbers for the system to use.
+        :param guild:
+        :return:
+        """
         if guild.id not in self.s_thresholds:
             self.s_thresholds[guild.id] = [0, 0, 0, 0]
         t_lst = self.s_thresholds[guild.id]
@@ -278,6 +300,12 @@ class AntiSpam(BasePlugin):
             self.logger.exception("Error starting timer. ", exc_info=True)
 
     async def update_regular(self, loop):
+        """
+        A regularly ran function that takes care of periodic tasks.
+        Such as making cooldowns run out and checking if members still exist.
+        :param loop:
+        :return:
+        """
         while self.run_timer:
             await asyncio.sleep(self.plugin_config["poll_every"])
             for k, t_guild in self.storage["members"].items():
