@@ -42,7 +42,7 @@ class Announcer(BasePlugin):
 
     async def on_member_join(self, msg):
         gid = str(msg.guild.id)
-        if self.plugin_config.new_member_announce_enabled:
+        if self.plugin_config[gid].new_member_announce_enabled:
             if gid not in self.plugin_config:
                 self.plugin_config[gid] = DotDict(self.default_config["default"])
                 self.config_manager.save_config()
