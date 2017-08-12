@@ -256,15 +256,17 @@ class AntiSpam(BasePlugin):
     @Command("spam_ban",
              perms={"manage_guild"},
              doc="Enables or disables banning for excessive spamming.",
-             syntax="[Enable/Disable]")
+             syntax="(enable/on/disable/off)")
     async def _spamban(self, msg):
         args = msg.content.split()
-        if len(args) > 1 and args[1].lower() == "enable":
+        if len(args) > 1 and (args[1].lower() == "enable" or args[1].lower() == "on"):
             self.plugin_config[str(msg.guild.id)]["spam_ban"] = True
             await respond(msg, "**AFFIRMATIVE. Spam banning enabled.**")
-        else:
+        elif len(args) > 1 and (args[1].lower() == "disable" or args[1].lower() == "off"):
             self.plugin_config[str(msg.guild.id)]["spam_ban"] = False
             await respond(msg, "**AFFIRMATIVE. Spam banning disabled.**")
+        else:
+            raise SyntaxError("Expected arguments.")
 
     @Command("spam_list",
              doc="Prints a list of all people with non-zero infractions currently.")
