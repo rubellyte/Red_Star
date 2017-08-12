@@ -245,6 +245,8 @@ class Command:
         if doc is None:
             doc = ""
         self.name = name
+        if isinstance(perms, str):
+            perms = {perms}
         self.perms = perms
         self.syntax = syntax
         self.human_syntax = " ".join(syntax)

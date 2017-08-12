@@ -1,6 +1,10 @@
 {
   "client_id": "INSERT CLIENT ID HERE!",
   "token": "INSERT TOKEN HERE!",
+  "bot_maintainers": [
+    "BOT OWNER IDS HERE",
+    "AS NUMBER, NOT STRING"
+  ],
   "plugin_path": "./plugins",
   "shelve_path": "config/storage",
   "shelve_save_interval": 600,
@@ -13,6 +17,25 @@
         "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention."
       }
     },
+    "anti_spam": {
+      "default": {
+        "infraction_timeout": 300,
+        "message_count": 5,
+        "spam_ban": false,
+        "spam_delete": false,
+        "spam_reaction": false,
+        "spam_role": false,
+        "spam_role_timeout": 60,
+        "thresholds": [
+          1,
+          1,
+          2,
+          2
+        ],
+        "timeout": 10
+      },
+      "poll_every": 5
+    }
     "command_dispatcher": {
       "default": {
         "command_prefix": "!",
@@ -26,12 +49,14 @@
       }
     },
     "logger": {
-      "log_events": [
-        "message_delete",
-        "message_edit",
-        "member_join",
-        "member_remove"
-      ]
+      "default": {
+        "log_events": [
+          "message_delete",
+          "message_edit",
+          "member_join",
+          "member_remove"
+        ]
+      }
     },
     "motd": {
       "motd_file": "config/motds.json"
