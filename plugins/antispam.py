@@ -303,9 +303,10 @@ class AntiSpam(BasePlugin):
              perms={"manage_guild"},
              doc="Sets infraction thresholds.\n"
                  "Accepts 'react'/'reaction' for reactions, 'del'/'delete'/'deletion' for deletion, 'role' for role, "
-                 "'ban' for ban and 'duration'/'time'/'cooldown'/'timeout' for infraction timeout.",
+                 "'ban' for ban and 'duration'/'time'/'cooldown'/'timeout' for infraction timeout.\n"
+                 "No arguments to display current settings.",
              syntax="(duration) (seconds) | (set) (react/del/role/ban) (number) | (eval) [attribute=value, "
-                    "any number]")
+                    "any number] | (nothing)")
     async def _spaminfs(self, msg):
 
         react_strings = ["react", "reaction"]
@@ -420,7 +421,23 @@ class AntiSpam(BasePlugin):
                 else:
                     await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every {p_time(int(args[2]))}.")
         else:
-            raise SyntaxError("Invalid arguments.")
+            t_re = t_cfg["spam_reaction"]
+            t_de = t_cfg["spam_delete"]
+            t_ro = t_cfg["spam_role"]
+            t_ba = t_cfg["spam_ban"]
+            t_lst = self.s_thresholds[msg.guild.id]
+            t_string = ""
+            if t_re:
+                t_string = f"{ordinal(t_lst[0]).ljust(5)} infraction: Message reaction.\n"
+            if t_de:
+                t_string = f"{t_string}{ordinal(t_lst[1]).ljust(5)} infraction: Message deletion.\n"
+            if t_ro:
+                t_string = f"{t_string}{ordinal(t_lst[2]).ljust(5)} infraction: Role application.\n"
+            if t_ba:
+                t_string = f"{t_string}{ordinal(t_lst[3]).ljust(5)} infraction: Ban.\n"
+            t_string = f"{t_string}One infraction is removed every {p_time(t_cfg['infraction_timeout'])} of good " \
+                       f"behaviour."
+            await respond(msg, f"**ANALYSIS: Current infraction settings:**\n```{t_string}```")
 
     # Miscellaneous
 
