@@ -178,6 +178,57 @@ def ordinal(n):
     return "%d%s" % (n, "tsnrhtdd"[((n//10) % 10 != 1)*(n % 10 < 4)*n % 10::4])
 
 
+def p_time(seconds):
+    """
+    Pretty time display function
+    :param seconds: time in seconds
+    :return: time in weeks, days and h:mm:ss
+    """
+    minute = 60
+    hour = minute*60
+    day = hour*24
+    week = day*7
+
+    t_w, t_d = divmod(int(seconds), week)
+    t_d, t_h = divmod(t_d, day)
+    t_h, t_m = divmod(t_h, hour)
+    t_m, t_s = divmod(t_m, minute)
+
+    t_string = []
+    if t_w > 1:
+        t_string.append(f"{t_w} weeks")
+    elif t_w == 1:
+        t_string.append("1 week")
+
+    if t_d > 1:
+        t_string.append(f"{t_d} days")
+    elif t_d == 1:
+        t_string.append("1 day")
+
+    if t_h > 0:
+        if t_m == t_s == 0:
+            if t_h > 1:
+                t_string.append(f"{t_h} hours")
+            else:
+                t_string.append("1 hour")
+        else:
+            t_string.append(f"{t_h}:{t_m:02d}:{t_s:02d}")
+    elif t_m > 0:
+        if t_s == 0:
+            if t_m > 1:
+                t_string.append(f"{t_m} minutes")
+            else:
+                t_string.append("1 minute")
+        else:
+            t_string.append(f"{t_m}:{t_s:02d}")
+    elif t_s > 1:
+        t_string.append(f"{t_s:02d} seconds")
+    elif t_s == 1:
+        t_string.append("1 second")
+
+    return ", ".join(t_string)
+
+
 class Command:
     """
     Defines a decorator that encapsulates a chat command. Provides a common
