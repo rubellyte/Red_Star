@@ -198,7 +198,6 @@ class MusicPlayer(BasePlugin):
                 self.parent.logger.warning(exc)
             if self.vc.is_playing():
                 self.vc.stop()
-                self.vc.source.cleanup()
             elif len(self.queue) > 0:
                 t_loop = asyncio.get_event_loop()
 
@@ -405,7 +404,7 @@ class MusicPlayer(BasePlugin):
 
     # Event functions
 
-    async def on_server_join(self, guild):
+    async def on_guild_join(self, guild):
         self.client.change_presence(game=None)
         if guild.id not in self.plugin_config:
             self.plugin_config[str(guild.id)] = self.plugin_config["default"]
@@ -413,7 +412,7 @@ class MusicPlayer(BasePlugin):
             self.storage["banned_members"][guild.id] = set()
         self.players[guild.id] = self.ServerStorage(self, guild, self.plugin_config[str(guild.id)])
 
-    async def on_server_remove(self, guild):
+    async def on_guild_remove(self, guild):
         if guild.id in self.players:
             self.players[guild.id].stop_song()
             await self.players[guild.id].disconnect()
@@ -465,7 +464,10 @@ class MusicPlayer(BasePlugin):
             if not self.plugin_config[str(data.guild.id)]["allow_playlists"]:
                 if args[1].find("list=") > -1:
                     raise SyntaxWarning("No playlists allowed!")
-            await t_play.play_song(args[1], data)
+            t_msg = await respond(data, "**AFFIRMATIVE. Processing.**")
+            async with data.channel.typing():
+                await t_play.play_song(args[1], data)
+            await t_msg.delete()
         else:
             raise SyntaxError("Expected URL or search query.")
 
@@ -713,14 +715,15 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You lack the required permissions.")
         args = process_args(data.content.split())
         if len(args) > 1:
-            await respond(data, "**AFFIRMATIVE. Extending queue.**")
-            for arg in args[1:]:
-                await t_play.add_song(arg)
-            await respond(data, f"**ANALYSIS: Current queue:**")
-            for s in split_message(t_play.build_queue(), "\n"):
-                await respond(data, f"```{s}```")
-            if not t_play.vc.source:
-                await t_play.play_next(data, None)
+            with data.channel.typing():
+                await respond(data, "**AFFIRMATIVE. Extending queue.**")
+                for arg in args[1:]:
+                    await t_play.add_song(arg)
+                await respond(data, f"**ANALYSIS: Current queue:**")
+                for s in split_message(t_play.build_queue(), "\n"):
+                    await respond(data, f"```{s}```")
+                if not t_play.vc.source:
+                    await t_play.play_next(data, None)
         else:
             raise SyntaxError("Expected arguments!")
 
@@ -960,7 +963,7 @@ class MusicPlayer(BasePlugin):
                 t_player = self.players[next(iter(self.client.guilds)).id]
                 game = None
                 if hasattr(t_player.vc, "source") and t_player.vc.source:
-                    if t_player.player.is_playing():
+                    if not t_player.vc.is_paused():
                         progress = t_player.play_length()
                         progress = f"{progress//60}:{progress%60:02d}"
                         if t_player.player.duration:

@@ -20,7 +20,7 @@ class ConfigManager:
         if not isinstance(config_path, Path):
             config_path = Path(config_path)
         try:
-            with config_path.open() as f:
+            with config_path.open(encoding="utf-8") as f:
                 self.raw_config = f.read()
         except FileNotFoundError:
             self.logger.warning("Couldn't open config.json! Copying "
@@ -28,7 +28,7 @@ class ConfigManager:
             default_path = Path(str(config_path) + ".default")
             try:
                 copyfile(str(default_path), str(config_path))
-                with config_path.open("w") as f:
+                with config_path.open("w", encoding="utf-8") as f:
                     self.raw_config = f.read()
             except FileNotFoundError:
                 self.logger.error("Couldn't open config.json.default! Please "
@@ -51,7 +51,7 @@ class ConfigManager:
         if not path:
             path = self._path
         temp_path = Path(str(path) + "_")
-        with temp_path.open("w") as f:
+        with temp_path.open("w", encoding="utf-8") as f:
             json.dump(self.config, f, sort_keys=True, indent=2)
         path.unlink()
         temp_path.rename(path)
