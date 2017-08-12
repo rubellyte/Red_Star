@@ -328,35 +328,35 @@ class AntiSpam(BasePlugin):
                 if len(t_arg) == 2:
                     if t_arg[0] in react_strings:
                         try:
-                            t_cfg["thresholds"][0] = int(t_arg[1])
+                            t_cfg["thresholds"][0] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
                             t_string = f"{t_string}{'Reaction'.ljust(20)}: {t_arg[1]} infringements.\n"
                     elif t_arg[0] in del_strings:
                         try:
-                            t_cfg["thresholds"][1] = int(t_arg[1])
+                            t_cfg["thresholds"][1] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
                             t_string = f"{t_string}{'Deletion'.ljust(20)}: {t_arg[1]} infringements.\n"
                     elif t_arg[0] in role_strings:
                         try:
-                            t_cfg["thresholds"][2] = int(t_arg[1])
+                            t_cfg["thresholds"][2] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
                             t_string = f"{t_string}{'Role application'.ljust(20)}: {t_arg[1]} infringements.\n"
                     elif t_arg[0] in ban_strings:
                         try:
-                            t_cfg["thresholds"][3] = int(t_arg[1])
+                            t_cfg["thresholds"][3] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
                             t_string = f"{t_string}{'Ban'.ljust(20)}: {t_arg[1]} infringements.\n"
                     elif t_arg[0] in time_strings:
                         try:
-                            t_cfg["infraction_timeout"] = int(t_arg[1])
+                            t_cfg["infraction_timeout"] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
@@ -374,7 +374,7 @@ class AntiSpam(BasePlugin):
                 t_arg = args[2].lower()
                 if t_arg in react_strings:
                     try:
-                        t_cfg["thresholds"][0] = int(args[3])
+                        t_cfg["thresholds"][0] = max(1, int(args[3]))
                     except ValueError:
                         raise SyntaxError("Expected integer value.")
                     else:
@@ -382,7 +382,7 @@ class AntiSpam(BasePlugin):
                                            f"{ordinal(int(args[3]))} infraction.**")
                 elif t_arg in del_strings:
                     try:
-                        t_cfg["thresholds"][1] = int(args[3])
+                        t_cfg["thresholds"][1] = max(1, int(args[3]))
                     except ValueError:
                         raise SyntaxError("Expected integer value.")
                     else:
@@ -390,7 +390,7 @@ class AntiSpam(BasePlugin):
                                            f"{ordinal(int(args[3]))} infraction after previous level.**")
                 elif t_arg in role_strings:
                     try:
-                        t_cfg["thresholds"][2] = int(args[3])
+                        t_cfg["thresholds"][2] = max(1, int(args[3]))
                     except ValueError:
                         raise SyntaxError("Expected integer value.")
                     else:
@@ -398,7 +398,7 @@ class AntiSpam(BasePlugin):
                                            f"{ordinal(int(args[3]))} infraction after previous level.**")
                 elif t_arg in ban_strings:
                     try:
-                        t_cfg["thresholds"][3] = int(args[3])
+                        t_cfg["thresholds"][3] = max(1, int(args[3]))
                     except ValueError:
                         raise SyntaxError("Expected integer value.")
                     else:
@@ -406,7 +406,7 @@ class AntiSpam(BasePlugin):
                                            f"{ordinal(int(args[3]))} infraction after previous level.**")
                 elif t_arg in time_strings:
                     try:
-                        t_cfg["infraction_timeout"] = int(args[3])
+                        t_cfg["infraction_timeout"] = max(1, int(args[3]))
                     except ValueError:
                         raise SyntaxError("Expected integer value.")
                     else:
@@ -415,7 +415,7 @@ class AntiSpam(BasePlugin):
         elif len(args) > 2:
             if args[1].lower() in time_strings:
                 try:
-                    t_cfg["infraction_timeout"] = int(args[2])
+                    t_cfg["infraction_timeout"] = max(1, int(args[2]))
                 except ValueError:
                     raise SyntaxError("Expected integer value.")
                 else:
