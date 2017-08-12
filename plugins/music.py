@@ -464,8 +464,10 @@ class MusicPlayer(BasePlugin):
             if not self.plugin_config[str(data.guild.id)]["allow_playlists"]:
                 if args[1].find("list=") > -1:
                     raise SyntaxWarning("No playlists allowed!")
+            t_msg = await respond(data, "**AFFIRMATIVE. Processing.**")
             async with data.channel.typing():
                 await t_play.play_song(args[1], data)
+            await t_msg.delete()
         else:
             raise SyntaxError("Expected URL or search query.")
 
