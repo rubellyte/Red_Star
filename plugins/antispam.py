@@ -266,9 +266,16 @@ class AntiSpam(BasePlugin):
                     raise SyntaxError("Expected integer number of seconds.")
                 self.plugin_config[str(msg.guild.id)]["spam_role_timeout"] = t_time
                 await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role duration: {t_time}**")
-        elif args[1].lower() == "disable" or args[1].lower() == "off":
+        elif len(args) > 1 and (args[1].lower() == "disable" or args[1].lower() == "off"):
             self.plugin_config[str(msg.guild.id)]["spam_role"] = False
             await respond(msg, "**AFFIRMATIVE. Anti-spam role disabled.**")
+        else:
+            for t_role in msg.guild.roles:
+                if t_role.id == int(self.plugin_config[str(msg.guild.id)]["spam_role"]):
+                    await respond(msg, f"**ANALYSIS: Current spam role: {t_role.name}.**")
+                    break
+            else:
+                await respond(msg, f"**ANALYSIS: Spam role disabled or not found.**")
 
     @Command("spam_ban",
              category="anti_spam",

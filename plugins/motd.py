@@ -14,6 +14,7 @@ class MOTD(BasePlugin):
     }
 
     async def activate(self):
+        self.run_timer = True
         try:
             with open(self.plugin_config.motd_file, "r", encoding="utf8") as f:
                 self.motds = json.load(f)
@@ -36,8 +37,11 @@ class MOTD(BasePlugin):
             "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"
         }
 
+    async def deactivate(self):
+        self.run_timer = False
+
     async def _run_motd(self):
-        while True:
+        while self.run_timer:
             schedule.run_pending()
             await asyncio.sleep(60)
 
