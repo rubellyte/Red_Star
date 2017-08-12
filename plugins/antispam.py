@@ -220,29 +220,38 @@ class AntiSpam(BasePlugin):
 
     @Command("spam_role",
              perms={"manage_guild"},
-             doc="Sets the role to apply on sufficient infractions, or turns that off.",
-             syntax="[role ID or Name]")
+             doc="Sets the role to apply on sufficient infractions and duration, or disables it.",
+             syntax="(disable/off) | (set) (role ID or Name) | (time/duration) (time in seconds)")
     async def _getrole(self, msg):
-        args = msg.content.split()
-        if len(args) > 1:
-            if re.fullmatch("\d{18}", args[1]):
-                for role in msg.guild.roles:
-                    if role.id == int(args[1]):
-                        self.plugin_config[str(msg.guild.id)]["spam_role"] = args[1]
-                        await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role: {role.name}**")
-                        break
+        args = msg.content.split(" ", 2)
+        if len(args) > 2:
+            if args[1].lower() == "set":
+                if re.fullmatch("\d{18}", args[2]):
+                    for role in msg.guild.roles:
+                        if role.id == int(args[2]):
+                            self.plugin_config[str(msg.guild.id)]["spam_role"] = args[2]
+                            await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role: {role.name}**")
+                            break
+                    else:
+                        await respond(msg, "**NEGATIVE. Invalid role ID.**")
                 else:
-                    await respond(msg, "**NEGATIVE. Invalid role ID.**")
-            else:
-                for role in msg.guild.roles:
-                    if role.name.lower() == args[1].lower():
-                        self.plugin_config[str(msg.guild.id)]["spam_role"] = str(role.id)
-                        await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role: {role.name}**")
-                        break
-                else:
-                    await respond(msg, "**NEGATIVE. Invalid role Name.**")
-        else:
-            await respond(msg, "**AFFIRMATIVE. Spam role disabled.**")
+                    for role in msg.guild.roles:
+                        if role.name.lower() == args[2].lower():
+                            self.plugin_config[str(msg.guild.id)]["spam_role"] = str(role.id)
+                            await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role: {role.name}**")
+                            break
+                    else:
+                        await respond(msg, "**NEGATIVE. Invalid role Name.**")
+            elif args[1].lower() == "time" or args[1].lower() == "duration":
+                try:
+                    t_time = int(args[2])
+                except ValueError:
+                    raise SyntaxError("Expected integer number of seconds.")
+                self.plugin_config[str(msg.guild.id)]["spam_role_timeout"] = t_time
+                await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role duration: {t_time}**")
+        elif args[1].lower() == "disable" or args[1].lower() == "off":
+            self.plugin_config[str(msg.guild.id)]["spam_role"] = False
+            await respond(msg, "**AFFIRMATIVE. Anti-spam role disabled.**")
 
     @Command("spam_ban",
              perms={"manage_guild"},
