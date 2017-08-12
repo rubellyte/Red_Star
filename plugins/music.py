@@ -713,14 +713,15 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You lack the required permissions.")
         args = process_args(data.content.split())
         if len(args) > 1:
-            await respond(data, "**AFFIRMATIVE. Extending queue.**")
-            for arg in args[1:]:
-                await t_play.add_song(arg)
-            await respond(data, f"**ANALYSIS: Current queue:**")
-            for s in split_message(t_play.build_queue(), "\n"):
-                await respond(data, f"```{s}```")
-            if not t_play.vc.source:
-                await t_play.play_next(data, None)
+            with data.channel.typing():
+                await respond(data, "**AFFIRMATIVE. Extending queue.**")
+                for arg in args[1:]:
+                    await t_play.add_song(arg)
+                await respond(data, f"**ANALYSIS: Current queue:**")
+                for s in split_message(t_play.build_queue(), "\n"):
+                    await respond(data, f"```{s}```")
+                if not t_play.vc.source:
+                    await t_play.play_next(data, None)
         else:
             raise SyntaxError("Expected arguments!")
 
