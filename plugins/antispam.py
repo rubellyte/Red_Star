@@ -440,25 +440,22 @@ class AntiSpam(BasePlugin):
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: Applied spam filter options:**\n```{t_string}```")
                 else:
                     await respond(msg, "**WARNING: No valid arguments detected.**")
-            elif args[1].lower() in msg_strings:
-                try:
-                    t_cfg["message_count"] = max(1, int(args[2]))
-                except ValueError:
-                    raise SyntaxError("Expected integer value.")
-                else:
-                    await respond(msg, f"**AFFIRMATIVE. Message limit set to: {max(1, int(args[2]))}.**")
-            elif args[1].lower() in time_strings:
-                try:
-                    t_cfg["timeout"] = max(1, int(args[2]))
-                except ValueError:
-                    raise SyntaxError("Expected integer value.")
-                else:
-                    await respond(msg, f"**AFFIRMATIVE. Message timeout set to: {max(1, int(args[2]))}.**")
             else:
-                raise SyntaxWarning("Invalid arguments.")
+                try:
+                    t_val = max(1, int(args[2]))
+                except ValueError:
+                        raise SyntaxError("Expected integer value.")
+                if args[1].lower() in msg_strings:
+                    t_cfg["message_count"] = t_val
+                    await respond(msg, f"**AFFIRMATIVE. Message limit set to: {t_val}.**")
+                elif args[1].lower() in time_strings:
+                    t_cfg["timeout"] = t_val
+                    await respond(msg, f"**AFFIRMATIVE. Message timeout set to: {t_val}.**")
+                else:
+                    raise SyntaxWarning("Invalid arguments.")
         else:
-            await respond(msg,f"**ANALYSIS: Current spam settings: {t_cfg['message_count']} messages allowed per"
-                              f" {p_time(t_cfg['timeout'])}.**")
+            await respond(msg, f"**ANALYSIS: Current spam settings: {t_cfg['message_count']} messages allowed per"
+                               f" {p_time(t_cfg['timeout'])}.**")
 
     # Miscellaneous
 
