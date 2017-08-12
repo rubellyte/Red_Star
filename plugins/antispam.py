@@ -412,7 +412,10 @@ class AntiSpam(BasePlugin):
     @Command("spam_setting",
              category="anti_spam",
              perms={"manage_guild"},
-             doc="Sets spam thresholds and timeout.",
+             doc="Sets spam thresholds and timeout.\n"
+                 "Aliases:\n"
+                 "messages = msg/posts/amount/coung\n"
+                 "time = cooldown/during/duration",
              syntax="(messages)/(time) (number) | (eval) [attribute=value, any number]")
     async def _spamsettings(self, msg):
         msg_strings  = ["messages", "msg", "posts", "amount", "count"]
