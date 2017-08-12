@@ -20,7 +20,7 @@ class BotManagement(BasePlugin):
              syntax="(URL)",
              category="bot_management")
     async def _update_avatar(self, msg):
-        if not self.config_manager.config.bot_maintainers:
+        if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
             raise PermissionError
@@ -43,7 +43,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              perms={"manage_guild"})
     async def _activate(self, msg):
-        if not self.config_manager.config.bot_maintainers:
+        if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
             raise PermissionError
@@ -71,7 +71,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              perms={"manage_guild"})
     async def _deactivate(self, msg):
-        if not self.config_manager.config.bot_maintainers:
+        if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
             raise PermissionError
@@ -97,7 +97,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              perms={"manage_guild"})
     async def _list_plugins(self, msg):
-        if not self.config_manager.config.bot_maintainers:
+        if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
             raise PermissionError
@@ -117,7 +117,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              perms={"manage_guild"})
     async def _get_config(self, msg):
-        if not self.config_manager.config.bot_maintainers:
+        if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
             raise PermissionError
@@ -153,7 +153,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              perms={"manage_guild"})
     async def _set_config(self, msg):
-        if not self.config_manager.config.bot_maintainers:
+        if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
             raise PermissionError

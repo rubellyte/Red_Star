@@ -107,7 +107,7 @@ class CommandDispatcher(BasePlugin):
             else:
                 await respond(msg, f"**WARNING: {err}.**")
         except PermissionError as e:
-            err = f"\nANALYSIS: {e}" if e else ""
+            err = f"\nANALYSIS: {e}" if str(e) else ""
             await respond(msg, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
         except Forbidden:
             await respond(msg, "**NEGATIVE. This unit does not have permission to perform that action.**")
