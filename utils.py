@@ -169,6 +169,15 @@ def process_args(args):
     return newargs[::-1]
 
 
+def ordinal(n):
+    """
+    Black magic that turns numbers into ordinal representation (1 -> 1st)
+    :param n: number to be converted
+    :return: string with ordinal number
+    """
+    return "%d%s" % (n, "tsnrhtdd"[((n//10) % 10 != 1)*(n % 10 < 4)*n % 10::4])
+
+
 class Command:
     """
     Defines a decorator that encapsulates a chat command. Provides a common
