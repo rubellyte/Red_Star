@@ -176,7 +176,7 @@ class AntiSpam(BasePlugin):
                     if t_member.infractions >= self.s_thresholds[msg.guild.id][1] and t_config["spam_delete"]:
                         await msg.delete(reason="Spam filtering.")
                     elif t_member.infractions >= self.s_thresholds[msg.guild.id][0] and t_config["spam_reaction"]:
-                        if len(t_config["spam_reaction"]) != 18:
+                        if len(t_config["spam_reaction"]) == 1:
                             try:
                                 await msg.add_reaction(t_config["spam_reaction"])
                             except HTTPException:
@@ -211,7 +211,7 @@ class AntiSpam(BasePlugin):
             elif re.fullmatch("<:\w{1,32}:\d{1,20}>", args[1]):
                 t_emoji = re.search("\d{1,20}", args[1])[0]
                 if self.client.get_emoji(int(t_emoji)):
-                    self.plugin_config[str(msg.guild.id)]["spam_reaction"] = t_emoji
+                    self.plugin_config[str(msg.guild.id)]["spam_reaction"] = t_emoji.rjust(18, "0")
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New spam reaction emoji: {args[1]}.**")
             else:
                 raise SyntaxError("Expected a single emoji as argument.")
