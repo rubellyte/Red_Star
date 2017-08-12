@@ -58,7 +58,7 @@ class Info(BasePlugin):
             aliases = f"(Aliases: {', '.join([capwords(x, '_') for x in cmd._aliases])})" if cmd._aliases else ""
             if not {x for x, y in msg.author.guild_permissions if y} >= perms:
                 raise PermissionError
-            text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) {aliases}\n{doc}\n" \
+            text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) {aliases}\n\n{doc}\n\n" \
                    f"Syntax: {syn}\n```"
             await respond(msg, text)
         elif search in self.categories.keys():
