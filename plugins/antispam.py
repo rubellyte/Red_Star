@@ -168,7 +168,7 @@ class AntiSpam(BasePlugin):
             t_config = self.plugin_config[str(msg.guild.id)]
             if time.time() - t_member.update_time < t_config["timeout"]:
                 t_member.messages += 1
-                if t_member.messages >= t_config["message_count"]:
+                if t_member.messages > t_config["message_count"]:
                     if t_member.messages % t_config["message_count"] == 0:
                         await t_member.infract()
                     else:
@@ -332,35 +332,36 @@ class AntiSpam(BasePlugin):
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
-                            t_string = f"{t_string}{'Reaction'.ljust(20)}: {t_arg[1]} infringements.\n"
+                            t_string = f"{t_string}{'Reaction'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
                     elif t_arg[0] in del_strings:
                         try:
                             t_cfg["thresholds"][1] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
-                            t_string = f"{t_string}{'Deletion'.ljust(20)}: {t_arg[1]} infringements.\n"
+                            t_string = f"{t_string}{'Deletion'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
                     elif t_arg[0] in role_strings:
                         try:
                             t_cfg["thresholds"][2] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
-                            t_string = f"{t_string}{'Role application'.ljust(20)}: {t_arg[1]} infringements.\n"
+                            t_string = f"{t_string}{'Role application'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
                     elif t_arg[0] in ban_strings:
                         try:
                             t_cfg["thresholds"][3] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
-                            t_string = f"{t_string}{'Ban'.ljust(20)}: {t_arg[1]} infringements.\n"
+                            t_string = f"{t_string}{'Ban'.ljust(20)}: {max(1, t_arg[1])} infringements.\n"
                     elif t_arg[0] in time_strings:
                         try:
                             t_cfg["infraction_timeout"] = max(1, int(t_arg[1]))
                         except ValueError:
                             raise SyntaxError("Expected integer value.")
                         else:
-                            t_string = f"{t_string}{'Infraction timeout'.ljust(20)}: {p_time(t_arg[1])}.\n"
+                            t_string = f"{t_string}{'Infraction timeout'.ljust(20)}: " \
+                                       f"{p_time(max(1, int(t_arg[1])))}.\n"
             if t_string != "":
                 self.calc_thresholds(msg.guild)
                 await respond(msg, f"**AFFIRMATIVE. ANALYSIS: applied infraction threshold options:**\n"
@@ -379,7 +380,7 @@ class AntiSpam(BasePlugin):
                         raise SyntaxError("Expected integer value.")
                     else:
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to emoji reaction on "
-                                           f"{ordinal(int(args[3]))} infraction.**")
+                                           f"{ordinal(max(1, int(args[3])))} infraction.**")
                 elif t_arg in del_strings:
                     try:
                         t_cfg["thresholds"][1] = max(1, int(args[3]))
@@ -387,7 +388,7 @@ class AntiSpam(BasePlugin):
                         raise SyntaxError("Expected integer value.")
                     else:
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to deletion on "
-                                           f"{ordinal(int(args[3]))} infraction after previous level.**")
+                                           f"{ordinal(max(1, int(args[3])))} infraction after previous level.**")
                 elif t_arg in role_strings:
                     try:
                         t_cfg["thresholds"][2] = max(1, int(args[3]))
@@ -395,7 +396,7 @@ class AntiSpam(BasePlugin):
                         raise SyntaxError("Expected integer value.")
                     else:
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to role application on "
-                                           f"{ordinal(int(args[3]))} infraction after previous level.**")
+                                           f"{ordinal(max(1, int(args[3])))} infraction after previous level.**")
                 elif t_arg in ban_strings:
                     try:
                         t_cfg["thresholds"][3] = max(1, int(args[3]))
@@ -403,14 +404,15 @@ class AntiSpam(BasePlugin):
                         raise SyntaxError("Expected integer value.")
                     else:
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to banning on "
-                                           f"{ordinal(int(args[3]))} infraction after previous level.**")
+                                           f"{ordinal(max(1, int(args[3])))} infraction after previous level.**")
                 elif t_arg in time_strings:
                     try:
                         t_cfg["infraction_timeout"] = max(1, int(args[3]))
                     except ValueError:
                         raise SyntaxError("Expected integer value.")
                     else:
-                        await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every {p_time(int(args[3]))}.")
+                        await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every "
+                                           f"{p_time(max(1, int(args[3])))}.")
                 self.calc_thresholds(msg.guild)
         elif len(args) > 2:
             if args[1].lower() in time_strings:
@@ -419,7 +421,8 @@ class AntiSpam(BasePlugin):
                 except ValueError:
                     raise SyntaxError("Expected integer value.")
                 else:
-                    await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every {p_time(int(args[2]))}.")
+                    await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every "
+                                       f"{p_time(max(1, int(args[2])))}.")
         else:
             t_re = t_cfg["spam_reaction"]
             t_de = t_cfg["spam_delete"]
@@ -438,6 +441,61 @@ class AntiSpam(BasePlugin):
             t_string = f"{t_string}One infraction is removed every {p_time(t_cfg['infraction_timeout'])} of good " \
                        f"behaviour."
             await respond(msg, f"**ANALYSIS: Current infraction settings:**\n```{t_string}```")
+
+    @Command("spam_setting",
+             category="anti_spam",
+             perms={"manage_guild"},
+             doc="Sets spam thresholds and timeout.",
+             syntax="(messages)/(time) (number) | (eval) [attribute=value, any number]")
+    async def _spamsettings(self, msg):
+        msg_strings  = ["messages", "msg", "posts", "amount", "count"]
+        time_strings = ["time", "cooldown", "during", "duration"]
+
+        args = msg.content.split(" ", 2)
+        t_cfg = self.plugin_config[str(msg.guild.id)]
+        if len(args) > 2:
+            if args[1].lower() == "eval":
+                t_args = process_args(args[2].split())
+                t_string = ""
+                for t_arg in [x.split("=") for x in t_args]:
+                    if len(t_arg) > 1:
+                        if t_arg[0].lower() in msg_strings:
+                            try:
+                                t_cfg["message_count"] = max(1, int(t_arg[1]))
+                            except ValueError:
+                                raise SyntaxError("Expected integer value.")
+                            else:
+                                t_string = f"{t_string}{'Message count'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
+                        elif t_arg[0].lower() in time_strings:
+                            try:
+                                t_cfg["timeout"] = max(1, int(t_arg[1]))
+                            except ValueError:
+                                raise SyntaxError("Expected integer value.")
+                            else:
+                                t_string = f"{t_string}{'Spam timeout'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
+                if t_string != "":
+                    await respond(msg, f"**AFFIRMATIVE. ANALYSIS: Applied spam filter options:**\n```{t_string}```")
+                else:
+                    await respond(msg, "**WARNING: No valid arguments detected.**")
+            elif args[1].lower() in msg_strings:
+                try:
+                    t_cfg["message_count"] = max(1, int(args[2]))
+                except ValueError:
+                    raise SyntaxError("Expected integer value.")
+                else:
+                    await respond(msg, f"**AFFIRMATIVE. Message limit set to: {max(1, int(args[2]))}.**")
+            elif args[1].lower() in time_strings:
+                try:
+                    t_cfg["timeout"] = max(1, int(args[2]))
+                except ValueError:
+                    raise SyntaxError("Expected integer value.")
+                else:
+                    await respond(msg, f"**AFFIRMATIVE. Message timeout set to: {max(1, int(args[2]))}.**")
+            else:
+                raise SyntaxWarning("Invalid arguments.")
+        else:
+            await respond(msg,f"**ANALYSIS: Current spam settings: {t_cfg['message_count']} messages allowed per"
+                              f" {p_time(t_cfg['timeout'])}.**")
 
     # Miscellaneous
 
