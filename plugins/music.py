@@ -851,9 +851,9 @@ class MusicPlayer(BasePlugin):
                     self.logger.info(f'processing URL {info["title"]}')
                     if self.plugin_config["download_songs"]:
                         filename = ydl.prepare_filename(info)
+                        self.storage["stored_songs"][filename] = time.time()
                     else:
                         filename = info['url']
-                    self.storage["stored_songs"][filename] = time.time()
                     t_source = PCMVolumeTransformer(FFmpegPCMAudio(filename, **kwargs))
                     t_source.download_url = filename
                     t_source.url = info.get('webpage_url')
@@ -887,9 +887,9 @@ class MusicPlayer(BasePlugin):
             self.logger.info(f'playing URL {url}')
             if self.plugin_config["download_songs"]:
                 filename = ydl.prepare_filename(info)
+                self.storage["stored_songs"][filename] = time.time()
             else:
                 filename = info['url']
-            self.storage["stored_songs"][filename] = time.time()
             source = PCMVolumeTransformer(FFmpegPCMAudio(filename, **kwargs))
 
             # set the dynamic attributes from the info extraction
@@ -951,6 +951,9 @@ class MusicPlayer(BasePlugin):
                     except FileNotFoundError:
                         self.storage["stored_songs"].pop(song)
                         self.logger.warning(f"Song {song} already deleted. Removing reference.")
+                    except OSError:
+                        self.storage["stored_songs"].pop(song)
+                        self.logger.warning(f"File {song} is invalid. Removing reference.")
                     except Exception:
                         self.logger.exception("Error pruning song cache. ", exc_info=True)
 
