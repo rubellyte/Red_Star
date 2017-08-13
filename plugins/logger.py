@@ -41,7 +41,6 @@ class DiscordLogger(BasePlugin):
                     self.log_items[gid] = []
 
 
-
     async def on_message_delete(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
@@ -49,18 +48,18 @@ class DiscordLogger(BasePlugin):
         if "message_delete" in self.plugin_config[gid].log_events and msg.author != self.client.user:
             uname = str(msg.author)
             contents = msg.clean_content
+            msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             attaches = ""
             links = ""
             if msg.attachments:
-                self.logger.debug(msg.attachments)
                 links = ", ".join([x.url for x in msg.attachments])
                 attaches = f"\n**Attachments:** `{links}`"
-            self.logger.debug(f"User {uname}'s message in {msg.channel.name} was deleted.\nContents: {contents}\n"
-                              f"Attachments: {links}")
+            self.logger.debug(f"User {uname}'s message at {msgtime} in {msg.channel.name} was deleted.\n"
+                              f"Contents: {contents}\nAttachments: {links}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
-            self.log_items[gid].append(f"**WARNING: User {uname}'s message in {msg.channel.mention} was deleted. "
-                                       f"ANALYSIS: Contents:**\n{contents}{attaches}")
+            self.log_items[gid].append(f"**WARNING: User {uname}'s message at `{msgtime}` in {msg.channel.mention} was"
+                                       f" deleted. ANALYSIS: Contents:**\n{contents}{attaches}")
 
     async def on_message_edit(self, before, after):
         gid = str(after.guild.id)
@@ -70,14 +69,16 @@ class DiscordLogger(BasePlugin):
             uname = str(after.author)
             old_contents = before.clean_content
             contents = after.clean_content
+            msgtime = after.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             if old_contents == contents:
                 return
-            self.logger.debug(f"User {uname} edited their message in {after.channel.name}. \n"
+            self.logger.debug(f"User {uname} edited their message at {msgtime} in {after.channel.name}. \n"
                               f"Old contents: {old_contents}\nNew contents: {contents}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
-            self.log_items[gid].append(f"**WARNING: User {uname} edited their message in {after.channel.mention}. "
-                                       f"ANALYSIS:**\n**Old contents:** {old_contents}\n**New contents:** {contents}")
+            self.log_items[gid].append(f"**WARNING: User {uname} edited their message at `{msgtime}` in "
+                                       f"{after.channel.mention}. ANALYSIS:**\n"
+                                       f"**Old contents:** {old_contents}\n**New contents:** {contents}")
 
     async def on_member_join(self, member):
         gid = str(member.guild.id)
