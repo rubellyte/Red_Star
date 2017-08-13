@@ -8,7 +8,7 @@ import shlex
 class AdminCommands(BasePlugin):
     name = "admin_commands"
 
-    @Command("purge",
+    @Command("purge", "prune",
              doc="Purges messages from the channel in bulk.",
              syntax="(count) [match] [user mention/user id/user name]",
              category="admin",
