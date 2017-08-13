@@ -41,7 +41,6 @@ class DiscordLogger(BasePlugin):
                         await logchan.send(msg)
                     self.log_items[gid] = []
 
-
     async def on_message_delete(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
@@ -103,11 +102,11 @@ class DiscordLogger(BasePlugin):
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING: User {uname} has left the server.**")
 
-    async def on_log_event(self, guild, string):
+    async def on_log_event(self, guild, string, *, log_type="log_event"):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "log_event" in self.plugin_config[gid].log_events:
+        if log_type in self.plugin_config[gid].log_events:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(string)

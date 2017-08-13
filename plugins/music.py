@@ -677,7 +677,8 @@ class MusicPlayer(BasePlugin):
             await respond(data, f"**AFFIRMATIVE. Users banned from using music module:**\n{t_string}")
             await self.plugin_manager.hook_event("on_log_event", data.guild,
                                                  f"**ANALYSIS: Following users banned from using the music plugin by "
-                                                 f"{data.author.display_name}:**\n```{t_log}```")
+                                                 f"{data.author.display_name}:**\n```{t_log}```",
+                                                 log_type="musicbot_event")
         else:
             raise SyntaxWarning("No valid arguments")
 
@@ -702,7 +703,8 @@ class MusicPlayer(BasePlugin):
             await respond(data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n{t_string}")
             await self.plugin_manager.hook_event("on_log_event", data.guild,
                                                  f"**ANALYSIS: Following users unbanned from using the music plugin by"
-                                                 f" {data.author.display_name}:**\n```{t_log}```")
+                                                 f" {data.author.display_name}:**\n```{t_log}```",
+                                                 log_type="musicbot_event")
         else:
             raise SyntaxWarning("No valid arguments")
 
