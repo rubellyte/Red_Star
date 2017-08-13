@@ -78,7 +78,7 @@ def find_user(guild, search, return_all=False):
     :param return_all: Whether to return all users that match the criteria or just the first one.
     :return: discord.Member: The Member that matches the criteria, or none.
     """
-    funcs = (lambda x: x.id == search, lambda x: x.mention == search, lambda x: str(x).lower() == search.lower(),
+    funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search, lambda x: str(x).lower() == search.lower(),
              lambda x: x.display_name.lower() == search.lower(), lambda x: x.name.lower() == search.lower())
     final = []
     for func in funcs:
