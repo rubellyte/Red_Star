@@ -12,7 +12,8 @@ class DiscordLogger(BasePlugin):
                 "message_delete",
                 "message_edit",
                 "member_join",
-                "member_remove"
+                "member_remove",
+                "log_event"
             ]
         }
     }
@@ -101,3 +102,12 @@ class DiscordLogger(BasePlugin):
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING: User {uname} has left the server.**")
+
+    async def on_log_event(self, guild, string):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "log_event" in self.plugin_config[gid].log_events:
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            self.log_items[gid].append(string)
