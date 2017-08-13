@@ -113,6 +113,8 @@ class DiscordLogger(BasePlugin):
                 n_role = ", ".join([str(x) for x in after.roles])
                 t_str = f"{t_str}**Old roles:**```{o_role.replace('@','')}```\n" \
                         f"**New roles :**```{n_role.replace('@','')}```\n"
+            if t_str == "":
+                return
             self.logger.debug(f"User {uname} was modified:\n{t_str}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
