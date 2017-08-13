@@ -10,7 +10,7 @@ class RoleCommands(BasePlugin):
     @Command("editrole",
              perms={"manage_roles"},
              category="roles",
-             syntax="(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
+             syntax="(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool][position=integer].\n"
                     "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Edits the specified role name, colour, hoist (show separately from others)"
                  " and mentionable properties.\n"
