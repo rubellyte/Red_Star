@@ -1,7 +1,7 @@
 import asyncio
 from plugin_manager import BasePlugin
 from plugins.channel_manager import ChannelNotFoundError
-from utils import split_message
+from utils import split_message, Command, respond
 
 
 class DiscordLogger(BasePlugin):
@@ -9,11 +9,6 @@ class DiscordLogger(BasePlugin):
     default_config = {
         "default": {
             "log_events": [
-                "message_delete",
-                "message_edit",
-                "member_join",
-                "member_remove",
-                "log_event"
             ]
         }
     }
@@ -45,7 +40,7 @@ class DiscordLogger(BasePlugin):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "message_delete" in self.plugin_config[gid].log_events and msg.author != self.client.user:
+        if "message_delete" not in self.plugin_config[gid].log_events and msg.author != self.client.user:
             uname = str(msg.author)
             contents = msg.clean_content
             msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
@@ -65,7 +60,7 @@ class DiscordLogger(BasePlugin):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "message_edit" in self.plugin_config[gid].log_events and after.author != self.client.user:
+        if "message_edit" not in self.plugin_config[gid].log_events and after.author != self.client.user:
             uname = str(after.author)
             old_contents = before.clean_content
             contents = after.clean_content
@@ -84,7 +79,7 @@ class DiscordLogger(BasePlugin):
         gid = str(member.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_join" in self.plugin_config[gid].log_events:
+        if "member_join" not in self.plugin_config[gid].log_events:
             uname = str(member)
             self.logger.debug(f"User {uname} joined {member.guild.name}.")
             if gid not in self.log_items:
@@ -95,18 +90,59 @@ class DiscordLogger(BasePlugin):
         gid = str(member.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_remove" in self.plugin_config[gid].log_events:
+        if "member_remove" not in self.plugin_config[gid].log_events:
             uname = str(member)
             self.logger.debug(f"User {uname} left {member.guild.name}.")
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING: User {uname} has left the server.**")
 
+    async def on_member_update(self, before, after):
+        gid = str(after.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "member_update" not in self.plugin_config[gid].log_events:
+            uname = str(after)
+            t_str = ""
+            if before.avatar != after.avatar:
+                t_str = f"{t_str}`Old avatar: `{before.avatar_url}\n`New avatar : `{after.avatar_url}\n"
+            if before.nick != after.nick:
+                t_str = f"{t_str}`Old nick: `{before.nick}\n`New nick : `{after.nick}\n"
+            if before.roles != after.roles:
+                o_role = ", ".join([str(x) for x in before.roles])
+                n_role = ", ".join([str(x) for x in after.roles])
+                t_str = f"{t_str}**Old roles:**```{o_role.replace('@','')}```\n" \
+                        f"**New roles :**```{n_role.replace('@','')}```\n"
+            self.logger.debug(f"User {uname} was modified:\n{t_str}")
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            self.log_items[gid].append(f"**WARNING. User {uname} was modified:**\n{t_str}")
+
     async def on_log_event(self, guild, string, *, log_type="log_event"):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if log_type in self.plugin_config[gid].log_events:
+        if log_type not in self.plugin_config[gid].log_events:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(string)
+
+    @Command("logevent",
+             perms={},
+             doc="Adds or removes the events to be logged.",
+             syntax="")
+    async def _logevent(self, msg):
+        gid = str(msg.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        cfg = self.plugin_config[gid]
+        args = msg.contents.split(" ", 2)
+        if len(args) > 2:
+            if args[1].lower() == "add":
+                if args[2] not in cfg:
+                    cfg.append(args[2])
+            elif args[1].lower() == "remove":
+                if args[2] in cfg:
+                    cfg.pop(args[2])
+        else:
+            raise SyntaxError
