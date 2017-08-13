@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, process_args, split_message, find_user, DotDict
+from utils import Command, respond, split_message, find_user, DotDict
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 import discord.game
@@ -12,6 +12,7 @@ import functools
 import datetime
 import time
 import os
+import shlex
 
 
 class MusicPlayer(BasePlugin):
@@ -165,7 +166,6 @@ class MusicPlayer(BasePlugin):
                 if t_source.duration > self.config["max_video_length"] and not t_sources:
                     return False
                 self.vote_set = set()
-                t_source.volume = self.volume / 100
 
                 def p_next(err):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
@@ -175,6 +175,7 @@ class MusicPlayer(BasePlugin):
                         pass
 
                 self.vc.play(self.parent.create_source(t_source), after=p_next)
+                self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
                 self.time_skip = 0
                 t_added += 1
@@ -316,7 +317,8 @@ class MusicPlayer(BasePlugin):
             return self.vc and self.vc.is_connected() and data.author in self.vc.channel.members
 
         def check_perm(self, data):
-            return self.check_in(data) and self.vc.channel.permissions_for(data.author).mute_members
+            return (self.check_in(data) and self.vc.channel.permissions_for(data.author).mute_members) or \
+                   data.author.guild_permissions.mute_members
 
         def play_length(self):
             """
@@ -499,7 +501,7 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_in(data):
             raise PermissionError("Must be in voicechat.")
-        args = process_args(data.content.split())
+        args = data.content.split(" ", 1)
         if len(args) > 1:
             try:
                 vol = int(args[1])
@@ -656,31 +658,55 @@ class MusicPlayer(BasePlugin):
 
     @Command("musicban",
              category="music",
-             perms={"mute_members"},
-             doc="Bans members from using the music module.")
+             doc="Bans members from using the music module."
+                 "\nRequires mute_members permission in the voice channel.")
     async def _musicban(self, data):
-        args = process_args(data.content.split())
+        t_play = self.players[data.guild.id]
+        if not t_play.check_perm(data):
+            raise PermissionError("You lack the required permissions.")
+        args = shlex.split(data.content)
         t_string = ""
+        t_log = ""
         for uid in args[1:]:
             t_member = find_user(data.guild, uid)
             if t_member:
                 self.storage["banned_members"][data.guild.id].add(t_member.id)
-                t_string = f"{t_string} {t_member.mention}\n"
-        await respond(data, f"**AFFIRMATIVE. Users banned from using music module:**\n{t_string}")
+                t_string = f"{t_string}{t_member.mention}\n"
+                t_log = f"{t_log}{t_member.display_name} ({t_member.id})\n"
+        if t_string != "":
+            await respond(data, f"**AFFIRMATIVE. Users banned from using music module:**\n{t_string}")
+            await self.plugin_manager.hook_event("on_log_event", data.guild,
+                                                 f"**ANALYSIS: Following users banned from using the music plugin by "
+                                                 f"{data.author.display_name}:**\n```{t_log}```",
+                                                 log_type="musicbot_event")
+        else:
+            raise SyntaxWarning("No valid arguments")
 
     @Command("musicunban",
              category="music",
-             perms={"mute_members"},
-             doc="Unbans members from using the music module.")
+             doc="Unbans members from using the music module."
+                 "\nRequires mute_members permission in the voice channel.")
     async def _musicunban(self, data):
-        args = process_args(data.content.split())
+        t_play = self.players[data.guild.id]
+        if not t_play.check_perm(data):
+            raise PermissionError("You lack the required permissions.")
+        args = shlex.split(data.content)
         t_string = ""
+        t_log = ""
         for uid in args[1:]:
             t_member = find_user(data.guild, uid)
             if t_member:
                 self.storage["banned_members"][data.guild.id].remove(t_member.id)
                 t_string = f"{t_string} {t_member.mention}\n"
-        await respond(data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n{t_string}")
+                t_log = f"{t_log}{t_member.display_name} ({t_member.id})\n"
+        if t_string != "":
+            await respond(data, f"**AFFIRMATIVE. Users unbanned from using music module:**\n{t_string}")
+            await self.plugin_manager.hook_event("on_log_event", data.guild,
+                                                 f"**ANALYSIS: Following users unbanned from using the music plugin by"
+                                                 f" {data.author.display_name}:**\n```{t_log}```",
+                                                 log_type="musicbot_event")
+        else:
+            raise SyntaxWarning("No valid arguments")
 
     @Command("dumpqueue",
              category="music",
@@ -714,7 +740,7 @@ class MusicPlayer(BasePlugin):
         await t_play.connected(data)
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = process_args(data.content.split())
+        args = shlex.split(data.content)
         if len(args) > 1:
             with data.channel.typing():
                 await respond(data, "**AFFIRMATIVE. Extending queue.**")
@@ -916,6 +942,7 @@ class MusicPlayer(BasePlugin):
         source.yt = entry["yt"]
         source.is_live = entry["is_live"]
         source.title = entry["title"]
+        source.duration = entry["duration"]
         source.description = entry["description"]
         source.upload_date = entry["upload_date"]
         return source

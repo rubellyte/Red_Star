@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, process_args, ordinal, p_time
+from utils import Command, respond, ordinal, p_time
 from discord import HTTPException, Forbidden
 from discord.object import Object as DObj
 from math import ceil
@@ -7,6 +7,7 @@ import re
 import time
 import threading
 import asyncio
+import shlex
 
 
 class AntiSpam(BasePlugin):
@@ -328,7 +329,7 @@ class AntiSpam(BasePlugin):
             # process one string with multiple arguments formatted like "argument=value"
             # allows setting of multiple options in one command like
             # !spam_infs eval react=1 del=1 role=2 ban=2 time=300
-            t_args = process_args(msg.content.split())
+            t_args = shlex.split(msg.content)
             t_string = ""
             for arg in t_args[2:]:
                 t_arg = arg.split("=")
@@ -432,7 +433,7 @@ class AntiSpam(BasePlugin):
         t_cfg = self.plugin_config[str(msg.guild.id)]
         if len(args) > 2:
             if args[1].lower() == "eval":
-                t_args = process_args(args[2].split())
+                t_args = shlex.split(args[2])
                 t_string = ""
                 for t_arg in [x.split("=") for x in t_args]:
                     if len(t_arg) > 1:
