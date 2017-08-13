@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, process_args, split_message, find_user
+from utils import Command, respond, process_args, split_message, find_user, DotDict
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 import discord.game
@@ -76,6 +76,7 @@ class MusicPlayer(BasePlugin):
         def __init__(self, parent, guild, config):
             """
             Creates new server-speific instance
+            :type parent: MusicPlayer
             :param guild: discord.server object
             """
             self.parent = parent
@@ -149,7 +150,7 @@ class MusicPlayer(BasePlugin):
                                                                                  "1 -reconnect_delay_max 30"
             t_loop = asyncio.get_event_loop()
             try:
-                t_sources, t_id = await self.parent.create_source(vid, ytdl_options=self.parent.plugin_config[
+                t_sources, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
                     "ytdl_options"], before_options=before_args)
             except DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
@@ -173,7 +174,7 @@ class MusicPlayer(BasePlugin):
                     except:
                         pass
 
-                self.vc.play(t_source, after=p_next)
+                self.vc.play(self.parent.create_source(t_source), after=p_next)
                 self.time_started = time.time()
                 self.time_skip = 0
                 t_added += 1
@@ -208,7 +209,7 @@ class MusicPlayer(BasePlugin):
                     except:
                         pass
 
-                self.vc.play(self.queue.pop(0), after=p_next)
+                self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
                 self.time_skip = 0
@@ -245,7 +246,7 @@ class MusicPlayer(BasePlugin):
             before_args = "" if self.parent.plugin_config["download_songs"] else " -reconnect 1 -reconnect_streamed " \
                                                                                  "1 -reconnect_delay_max 30"
             try:
-                t_sources, t_id = await self.parent.create_source(vid, ytdl_options=self.parent.plugin_config[
+                t_sources, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
                     "ytdl_options"], before_options=before_args)
             except DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
@@ -747,7 +748,50 @@ class MusicPlayer(BasePlugin):
 
     # Music playing
 
-    async def create_source(self, url, *, ytdl_options=None, **kwargs):
+    def process_song_data(self, ydl, url, entry):
+        """
+        Just packing some code into a function to make fetch_song_data more readable
+        :param ydl: youtube_dl object
+        :param url: original url of the request
+        :param entry: request data
+        :return: dictionary of parameters
+        """
+        t_dict = DotDict({})
+        self.logger.info(f'processing URL {entry["title"]}')
+        if self.plugin_config["download_songs"]:
+            filename = ydl.prepare_filename(entry)
+            self.storage["stored_songs"][filename] = time.time()
+        else:
+            filename = entry['url']
+        # t_source = PCMVolumeTransformer(FFmpegPCMAudio(filename, **kwargs))  # out, out, damn spot!
+        t_dict['download_url'] = filename
+        t_dict['url'] = entry.get('webpage_url')
+        t_dict['yt'] = ydl
+        t_dict['is_live'] = bool(entry.get('is_live'))
+        t_dict['duration'] = ceil(entry.get('duration', 0))
+
+        is_twitch = 'twitch' in url
+
+        if is_twitch:
+            # twitch has 'title' and 'description' sort of mixed up.
+            t_dict['title'] = entry.get('description')
+            t_dict['description'] = None
+        else:
+            t_dict['title'] = entry.get('title')
+            t_dict['description'] = entry.get('description')
+
+        # upload date handling
+        date = entry.get('upload_date')
+        if date:
+            try:
+                date = datetime.datetime.strptime(date, '%Y%M%d').date()
+            except ValueError:
+                date = None
+
+        t_dict['upload_date'] = date
+        return t_dict
+
+    async def fetch_song_data(self, url, *, ytdl_options=None, **kwargs):
         """|coro|
 
         Creates a stream player for youtube or other services that launches
@@ -829,6 +873,11 @@ class MusicPlayer(BasePlugin):
             An augmented StreamPlayer that uses ffmpeg.
             See :meth:`create_stream_player` for base operations.
         """
+
+        """
+        Rewritten. Now creates a dict of song data, not to spam millions of ffmpeg instances
+        """
+
         use_avconv = kwargs.get('use_avconv', False)
         opts = {
             'format': 'webm[abr>0]/bestaudio/best',
@@ -844,80 +893,32 @@ class MusicPlayer(BasePlugin):
         data = await loop.run_in_executor(None, func)
         if not data:
             raise DownloadError("Could not download video(s).")
+
         if "entries" in data:
             t_sources = []
             for info in data["entries"]:
                 if info is not None:
-                    self.logger.info(f'processing URL {info["title"]}')
-                    if self.plugin_config["download_songs"]:
-                        filename = ydl.prepare_filename(info)
-                    else:
-                        filename = info['url']
-                    self.storage["stored_songs"][filename] = time.time()
-                    t_source = PCMVolumeTransformer(FFmpegPCMAudio(filename, **kwargs))
-                    t_source.download_url = filename
-                    t_source.url = info.get('webpage_url')
-                    t_source.yt = ydl
-                    t_source.is_live = bool(info.get('is_live'))
-                    t_source.duration = ceil(info.get('duration', 0))
-
-                    is_twitch = 'twitch' in url
-
-                    if is_twitch:
-                        # twitch has 'title' and 'description' sort of mixed up.
-                        t_source.title = info.get('description')
-                        t_source.description = None
-                    else:
-                        t_source.title = info.get('title')
-                        t_source.description = info.get('description')
-
-                    # upload date handling
-                    date = info.get('upload_date')
-                    if date:
-                        try:
-                            date = datetime.datetime.strptime(date, '%Y%M%d').date()
-                        except ValueError:
-                            date = None
-
-                    t_source.upload_date = date
+                    t_source = self.process_song_data(ydl, url, info)
+                    t_source["kwargs"] = kwargs
                     t_sources.append(t_source)
             return t_sources, data.get('title', False)
         else:
             info = data
-            self.logger.info(f'playing URL {url}')
-            if self.plugin_config["download_songs"]:
-                filename = ydl.prepare_filename(info)
-            else:
-                filename = info['url']
-            self.storage["stored_songs"][filename] = time.time()
-            source = PCMVolumeTransformer(FFmpegPCMAudio(filename, **kwargs))
-
-            # set the dynamic attributes from the info extraction
-            source.download_url = filename
-            source.url = info.get('webpage_url')
-            source.yt = ydl
-            source.is_live = bool(info.get('is_live'))
-            source.duration = ceil(info.get('duration', 0))
-
-            is_twitch = 'twitch' in url
-            if is_twitch:
-                # twitch has 'title' and 'description' sort of mixed up.
-                source.title = info.get('description')
-                source.description = None
-            else:
-                source.title = info.get('title')
-                source.description = info.get('description')
-
-            # upload date handling
-            date = info.get('upload_date')
-            if date:
-                try:
-                    date = datetime.datetime.strptime(date, '%Y%M%d').date()
-                except ValueError:
-                    date = None
-
-            source.upload_date = date
+            source = self.process_song_data(ydl, url, info)
+            source["kwargs"] = kwargs
             return [source], False
+
+    @staticmethod
+    def create_source(entry):
+        source = PCMVolumeTransformer(FFmpegPCMAudio(entry["download_url"], **entry["kwargs"]))
+        source.download_url = entry["download_url"]
+        source.url = entry["url"]
+        source.yt = entry["yt"]
+        source.is_live = entry["is_live"]
+        source.title = entry["title"]
+        source.description = entry["description"]
+        source.upload_date = entry["upload_date"]
+        return source
 
     # Utility functions
 
@@ -951,6 +952,9 @@ class MusicPlayer(BasePlugin):
                     except FileNotFoundError:
                         self.storage["stored_songs"].pop(song)
                         self.logger.warning(f"Song {song} already deleted. Removing reference.")
+                    except OSError:
+                        self.storage["stored_songs"].pop(song)
+                        self.logger.warning(f"File {song} is invalid. Removing reference.")
                     except Exception:
                         self.logger.exception("Error pruning song cache. ", exc_info=True)
 

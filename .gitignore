@@ -112,3 +112,6 @@ config/storage.dat
 
 # cache
 /cache
+
+# logs
+*.log.*
