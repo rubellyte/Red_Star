@@ -76,7 +76,7 @@ class CustomCommands(BasePlugin):
     async def _createcc(self, msg):
         gid = str(msg.guild.id)
         try:
-            args = msg.clean_content.split()[1:]
+            args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
         except IndexError:
             raise SyntaxError("No name provided.")
@@ -108,7 +108,7 @@ class CustomCommands(BasePlugin):
              category="custom_commands")
     async def _editcc(self, msg):
         try:
-            args = msg.clean_content.split()[1:]
+            args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
         except IndexError:
             raise SyntaxError("No name provided.")
