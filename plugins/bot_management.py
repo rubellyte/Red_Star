@@ -38,6 +38,33 @@ class BotManagement(BasePlugin):
         else:
             raise SyntaxError("No URL provided.")
 
+    @Command("update_name",
+             doc="Updates the bot's (nick)name.",
+             syntax="[change username?] (name)",
+             category="bot_management",
+             perms={"manage_guild"})
+    async def _update_name(self, msg):
+        args = msg.clean_content.split()[1:]
+        edit_username = False
+        if args[0].lower() == "true":
+            args.pop(0)
+            edit_username = True
+        elif args[0].lower() == "reset":
+            await msg.guild.me.edit(nick=None)
+            await respond(msg, "**ANALYSIS: Nickname reset.**")
+            return
+        newname = " ".join(args)
+        if edit_username:
+            if "bot_maintainers" not in self.config_manager.config:
+                raise PermissionError("No bot maintainers are set!")
+            if msg.author.id not in self.config_manager.config.bot_maintainers:
+                raise PermissionError
+            await self.client.user.edit(username=newname)
+            await respond(msg, f"**ANALYSIS: Username changed to {newname} successfully.**")
+        else:
+            await msg.guild.me.edit(nick=newname)
+            await respond(msg, f"**ANALYSIS: Nickname changed to {newname} successfully.**")
+
     @Command("activate",
              doc="Activates an inactive plugin.",
              syntax="(plugin) [permanent]",
