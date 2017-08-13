@@ -1,7 +1,8 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
-from utils import Command, respond, split_message, process_args
+from utils import Command, respond, split_message
 from string import capwords
+import shlex
 
 
 class RoleCommands(BasePlugin):
@@ -24,7 +25,7 @@ class RoleCommands(BasePlugin):
         colour is a colour object (value converted from hexadecimal string)
         hoist and mentionable are boolean
         """
-        args = process_args(msg.content.split())
+        args = shlex.split(msg.content)
         if len(args) > 1:
             for role in msg.guild.roles:
                 if args[1].lower() == role.name.lower():  # found role
@@ -75,7 +76,7 @@ class RoleCommands(BasePlugin):
         a command for creating a role
         takes names for new role and a role that will be copied for position/permissions
         """
-        args = process_args(msg.content.split())
+        args = shlex.split(msg.content)
         if len(args) > 2:
             for role in msg.guild.roles:
                 if args[2].lower() == role.name.lower():
@@ -138,7 +139,7 @@ class RoleCommands(BasePlugin):
              syntax="(role name) [position].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
              doc="Deletes first encounter of the role with the given name and optionally position.")
     async def _deleterole(self, msg):
-        args = process_args(msg.content.split())
+        args = shlex.split(msg.content)
         if len(args) > 1:
             name = args[1].capitalize()
             pos = -1
@@ -167,7 +168,7 @@ class RoleCommands(BasePlugin):
         """
         provides an infodump of a role, including permissions and position
         """
-        args = process_args(msg.content.split())
+        args = shlex.split(msg.content)
         if len(args) > 1:
             name = capwords(args[1])
             for role in msg.guild.roles:

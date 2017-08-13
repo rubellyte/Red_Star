@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, process_args, split_message, find_user, DotDict
+from utils import Command, respond, split_message, find_user, DotDict
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 import discord.game
@@ -12,6 +12,7 @@ import functools
 import datetime
 import time
 import os
+import shlex
 
 
 class MusicPlayer(BasePlugin):
@@ -500,7 +501,7 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_in(data):
             raise PermissionError("Must be in voicechat.")
-        args = process_args(data.content.split())
+        args = data.content.split(" ", 1)
         if len(args) > 1:
             try:
                 vol = int(args[1])
@@ -663,7 +664,7 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = process_args(data.content.split())
+        args = shlex.split(data.content)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -688,7 +689,7 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = process_args(data.content.split())
+        args = shlex.split(data.content)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -737,7 +738,7 @@ class MusicPlayer(BasePlugin):
         await t_play.connected(data)
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = process_args(data.content.split())
+        args = shlex.split(data.content)
         if len(args) > 1:
             with data.channel.typing():
                 await respond(data, "**AFFIRMATIVE. Extending queue.**")
