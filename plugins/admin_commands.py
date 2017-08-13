@@ -28,11 +28,10 @@ class AdminCommands(BasePlugin):
             raise SyntaxError("Count to delete is not a valid number.")
         if len(args) > 2:
             searchstr = args[2]
-        members = msg.mentions
+        members = []
         if len(args) > 3:
             for s in args[3:]:
-                if s.startswith("author:"):
-                    members.append(find_user(msg.guild, s[7:]))
+                members.append(find_user(msg.guild, s))
         print(members)
         await msg.delete()
         deleted = await msg.channel.purge(limit=count, check=lambda x: self.search(x, searchstr, members))
