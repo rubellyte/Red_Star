@@ -131,21 +131,30 @@ class DiscordLogger(BasePlugin):
 
     @Command("logevent",
              doc="Adds or removes the events to be logged.",
-             syntax="",
+             syntax="(add/remove) (type)",
              category="bot_management",
              perms={"manage_guild"})
     async def _logevent(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        cfg = self.plugin_config[gid]
-        args = msg.contents.split(" ", 2)
+        cfg = self.plugin_config[gid].log_events
+        args = msg.clean_content.split(" ", 2)
         if len(args) > 2:
             if args[1].lower() == "remove":
-                if args[2] not in cfg:
-                    cfg.append(args[2])
+                if args[2].lower() not in cfg:
+                    cfg.append(args[2].lower())
+                    await respond(msg, f"**ANALYSIS: No longer logging events of type {args[2].lower()}.**")
+                else:
+                    await respond(msg, f"**ANALYSIS: Event type {args[2].lower()} is already disabled.**")
             elif args[1].lower() == "add":
-                if args[2] in cfg:
-                    cfg.pop(args[2])
-        else:
+                if args[2].lower() in cfg:
+                    cfg.remove(args[2].lower())
+                    await respond(msg, f"**ANALYSIS: Now logging events of type {args[2].lower()}.**")
+                else:
+                    await respond(msg, f"**ANALYSIS: Event type {args[2].lower()} is already logged.**")
+        elif len(args) == 2:
             raise SyntaxError
+        else:
+            disabled = ", ".join(cfg)
+            await respond(msg, f"**ANALYSIS: Disabled log events: **`{disabled}`")
