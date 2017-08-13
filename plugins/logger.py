@@ -130,9 +130,10 @@ class DiscordLogger(BasePlugin):
             self.log_items[gid].append(string)
 
     @Command("logevent",
-             perms={},
              doc="Adds or removes the events to be logged.",
-             syntax="")
+             syntax="",
+             category="bot_management",
+             perms={"manage_guild"})
     async def _logevent(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
@@ -140,10 +141,10 @@ class DiscordLogger(BasePlugin):
         cfg = self.plugin_config[gid]
         args = msg.contents.split(" ", 2)
         if len(args) > 2:
-            if args[1].lower() == "add":
+            if args[1].lower() == "remove":
                 if args[2] not in cfg:
                     cfg.append(args[2])
-            elif args[1].lower() == "remove":
+            elif args[1].lower() == "add":
                 if args[2] in cfg:
                     cfg.pop(args[2])
         else:
