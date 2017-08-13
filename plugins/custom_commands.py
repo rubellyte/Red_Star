@@ -69,7 +69,8 @@ class CustomCommands(BasePlugin):
     # Commands
 
     @Command("createcc",
-             doc="Creates a custom command.",
+             doc="Creates a custom command.\n"
+                 "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
              category="custom_commands")
     async def _createcc(self, msg):

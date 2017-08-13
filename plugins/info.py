@@ -78,7 +78,7 @@ class Info(BasePlugin):
              doc="Displays information about the bot.",
              category="info")
     async def _about(self, msg):
-        deco = self.plugins.command_dispatcher.plugin_config.command_prefix
+        deco = self.plugins.command_dispatcher.plugin_config[msg.guild.id].command_prefix
         desc = f"Red Star: General purpose command AI for Discord.\nUse {deco}help for command information."
         em = Embed(title="About Red Star", color=0xFF0000, description=desc)
         em.set_thumbnail(url="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png")
