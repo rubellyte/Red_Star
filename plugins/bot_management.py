@@ -18,7 +18,8 @@ class BotManagement(BasePlugin):
     @Command("update_avatar",
              doc="Updates the bot's avatar.",
              syntax="(URL)",
-             category="bot_management")
+             category="bot_management",
+             perms={"manage_guild"})
     async def _update_avatar(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
             raise PermissionError("No bot maintainers are set!")
