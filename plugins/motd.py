@@ -92,28 +92,24 @@ class MOTD(BasePlugin):
              category="bot_management",
              syntax="(month/Any) (day/weekday/Any) (message)")
     async def _addmotd(self, msg):
-        args = msg.clean_content.split()[1:]
+        args = msg.clean_content.split(" ")[1:]
         try:
             month = args[0].capitalize()
             day = args[1].capitalize()
-            msg = " ".join(args[2:])
+            newmotd = " ".join(args[2:])
         except IndexError:
             raise SyntaxError
         if month not in self.valid_months or day not in self.valid_days:
-            self.logger.debug(month)
-            self.logger.debug(day)
             raise SyntaxError("Month or day is invalid. Please use full names.")
         try:
             if month not in self.motds:
                 self.motds[month] = {}
             if day not in self.motds[month]:
                 self.motds[month][day] = []
-            self.motds[month][day].append(msg)
+            self.motds[month][day].append(newmotd)
             self._save_motds()
             await respond(msg, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
         except KeyError:
-            self.logger.debug(month)
-            self.logger.debug(day)
             raise SyntaxError("Month or day is invalid. Please use full names.")
 
     @Command("addholiday",
