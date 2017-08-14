@@ -51,11 +51,11 @@ class Announcer(BasePlugin):
                     self.default_config["default"]["new_member_announce_message"]
                 self.config_manager.save_config()
             text = self.plugin_config[gid].new_member_announce_message
-            msg = sub_user_data(msg, text)
+            text = sub_user_data(msg, text)
             try:
                 chan = self.plugins.channel_manager.get_channel(msg.guild, "welcome")
                 if self.plugin_config[gid].new_member_announce_enabled:
-                    await chan.send(msg)
+                    await chan.send(text)
             except ChannelNotFoundError:
                 try:
                     chan = self.plugins.channel_manager.get_channel(msg.guild, "general")
