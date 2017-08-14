@@ -63,8 +63,6 @@ class CustomCommands(BasePlugin):
                     self.ccs[gid] = {}
                 if cmd in self.ccs[gid]:
                     await self.run_cc(cmd, msg)
-                else:
-                    await respond(msg, f"**WARNING: No such custom command {cmd}.**")
 
     # Commands
 
