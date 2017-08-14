@@ -2,6 +2,7 @@ from plugin_manager import BasePlugin
 from utils import Command, respond, split_message, find_user, DotDict
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
+from plugins.channel_manager import ChannelNotFoundError
 import discord.game
 from random import choice
 from math import ceil
@@ -19,7 +20,6 @@ class MusicPlayer(BasePlugin):
     name = "music_player"
     default_config = {
         'default': {
-            'force_music_channel': False,
             'max_video_length': 1800,
             'max_queue_length': 30,
             'default_volume': 15,
@@ -97,11 +97,17 @@ class MusicPlayer(BasePlugin):
             """
             if self.vc:
                 await self.vc.disconnect()
-            if self.config["force_music_channel"]:
+            try:
                 m_channel = self.parent.plugins.channel_manager.get_channel(self.guild, "voice_music")
-            elif data.author.voice and data.author.voice.channel:
+            except ChannelNotFoundError:
+                self.parent.logger.error("Failed to get music channel.")
+                m_channel = None
+            except AttributeError:
+                self.parent.logger.error("Failed to get channel.")
+                m_channel = None
+            if not m_channel and data.author.voice and data.author.voice.channel:
                 m_channel = data.author.voice.channel
-            else:
+            elif not m_channel:
                 raise PermissionError("Must be in voice chat.")
             perms = m_channel.permissions_for(self.guild.me)
             if perms.connect and perms.speak and perms.use_voice_activation:
