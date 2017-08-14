@@ -16,7 +16,6 @@ class AdminCommands(BasePlugin):
              perms={"manage_messages"})
     async def _purge(self, msg):
         args = shlex.split(msg.content)
-        print(args)
         try:
             count = int(args[1])
             if count > 250:
