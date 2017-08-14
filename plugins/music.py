@@ -448,7 +448,7 @@ class MusicPlayer(BasePlugin):
     @Command("play",
              category="music",
              syntax="(URL or search query)",
-             doc="Plays presented youtube video or searches for one.\nNO PLAYLISTS ALLOWED.")
+             doc="Plays presented youtube video or searches for one.")
     async def _playvc(self, data):
         """
         Decorates the input to make sure ytdl can eat it and filters out playlists before pushing the video in the
