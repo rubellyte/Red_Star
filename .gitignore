@@ -103,6 +103,7 @@ ENV/
 # configuration files
 /config/config.json
 /config/ccs.json
+/config/motds.json
 *.sublime-project
 *.sublime-workspace
 /.idea
