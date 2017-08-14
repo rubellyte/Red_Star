@@ -88,7 +88,8 @@ def find_user(guild, search, return_all=False):
                 final += found
             else:
                 return found[0]
-    return final
+    if return_all:
+        return final
 
 
 async def respond(msg, response, **kwargs):

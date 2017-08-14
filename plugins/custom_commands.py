@@ -5,7 +5,7 @@ import datetime
 from asyncio import ensure_future
 from plugin_manager import BasePlugin
 import discord.utils
-from utils import respond, Command, DotDict
+from utils import respond, Command, DotDict, find_user
 
 
 class CustomCommands(BasePlugin):
@@ -182,18 +182,25 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
     @Command("searchccs",
-             doc="Searches CCs by name.",
-             syntax="(search)",
+             doc="Searches CCs by name or author.",
+             syntax="(name or author)",
              category="custom_commands")
     async def _searchccs(self, msg):
-        search = " ".join(msg.clean_content.split()[1:])
+        search = " ".join(msg.content.split(" ")[1:]).lower()
+        user = find_user(msg.guild, search)
+        by_author = False
+        if user:
+            by_author = True
+            user = user.id
         if not search:
             raise SyntaxError("No search provided.")
         res = []
         if msg.guild.id not in self.ccs:
             self.ccs[msg.guild.id] = {}
-        for cc in self.ccs[str(msg.guild.id)].keys():
-            if search in cc:
+        for cc, info in self.ccs[str(msg.guild.id)].items():
+            if not by_author and search in cc.lower():
+                res.append(cc)
+            elif info["author"] == user:
                 res.append(cc)
         if res:
             res = ", ".join(res)
