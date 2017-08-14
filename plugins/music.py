@@ -469,7 +469,8 @@ class MusicPlayer(BasePlugin):
                     raise SyntaxWarning("No playlists allowed!")
             t_msg = await respond(data, "**AFFIRMATIVE. Processing.**")
             async with data.channel.typing():
-                await t_play.play_song(args[1], data)
+                if not await t_play.play_song(args[1], data):
+                    await respond(data, "**WARNING: Failed to load query.**")
             await t_msg.delete()
         else:
             raise SyntaxError("Expected URL or search query.")

@@ -105,7 +105,7 @@ class DiscordLogger(BasePlugin):
             uname = str(after)
             t_str = ""
             if before.avatar != after.avatar:
-                t_str = f"{t_str}`Old avatar: `{before.avatar_url}\n`New avatar : `{after.avatar_url}\n"
+                t_str = f"{t_str}`New avatar : `{after.avatar_url}\n"
             if before.nick != after.nick:
                 t_str = f"{t_str}`Old nick: `{before.nick}\n`New nick : `{after.nick}\n"
             if before.roles != after.roles:
