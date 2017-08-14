@@ -30,6 +30,9 @@ class DiscordLogger(BasePlugin):
                     logchan = self.plugins.channel_manager.get_channel(guild, "logs")
                 except ChannelNotFoundError:
                     continue
+                except AttributeError:
+                    self.logger.error("Failed to get channel.")
+                    return
                 if gid in self.log_items and self.log_items[gid]:
                     logs = "\n".join(self.log_items[gid])
                     for msg in split_message(logs, splitter="\n"):
