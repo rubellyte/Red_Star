@@ -672,7 +672,11 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = shlex.split(data.content)
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -698,7 +702,11 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = shlex.split(data.content)
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -748,7 +756,11 @@ class MusicPlayer(BasePlugin):
         await t_play.connected(data)
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = shlex.split(data.content)
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         if len(args) > 1:
             with data.channel.typing():
                 await respond(data, "**AFFIRMATIVE. Extending queue.**")
