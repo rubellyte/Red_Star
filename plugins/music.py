@@ -728,7 +728,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You lack the required permissions.")
         t_string = ""
         if t_play.vc.source:
-            t_string = f"!\"{t_play.vc.source.url}\" "
+            t_string = f"\"{t_play.vc.source.url}\" "
         for source in t_play.queue:
             t_string = f"{t_string}!\"{source.url}\" "
         if t_string != "":
