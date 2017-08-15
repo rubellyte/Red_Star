@@ -216,6 +216,7 @@ class MusicPlayer(BasePlugin):
                     except:
                         pass
 
+                self.vote_set = set()
                 self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
