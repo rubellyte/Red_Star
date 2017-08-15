@@ -12,7 +12,7 @@ class RoleCommands(BasePlugin):
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool][position=integer].\n"
-                    "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
+                    "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Edits the specified role name, colour, hoist (show separately from others)"
                  " and mentionable properties.\n"
                  "WARNING: Options must be specified as option=value. No spaces around `=`.\n"
@@ -25,7 +25,11 @@ class RoleCommands(BasePlugin):
         colour is a colour object (value converted from hexadecimal string)
         hoist and mentionable are boolean
         """
-        args = shlex.split(msg.content)
+        try:
+            args = shlex.split(msg.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         if len(args) > 1:
             for role in msg.guild.roles:
                 if args[1].lower() == role.name.lower():  # found role
@@ -68,7 +72,7 @@ class RoleCommands(BasePlugin):
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
-                    "ANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
+                    "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Creates a role based on an existing role (for position and permissions), "
              "with parameters similar to editrole")
     async def _createrole(self, msg):
@@ -76,7 +80,11 @@ class RoleCommands(BasePlugin):
         a command for creating a role
         takes names for new role and a role that will be copied for position/permissions
         """
-        args = shlex.split(msg.content)
+        try:
+            args = shlex.split(msg.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         if len(args) > 2:
             for role in msg.guild.roles:
                 if args[2].lower() == role.name.lower():
@@ -136,10 +144,14 @@ class RoleCommands(BasePlugin):
     @Command("deleterole",
              perms={"manage_roles"},
              category="roles",
-             syntax="(role name) [position].\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
+             syntax="(role name) [position].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Deletes first encounter of the role with the given name and optionally position.")
     async def _deleterole(self, msg):
-        args = shlex.split(msg.content)
+        try:
+            args = shlex.split(msg.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         if len(args) > 1:
             name = args[1].capitalize()
             pos = -1
@@ -162,13 +174,17 @@ class RoleCommands(BasePlugin):
 
     @Command("roleinfo", "inforole",
              category="roles",
-             syntax="(role name).\nANALYSIS: Strings can be encapsulated in !\"...\" to allow spaces",
+             syntax="(role name).\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Returns all the info about the given role.")
     async def _inforole(self, msg):
         """
         provides an infodump of a role, including permissions and position
         """
-        args = shlex.split(msg.content)
+        try:
+            args = shlex.split(msg.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         if len(args) > 1:
             name = capwords(args[1])
             for role in msg.guild.roles:

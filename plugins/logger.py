@@ -24,6 +24,8 @@ class DiscordLogger(BasePlugin):
     async def _dump_logs(self):
         while self.active:
             await asyncio.sleep(1)
+            if not self.active:
+                return
             for guild in self.client.guilds:
                 gid = str(guild.id)
                 try:

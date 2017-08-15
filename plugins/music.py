@@ -177,8 +177,8 @@ class MusicPlayer(BasePlugin):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
                     try:
                         t_future.result()
-                    except:
-                        pass
+                    except Exception as e:
+                        self.parent.logger.error(f"Something went wrong in after or vc.play(). {e}")
 
                 self.vc.play(self.parent.create_source(t_source), after=p_next)
                 self.vc.source.volume = self.volume / 100
@@ -213,9 +213,10 @@ class MusicPlayer(BasePlugin):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
                     try:
                         t_future.result()
-                    except:
-                        pass
+                    except Exception as e:
+                        self.parent.logger.error(f"Something went wrong in after or vc.play(). {e}")
 
+                self.vote_set = set()
                 self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
@@ -671,7 +672,11 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = shlex.split(data.content)
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -697,7 +702,11 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = shlex.split(data.content)
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -727,9 +736,9 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You lack the required permissions.")
         t_string = ""
         if t_play.vc.source:
-            t_string = f"!\"{t_play.vc.source.url}\" "
+            t_string = f"\"{t_play.vc.source.url}\" "
         for source in t_play.queue:
-            t_string = f"{t_string}!\"{source.url}\" "
+            t_string = f"{t_string}\"{source.url}\" "
         if t_string != "":
             await respond(data, f"**AFFIRMATIVE. Current queue:**\n")
             for s in split_message(t_string, splitter="\n"):
@@ -747,7 +756,11 @@ class MusicPlayer(BasePlugin):
         await t_play.connected(data)
         if not t_play.check_perm(data):
             raise PermissionError("You lack the required permissions.")
-        args = shlex.split(data.content)
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise SyntaxError(e)
         if len(args) > 1:
             with data.channel.typing():
                 await respond(data, "**AFFIRMATIVE. Extending queue.**")
@@ -768,7 +781,7 @@ class MusicPlayer(BasePlugin):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
-        if not t_play.vc.source:
+        if not t_play.vc.source or (not t_play.vc.is_playing() and not t_play.vc.is_paused()):
             await t_play.disconnect()
             await respond(data, "**AFFIRMATIVE. Leaving voice chat.**")
         elif t_play.check_perm(data):
