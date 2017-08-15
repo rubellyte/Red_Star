@@ -177,8 +177,8 @@ class MusicPlayer(BasePlugin):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
                     try:
                         t_future.result()
-                    except:
-                        pass
+                    except Exception as e:
+                        self.parent.logger.error(f"Something went wrong in after or vc.play(). {e}")
 
                 self.vc.play(self.parent.create_source(t_source), after=p_next)
                 self.vc.source.volume = self.volume / 100
@@ -213,8 +213,8 @@ class MusicPlayer(BasePlugin):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
                     try:
                         t_future.result()
-                    except:
-                        pass
+                    except Exception as e:
+                        self.parent.logger.error(f"Something went wrong in after or vc.play(). {e}")
 
                 self.vote_set = set()
                 self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
@@ -769,7 +769,7 @@ class MusicPlayer(BasePlugin):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
-        if not t_play.vc.source:
+        if not t_play.vc.source or (not t_play.vc.is_playing() and not t_play.vc.is_paused()):
             await t_play.disconnect()
             await respond(data, "**AFFIRMATIVE. Leaving voice chat.**")
         elif t_play.check_perm(data):
