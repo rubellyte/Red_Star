@@ -738,7 +738,7 @@ class MusicPlayer(BasePlugin):
         if t_play.vc.source:
             t_string = f"\"{t_play.vc.source.url}\" "
         for source in t_play.queue:
-            t_string = f"{t_string}!\"{source.url}\" "
+            t_string = f"{t_string}\"{source.url}\" "
         if t_string != "":
             await respond(data, f"**AFFIRMATIVE. Current queue:**\n")
             for s in split_message(t_string, splitter="\n"):
