@@ -116,11 +116,11 @@ class DiscordLogger(BasePlugin):
             if before.roles != after.roles:
                 o_role = ", ".join([str(x) for x in before.roles])
                 n_role = ", ".join([str(x) for x in after.roles])
-                t_str = f"{t_str}**Old roles:**```{o_role.replace('@','')}```\n" \
-                        f"**New roles :**```{n_role.replace('@','')}```\n"
+                t_str = f"{t_str}**Old roles :**```[ {o_role.replace('@','')} ]```\n" \
+                        f"**New roles :**```[ {n_role.replace('@','')} ]```\n"
             if t_str == "":
                 return
-            self.logger.debug(f"User {uname} was modified:\n{t_str}")
+            self.logger.debug(f"User {uname} was modified:\n{t_str}".replace("```", " ").replace("**", ""))
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING. User {uname} was modified:**\n{t_str}")
