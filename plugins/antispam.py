@@ -60,11 +60,11 @@ class AntiSpam(BasePlugin):
             return result
 
         def __setstate__(self, state):
-            self.member = state["member"]
-            self.guild = state["guild"]
-            self.infractions = state["infractions"]
-            self.update_time = state["update_time"]
-            self.messages = state["messages"]
+            self.member = state.get("member")
+            self.guild = state.get("guild")
+            self.infractions = state.get("infractions")
+            self.update_time = state.get("update_time")
+            self.messages = state.get("messages")
             self.muted = state.get("muted", False)
             self.needs_reinit = True
 

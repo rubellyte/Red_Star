@@ -2,6 +2,10 @@
 import collections
 import re
 import asyncio
+import shelve
+import dbm
+from io import BytesIO
+from pickle import Pickler, Unpickler, PicklingError
 from functools import reduce
 
 
@@ -30,6 +34,51 @@ class DotDict(dict):
         super().__setitem__(key, value)
 
     __delattr__ = dict.__delitem__
+
+
+class Cupboard(shelve.Shelf):
+    """
+    Custom Shelf implementation that only pickles values at save-time.
+    Increases save/load times, decreases get/set item times.
+    More suitable for use as a savable dictionary.
+    """
+    def __init__(self, filename, flag='c', protocol=None, keyencoding='utf-8'):
+        self.db = filename
+        self.flag = flag
+        self.dict = {}
+        with dbm.open(self.db, self.flag) as db:
+            for k in db.keys():
+                v = BytesIO(db[k])
+                self.dict[k] = Unpickler(v).load()
+        shelve.Shelf.__init__(self, self.dict, protocol, False, keyencoding)
+
+    def __getitem__(self, key):
+        return self.dict[key.encode(self.keyencoding)]
+
+    def __setitem__(self, key, value):
+        self.dict[key.encode(self.keyencoding)] = value
+
+    def __delitem__(self, key):
+        del self.dict[key.encode(self.keyencoding)]
+
+    def sync(self):
+        res = {}
+        with dbm.open(self.db, self.flag) as db:
+            for k, v in self.dict.items():
+                f = BytesIO()
+                p = Pickler(f, protocol=self._protocol)
+                p.dump(v)
+                db[k] = f.getvalue()
+            db.sync()
+
+    def close(self):
+        try:
+            self.sync()
+        finally:
+            try:
+                self.dict = shelve._ClosedDict()
+            except:
+                self.dict = None
 
 
 def dict_merge(d, u):

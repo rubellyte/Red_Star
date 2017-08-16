@@ -1,9 +1,8 @@
 import inspect
 import logging
 import importlib
-import shelve
 import asyncio
-from utils import DotDict
+from utils import DotDict, Cupboard
 
 
 class PluginManager:
@@ -19,7 +18,7 @@ class PluginManager:
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.shelve_path = self.config_manager.config.shelve_path
         try:
-            self.shelve = shelve.open(self.shelve_path, writeback=True)
+            self.shelve = Cupboard(self.shelve_path)
         except OSError:
             self.logger.exception("Exception occurred while opening shelve! ", exc_info=True)
             raise SystemExit

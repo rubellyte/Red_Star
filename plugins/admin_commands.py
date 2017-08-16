@@ -54,4 +54,3 @@ class AdminCommands(BasePlugin):
                 return t_find
         else:
             return True
-
