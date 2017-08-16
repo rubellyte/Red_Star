@@ -14,6 +14,7 @@ import datetime
 import time
 import os
 import shlex
+from random import randint
 
 
 class MusicPlayer(BasePlugin):
@@ -65,6 +66,9 @@ class MusicPlayer(BasePlugin):
         vc = None  # voice chat instance
         queue = []  # queue of source objects
         vote_set = set()
+
+        cycle = "none"
+        shuffle = False
 
         time_started = 0  # time storage, for length calculating purposes
         time_pause = 0  # time of pause start
@@ -165,7 +169,7 @@ class MusicPlayer(BasePlugin):
             t_count = len(t_sources)
             t_added = 0
             t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
-            if not self.vc.is_playing() and not self.queue:
+            if not self.vc.is_playing() and not self.vc.is_paused() and not self.queue:
                 t_source = t_sources.pop(0)
                 while t_source.duration > self.config["max_video_length"] and t_sources:
                     t_source = t_sources.pop(0)
@@ -178,7 +182,8 @@ class MusicPlayer(BasePlugin):
                     try:
                         t_future.result()
                     except Exception as e:
-                        self.parent.logger.error(f"Something went wrong in after or vc.play(). {e}")
+                        self.parent.logger.error(f"Something went wrong in after of play_song in {str(self.guild)}. "
+                                                 f"{e}")
 
                 self.vc.play(self.parent.create_source(t_source), after=p_next)
                 self.vc.source.volume = self.volume / 100
@@ -204,9 +209,14 @@ class MusicPlayer(BasePlugin):
         async def play_next(self, data, exc):
             if exc:
                 self.parent.logger.warning(exc)
+            if self.vc.source and self.cycle == 'all':
+                await self.add_song(self.vc.source.url)
             if self.vc.is_playing():
                 self.vc.stop()
-            elif len(self.queue) > 0:
+                return
+            elif self.vc.source and self.cycle == 'one':
+                await self.add_song(self.vc.source.url, index=0)
+            if len(self.queue) > 0:
                 t_loop = asyncio.get_event_loop()
 
                 def p_next(err):
@@ -214,10 +224,15 @@ class MusicPlayer(BasePlugin):
                     try:
                         t_future.result()
                     except Exception as e:
-                        self.parent.logger.error(f"Something went wrong in after or vc.play(). {e}")
+                        self.parent.logger.error(f"Something went wrong in after of play_next in {str(self.guild)}. "
+                                                 f"{e}")
 
                 self.vote_set = set()
-                self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
+                if self.shuffle:
+                    self.vc.play(self.parent.create_source(self.queue.pop(randint(0, len(self.queue)-1))),
+                                 after=p_next)
+                else:
+                    self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
                 self.time_skip = 0
@@ -245,12 +260,15 @@ class MusicPlayer(BasePlugin):
             else:
                 return False
 
-        async def add_song(self, vid):
+        async def add_song(self, vid, *, index=None):
             """
             Adds songs to queue, no question asked
             :param vid: URL or search query
+            :param index: index to insert into
             :return:
             """
+            if index is not None:
+                t_i = min(max(index, 0), len(self.queue))
             before_args = "" if self.parent.plugin_config["download_songs"] else " -reconnect 1 -reconnect_streamed " \
                                                                                  "1 -reconnect_delay_max 30"
             try:
@@ -260,9 +278,14 @@ class MusicPlayer(BasePlugin):
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
             for t_source in t_sources:
-                self.parent.logger.info(f"Adding {t_source.title} to music queue.")
-                self.queue.append(t_source)
-                return True
+                if index is not None:
+                    self.parent.logger.info(f"Adding {t_source.title} to music queue.")
+                    self.queue.insert(t_i, t_source)
+                    t_i += 1
+                else:
+                    self.parent.logger.info(f"Adding {t_source.title} to music queue.")
+                    self.queue.append(t_source)
+            return True
 
         async def skip_song(self, data):
             if (not self.vc.source) and self.queue:
@@ -289,6 +312,8 @@ class MusicPlayer(BasePlugin):
         def stop_song(self):
             if self.queue:
                 self.queue = []
+            self.cycle = 'none'
+            self.shuffle = False
             if self.vc.source:
                 self.vc.stop()
 
@@ -499,7 +524,8 @@ class MusicPlayer(BasePlugin):
     @Command("volume",
              category="music",
              syntax="[volume from 0 to 200]",
-             doc="Adjusts volume, from 0 to 200%.")
+             doc="Adjusts volume, from 0 to 200%.",
+             delcall=True)
     async def _volvc(self, data):
         """
         Checks that the user didn't put in something stupid and adjusts volume.
@@ -520,12 +546,12 @@ class MusicPlayer(BasePlugin):
             if vol > 200:
                 raise SyntaxError("Expected integer value between 0 and 200!")
             if vol != t_play.volume:
-                await respond(data, f"**AFFIRMATIVE. Adjusting volume: {t_play.volume}% to {vol}%.**")
+                await respond(data, f"**AFFIRMATIVE. Adjusting volume: {t_play.volume}% to {vol}%.**", delete_after=5)
                 t_play.set_volume(vol)
             else:
-                await respond(data, f"**NEGATIVE. Current volume: {t_play.volume}%.**")
+                await respond(data, f"**NEGATIVE. Current volume: {t_play.volume}%.**", delete_after=5)
         else:
-            await respond(data, f"**ANALYSIS: Current volume: {t_play.volume}%.**")
+            await respond(data, f"**ANALYSIS: Current volume: {t_play.volume}%.**", delete_after=5)
 
     @Command("stopsong",
              category="music",
@@ -748,7 +774,8 @@ class MusicPlayer(BasePlugin):
              category="music",
              doc="Appends a number of songs to the queue, takes output from dumpqueue."
                  "\nRequires mute_members permission in the voice channel.",
-             syntax="[song] or [!\"ytsearch:song with spaces\"], accepts multiple.")
+             syntax="[song] or [\"ytsearch:song with spaces\"], accepts multiple.\n"
+                    "Can accept [index:int] as first argument to append to specific position.")
     async def _appendvc(self, data):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
@@ -764,8 +791,21 @@ class MusicPlayer(BasePlugin):
         if len(args) > 1:
             with data.channel.typing():
                 await respond(data, "**AFFIRMATIVE. Extending queue.**")
+                t_i = None
+                if args[1].lower().startswith("index:"):
+                    try:
+                        t_i = int(args[1][6:])
+                    except ValueError:
+                        self.logger.warning(f"{args[1][6:]} is not a viable integer")
+                if t_i is not None:
+                    t_queue = t_play.queue[t_i:]
+                    t_play.queue = t_play.queue[:t_i]
                 for arg in args[1:]:
+                    if arg.lower().startswith("index:"):
+                        continue
                     await t_play.add_song(arg)
+                if t_i is not None:
+                    t_play.queue += t_queue
                 await respond(data, f"**ANALYSIS: Current queue:**")
                 for s in split_message(t_play.build_queue(), "\n"):
                     await respond(data, f"```{s}```")
@@ -791,6 +831,44 @@ class MusicPlayer(BasePlugin):
             await respond(data, "**AFFIRMATIVE. Override accepted. Leaving voice chat.**")
         else:
             await respond(data, "**NEGATIVE.**")
+
+    @Command("togglevc", "songmode",
+             category="music",
+             doc="Toggles playback options.\n"
+                 "cycle = none/all/one\n"
+                 "shuffle = off/disable/no/negative or on/enable/yes/affirmative",
+             syntax="(cycle) (none/all/one) | (shuffle) (on/enable/off/disable)",
+             delcall=True)
+    async def _togglevc(self, data):
+        try:
+            args = shlex.split(data.content)
+        except ValueError as e:
+            raise SyntaxError(e)
+        if self.check_ban(data):
+            raise PermissionError("You are banned from using the music module.")
+        t_play = self.players[data.guild.id]
+        if not t_play.check_perm(data):
+            raise PermissionError("You lack the required permissions.")
+        if len(args) > 2:
+            if args[1].lower() == "cycle":
+                if args[2].lower() == "none":
+                    t_play.cycle = 'none'
+                elif args[2].lower() == "all":
+                    t_play.cycle = 'all'
+                elif args[2].lower() == "one":
+                    t_play.cycle = 'one'
+                await respond(data, f"**AFFIRMATIVE. Current cycle mode: {t_play.cycle}.**", delete_after=5)
+            elif args[1].lower() == "shuffle":
+                if args[2].lower() in ["off", "disable", "no", "negative"]:
+                    t_play.shuffle = False
+                elif args[2].lower() in ["on", "enable", "yes", "affirmative"]:
+                    t_play.shuffle = True
+                await respond(data, f"**AFFIRMATIVE. Shuffle {'enabled' if t_play.shuffle else 'disabled'}.**",
+                              delete_after=5)
+        else:
+            await respond(data, f"**ANALYSIS: Current playing mode:**\n"
+                                f"```Cycle mode: {t_play.cycle}{', shuffled' if t_play.shuffle else ''}```"
+                          , delete_after=10)
 
     # Music playing
 
