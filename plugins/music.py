@@ -134,8 +134,14 @@ class MusicPlayer(BasePlugin):
             """
             Disconnects the current VC instance for this server
             """
+            t_queue = []
+            if self.queue:
+                t_queue = self.queue
+                self.queue = []
             if self.vc:
                 await self.vc.disconnect()
+            if t_queue:
+                self.queue = t_queue
 
         async def check_idle(self):
             if self.vc:
@@ -147,7 +153,8 @@ class MusicPlayer(BasePlugin):
                 else:
                     self.idle_count += 1
                 if self.idle_count == self.config["idle_time"]:
-                    self.queue.insert(0, self.vc.source)
+                    if self.vc.source and self.vc.source.url:
+                        await self.add_song(self.vc.source.url, index=0)
                     await self.disconnect()
                     self.parent.logger.info(f"Leaving voice on {self.guild.name} due to inactivity.")
                 if self.idle_count == self.config["idle_terminate"]:
@@ -161,19 +168,19 @@ class MusicPlayer(BasePlugin):
                                                                                  "1 -reconnect_delay_max 30"
             t_loop = asyncio.get_event_loop()
             try:
-                t_sources, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
+                t_entries, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
                     "ytdl_options"], before_options=before_args)
             except DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
-            t_count = len(t_sources)
+            t_count = len(t_entries)
             t_added = 0
             t_m, t_s = divmod(ceil(self.queue_length(self.queue)), 60)
             if not self.vc.is_playing() and not self.vc.is_paused() and not self.queue:
-                t_source = t_sources.pop(0)
-                while t_source.duration > self.config["max_video_length"] and t_sources:
-                    t_source = t_sources.pop(0)
-                if t_source.duration > self.config["max_video_length"] and not t_sources:
+                t_entry = t_entries.pop(0)
+                while t_entry['duration'] > self.config["max_video_length"] and t_entries:
+                    t_entry = t_entries.pop(0)
+                if t_entry['duration'] > self.config["max_video_length"] and not t_entries:
                     return False
                 self.vote_set = set()
 
@@ -185,19 +192,19 @@ class MusicPlayer(BasePlugin):
                         self.parent.logger.error(f"Something went wrong in after of play_song in {str(self.guild)}. "
                                                  f"{e}")
 
-                self.vc.play(self.parent.create_source(t_source), after=p_next)
+                self.vc.play(self.parent.create_source(t_entry), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
                 self.time_skip = 0
                 t_added += 1
-            t_queue = self.add_songs(t_sources)
+            t_queue = self.add_songs(t_entries)
 
             # all the cosmetic output
             if t_queue and t_id:
                 await respond(data, f"**AFFIRMATIVE. ANALYSIS: Processed: {t_count} songs from \"{t_id}\" "
                                     f"playlist.\nAdded: {t_added+t_queue} songs.**")
-            elif t_added:
-                await respond(data, f"**AFFIRMATIVE. Adding \"{self.vc.source.title}\" to queue.**")
+            if t_added:
+                await respond(data, f"**AFFIRMATIVE. Beginning playback of \"{self.vc.source.title}\".**")
             if t_added == 0 or t_queue:
                 await respond(data, f"**ANALYSIS: Current queue:**")
                 for s in split_message(self.build_queue(), splitter="\n"):
@@ -209,12 +216,12 @@ class MusicPlayer(BasePlugin):
         async def play_next(self, data, exc):
             if exc:
                 self.parent.logger.warning(exc)
-            if self.vc.source and self.cycle == 'all':
+            if self.vc.source and self.vc.source.url and self.cycle == 'all':
                 await self.add_song(self.vc.source.url)
             if self.vc.is_playing():
                 self.vc.stop()
                 return
-            elif self.vc.source and self.cycle == 'one':
+            elif self.vc.source and self.vc.source.url and self.cycle == 'one':
                 await self.add_song(self.vc.source.url, index=0)
             if len(self.queue) > 0:
                 t_loop = asyncio.get_event_loop()
@@ -241,20 +248,20 @@ class MusicPlayer(BasePlugin):
             else:
                 await respond(data, "**ANALYSIS: Queue complete.**")
 
-        def add_songs(self, sources):
+        def add_songs(self, entries):
             """
             Processes a list of player instances for duration and queue length.
-            :param sources: list of players
+            :param entries: list of players
             :return:
             """
-            if len(sources) > 0:
+            if len(entries) > 0:
                 t_count = 0
-                for t_source in sources:
+                for t_entry in entries:
                     if len(self.queue) < self.config["max_queue_length"]:
-                        if t_source.duration < self.config["max_video_length"]:
+                        if t_entry['duration'] < self.config["max_video_length"]:
                             t_count += 1
-                            self.queue.append(t_source)
-                            self.parent.logger.info(f"Appending {t_source.title} to queue of {self.guild.name}.")
+                            self.queue.append(t_entry)
+                            self.parent.logger.info(f"Appending {t_entry['title']} to queue of {self.guild.name}.")
                 self.parent.logger.info(f"{t_count} songs appended.")
                 return t_count if t_count > 0 else False
             else:
@@ -277,14 +284,14 @@ class MusicPlayer(BasePlugin):
             except DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
-            for t_source in t_sources:
+            for t_entry in t_sources:
                 if index is not None:
-                    self.parent.logger.info(f"Adding {t_source.title} to music queue.")
-                    self.queue.insert(t_i, t_source)
+                    self.parent.logger.info(f"Adding {t_entry['title']} to music queue.")
+                    self.queue.insert(t_i, t_entry)
                     t_i += 1
                 else:
-                    self.parent.logger.info(f"Adding {t_source.title} to music queue.")
-                    self.queue.append(t_source)
+                    self.parent.logger.info(f"Adding {t_entry['title']} to music queue.")
+                    self.queue.append(t_entry)
             return True
 
         async def skip_song(self, data):
@@ -577,7 +584,8 @@ class MusicPlayer(BasePlugin):
 
     @Command("queue",
              category="music",
-             doc="Writes out the current queue.")
+             doc="Writes out the current queue.",
+             delcall=True)
     async def _queuevc(self, data):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
@@ -601,19 +609,20 @@ class MusicPlayer(BasePlugin):
                        f"[{'█' * int(t_bar)}{'-' * int(58 - t_bar)}]```"
         else:
             t_string = f"{t_string}```NOTHING PLAYING```"
-        await respond(data, t_string)
+        await respond(data, t_string, delete_after=30)
         if len(t_play.queue) > 0:
             t_string = f"{t_play.build_queue()}"
         else:
             t_string = f"QUEUE EMPTY"
         for s in split_message(t_string, "\n"):
-            await respond(data, "```" + s + "```")
+            await respond(data, "```" + s + "```", delete_after=30)
         t_m, t_s = divmod(ceil(t_play.queue_length(t_play.queue)), 60)
-        await respond(data, f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**")
+        await respond(data, f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**", delete_after=30)
 
     @Command("nowplaying",
              category="music",
-             doc="Writes out the current song information.")
+             doc="Writes out the current song information.",
+             delcall=True)
     async def _nowvc(self, data):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
@@ -633,9 +642,10 @@ class MusicPlayer(BasePlugin):
                        f"TITLE: {t_play.vc.source.title}\n{'='*60}\n" \
                        f"DESCRIPTION: {desc}\n{'='*60}\n" \
                        f"DURATION: {progress} {duration}```"
-            await respond(data, t_string)
+            await respond(data, t_string, delete_after=20)
         else:
-            await respond(data, "**ANALYSIS: Playing nothing.\nANALYSIS: If a song is stuck, use !skipsong.**")
+            await respond(data, "**ANALYSIS: Playing nothing.\nANALYSIS: If a song is stuck, use !skipsong.**",
+                          delete_after=30)
 
     @Command("pausesong",
              category="music",
@@ -825,8 +835,9 @@ class MusicPlayer(BasePlugin):
             await t_play.disconnect()
             await respond(data, "**AFFIRMATIVE. Leaving voice chat.**")
         elif t_play.check_perm(data):
-            t_play.queue.insert(0, t_play.vc.source)
-            t_play.vc.stop()
+            if t_play.vc.source and t_play.vc.source.url:
+                with data.channel.typing():
+                    await t_play.add_song(t_play.vc.source.url, index=0)
             await t_play.disconnect()
             await respond(data, "**AFFIRMATIVE. Override accepted. Leaving voice chat.**")
         else:
