@@ -105,9 +105,9 @@ class AntiSpam(BasePlugin):
                     self.parent.logger.info(f"Muted member {self.member.display_name}")
                     self.muted = True
 
-        async def update(self):
+        async def update(self, parent):
             if self.needs_reinit:
-                return
+                self.reinit(parent)
             t_config = self.parent.plugin_config[str(self.guild.id)]
             if t_config["spam_role"] and time.time() - self.update_time > t_config['spam_role_timeout'] and self.muted:
                 for t_role in self.member.roles:
@@ -513,7 +513,7 @@ class AntiSpam(BasePlugin):
                 t_lst = []
                 for k1, t_member in t_guild.items():
                     if t_member.member and t_member.guild.get_member(t_member.member.id):
-                        t_future = asyncio.run_coroutine_threadsafe(t_member.update(), loop=loop)
+                        t_future = asyncio.run_coroutine_threadsafe(t_member.update(self), loop=loop)
                         try:
                             t_future.result()
                         except Exception as e:
