@@ -46,28 +46,19 @@ class AntiSpam(BasePlugin):
             self.guild = guild
             self.parent = parent
             self.infractions = 0
+            self.messages = 0
             self.update_time = time.time()
 
         def __getstate__(self):
-            copy = self.__dict__.copy()
-            result = {
-                'member': copy['member'].id,
-                'guild': copy['guild'].id,
-                'infractions': copy['infractions'],
-                'update_time': copy['update_time'],
-                'messages': copy['messages'],
-                'muted': copy['muted']
-            }
+            result = self.__dict__.copy()
+            del result["parent"]
+            result["member"] = result['member'].id
+            result["guild"] = result["guild"].id
+            result["needs_reinit"] = True
             return result
 
         def __setstate__(self, state):
-            self.member = state.get("member")
-            self.guild = state.get("guild")
-            self.infractions = state.get("infractions")
-            self.update_time = state.get("update_time")
-            self.messages = state.get("messages")
-            self.muted = state.get("muted", False)
-            self.needs_reinit = True
+            self.__dict__.update(state)
 
         def reinit(self, parent):
             self.parent = parent
