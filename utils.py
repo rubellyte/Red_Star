@@ -5,8 +5,7 @@ import asyncio
 import shelve
 import dbm
 from io import BytesIO
-from pickle import Pickler, Unpickler, PicklingError
-from functools import reduce
+from pickle import Pickler, Unpickler
 
 
 class DotDict(dict):

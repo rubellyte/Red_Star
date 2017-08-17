@@ -15,6 +15,15 @@ class BotManagement(BasePlugin):
         await respond(msg, "**AFFIRMATIVE. SHUTTING DOWN.**")
         await self.client.stop_bot()
 
+    @Command("save",
+             doc="Saves plugin storage data.",
+             category="bot_management",
+             perms={"manage_guild"})
+    async def _save(self, msg):
+        self.plugin_manager.shelve.sync()
+        self.logger.debug("Writing to shelve...")
+        await respond(msg, "**AFFIRMATIVE. Storage saved to disk.**")
+
     @Command("update_avatar",
              doc="Updates the bot's avatar.",
              syntax="(URL)",

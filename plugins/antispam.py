@@ -49,13 +49,14 @@ class AntiSpam(BasePlugin):
             self.update_time = time.time()
 
         def __getstate__(self):
+            copy = self.__dict__.copy()
             result = {
-                'member': self.member.id,
-                'guild': self.guild.id,
-                'infractions': self.infractions,
-                'update_time': self.update_time,
-                'messages': self.messages,
-                'muted': self.muted
+                'member': copy['member'].id,
+                'guild': copy['guild'].id,
+                'infractions': copy['infractions'],
+                'update_time': copy['update_time'],
+                'messages': copy['messages'],
+                'muted': copy['muted']
             }
             return result
 

@@ -17,14 +17,6 @@ class PluginManager:
         self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.shelve_path = self.config_manager.config.shelve_path
-        try:
-            self.shelve = Cupboard(self.shelve_path)
-        except OSError:
-            self.logger.exception("Exception occurred while opening shelve! ", exc_info=True)
-            raise SystemExit
-        except AttributeError:
-            self.logger.error("shelve_path not defined in config!")
-            raise SystemExit
         asyncio.ensure_future(self._write_to_shelve())
 
     def __repr__(self):
@@ -75,6 +67,14 @@ class PluginManager:
             self.plugins[i.name] = i()
 
     def final_load(self):
+        try:
+            self.shelve = Cupboard(self.shelve_path)
+        except OSError:
+            self.logger.exception("Exception occurred while opening shelve! ", exc_info=True)
+            raise SystemExit
+        except AttributeError:
+            self.logger.error("shelve_path not defined in config!")
+            raise SystemExit
         for plugin in self.plugins.values():
             plugin.plugins = self.active_plugins
             if plugin.name not in self.shelve:
