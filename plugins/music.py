@@ -831,7 +831,7 @@ class MusicPlayer(BasePlugin):
         if self.check_ban(data):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
-        if not t_play.vc.source or (not t_play.vc.is_playing() and not t_play.vc.is_paused()):
+        if not t_play.vc.source or (t_play.vc.source and not t_play.vc.is_playing() and not t_play.vc.is_paused()):
             await t_play.disconnect()
             await respond(data, "**AFFIRMATIVE. Leaving voice chat.**")
         elif t_play.check_perm(data):
