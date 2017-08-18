@@ -799,8 +799,8 @@ class MusicPlayer(BasePlugin):
             self.logger.warning("Unable to split {data.content}. {e}")
             raise SyntaxError(e)
         if len(args) > 1:
+            await respond(data, "**AFFIRMATIVE. Extending queue.**")
             with data.channel.typing():
-                await respond(data, "**AFFIRMATIVE. Extending queue.**")
                 t_i = None
                 if args[1].lower().startswith("index:"):
                     try:
@@ -859,7 +859,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         if len(args) > 2:
             if args[1].lower() == "cycle":
                 if args[2].lower() == "none":
@@ -870,10 +870,7 @@ class MusicPlayer(BasePlugin):
                     t_play.cycle = 'one'
                 await respond(data, f"**AFFIRMATIVE. Current cycle mode: {t_play.cycle}.**", delete_after=5)
             elif args[1].lower() == "shuffle":
-                if args[2].lower() in ["off", "disable", "no", "negative"]:
-                    t_play.shuffle = False
-                elif args[2].lower() in ["on", "enable", "yes", "affirmative"]:
-                    t_play.shuffle = True
+                t_play.shuffle = self.is_positive(args[2].lower())
                 await respond(data, f"**AFFIRMATIVE. Shuffle {'enabled' if t_play.shuffle else 'disabled'}.**",
                               delete_after=5)
         else:
@@ -1055,6 +1052,15 @@ class MusicPlayer(BasePlugin):
         source.description = entry["description"]
         source.upload_date = entry["upload_date"]
         return source
+
+    @staticmethod
+    def is_positive(string):
+        if string in ["off", "disable", "no", "negative", "true"]:
+            return True
+        elif string in ["on", "enable", "yes", "affirmative", "false"]:
+            return False
+        else:
+            raise SyntaxError("Expected positive/negative input.")
 
     # Utility functions
 
