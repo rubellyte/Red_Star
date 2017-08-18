@@ -547,11 +547,11 @@ class MusicPlayer(BasePlugin):
             try:
                 vol = int(args[1])
             except ValueError:
-                raise SyntaxError("Expected integer value between 0 and 200!")
+                raise SyntaxError("Expected integer value between 0 and 100!")
             if vol < 0:
                 vol = 0
-            if vol > 200:
-                raise SyntaxError("Expected integer value between 0 and 200!")
+            if vol > 100:
+                raise SyntaxError("Expected integer value between 0 and 100!")
             if vol != t_play.volume:
                 await respond(data, f"**AFFIRMATIVE. Adjusting volume: {t_play.volume}% to {vol}%.**", delete_after=5)
                 t_play.set_volume(vol)
