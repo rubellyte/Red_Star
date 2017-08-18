@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, split_message, find_user, DotDict
+from utils import Command, respond, split_message, find_user, DotDict, is_positive
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from plugins.channel_manager import ChannelNotFoundError
@@ -570,7 +570,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         t_play.stop_song()
         if self.plugin_config["download_songs"]:
             args = data.content.split()
@@ -691,7 +691,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         args = data.content.split(" ", 1)
         try:
             pos = int(args[1])
@@ -707,7 +707,7 @@ class MusicPlayer(BasePlugin):
     async def _musicban(self, data):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         try:
             args = shlex.split(data.content)
         except ValueError as e:
@@ -737,7 +737,7 @@ class MusicPlayer(BasePlugin):
     async def _musicunban(self, data):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         try:
             args = shlex.split(data.content)
         except ValueError as e:
@@ -769,7 +769,7 @@ class MusicPlayer(BasePlugin):
             raise PermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         t_string = ""
         if t_play.vc.source:
             t_string = f"\"{t_play.vc.source.url}\" "
@@ -792,7 +792,7 @@ class MusicPlayer(BasePlugin):
         t_play = self.players[data.guild.id]
         await t_play.connected(data)
         if not t_play.check_perm(data):
-            raise PermissionError("You lack the required permissions.")
+            raise PermissionError
         try:
             args = shlex.split(data.content)
         except ValueError as e:
@@ -870,7 +870,7 @@ class MusicPlayer(BasePlugin):
                     t_play.cycle = 'one'
                 await respond(data, f"**AFFIRMATIVE. Current cycle mode: {t_play.cycle}.**", delete_after=5)
             elif args[1].lower() == "shuffle":
-                t_play.shuffle = self.is_positive(args[2].lower())
+                t_play.shuffle = is_positive(args[2])
                 await respond(data, f"**AFFIRMATIVE. Shuffle {'enabled' if t_play.shuffle else 'disabled'}.**",
                               delete_after=5)
         else:
@@ -1052,15 +1052,6 @@ class MusicPlayer(BasePlugin):
         source.description = entry["description"]
         source.upload_date = entry["upload_date"]
         return source
-
-    @staticmethod
-    def is_positive(string):
-        if string in ["off", "disable", "no", "negative", "true"]:
-            return True
-        elif string in ["on", "enable", "yes", "affirmative", "false"]:
-            return False
-        else:
-            raise SyntaxError("Expected positive/negative input.")
 
     # Utility functions
 
