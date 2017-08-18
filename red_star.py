@@ -33,11 +33,11 @@ class RedStar(discord.Client):
 
     async def on_ready(self):
         if not self.logged_in:
+            self.logged_in = True
             self.logger.info("Logged in as")
             self.logger.info(self.user.name)
             self.logger.info(self.user.id)
             self.logger.info("------------")
-            self.logged_in = True
             if self.server_ready:
                 self.logger.info("Logged in with server; activating plugins.")
                 await self.plugin_manager.activate_all()
@@ -113,11 +113,11 @@ class RedStar(discord.Client):
 
     async def on_guild_available(self, guild):
         if not self.server_ready:
+            self.server_ready = True
             self.logger.info("A server is now available.")
             if self.logged_in:
                 self.logger.info("Logged in with server; activating plugins.")
                 await self.plugin_manager.activate_all()
-            self.server_ready = True
         await self.plugin_manager.hook_event("on_guild_available", guild)
 
     async def on_guild_unavailable(self, guild):
