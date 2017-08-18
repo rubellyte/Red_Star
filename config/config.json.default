@@ -66,7 +66,6 @@
         "allow_pause": true,
         "allow_playlists": true,
         "default_volume": 15,
-        "force_music_channel": false,
         "idle_terminate": 60,
         "idle_time": 30,
         "max_queue_length": 30,
