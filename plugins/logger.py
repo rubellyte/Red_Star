@@ -109,20 +109,26 @@ class DiscordLogger(BasePlugin):
         if "member_update" not in self.plugin_config[gid].log_events:
             uname = str(after)
             t_str = ""
+            t_log = ""
             if before.name != after.name or before.discriminator != after.discriminator:
                 t_str = f"{t_str}`Old username : `{str(before)}\n`New username : `{uname}\n"
+                t_log = f"{t_str}Old username : {str(before)} New username : {uname}\n"
             if before.avatar != after.avatar:
                 t_str = f"{t_str}`New avatar : `{after.avatar_url}\n"
+                t_log = f"{t_str}New avatar : {after.avatar_url}\n"
             if before.nick != after.nick:
                 t_str = f"{t_str}`Old nick: `{before.nick}\n`New nick : `{after.nick}\n"
+                t_log = f"{t_str}Old nick: {before.nick} New nick : {after.nick}\n"
             if before.roles != after.roles:
                 o_role = ", ".join([str(x) for x in before.roles])
                 n_role = ", ".join([str(x) for x in after.roles])
                 t_str = f"{t_str}**Old roles :**```[ {o_role.replace('@','')} ]```\n" \
                         f"**New roles :**```[ {n_role.replace('@','')} ]```\n"
+                t_log = f"{t_str}Old roles : [ {o_role.replace('@','')} ]\n" \
+                        f"New roles :[ {n_role.replace('@','')} ]\n"
             if t_str == "":
                 return
-            self.logger.debug(f"User {uname} was modified:\n{t_str}".replace("```", " ").replace("**", ""))
+            self.logger.debug(f"User {uname} was modified:\n{t_log}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING. User {uname} was modified:**\n{t_str}")
