@@ -109,6 +109,8 @@ class DiscordLogger(BasePlugin):
         if "member_update" not in self.plugin_config[gid].log_events:
             uname = str(after)
             t_str = ""
+            if before.name != after.name or before.discriminator != after.discriminator:
+                t_str = f"{t_str}`Old username : `{str(before)}\n`New username : `{uname}\n"
             if before.avatar != after.avatar:
                 t_str = f"{t_str}`New avatar : `{after.avatar_url}\n"
             if before.nick != after.nick:
