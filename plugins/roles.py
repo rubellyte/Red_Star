@@ -1,6 +1,6 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
-from utils import Command, respond, split_message
+from utils import Command, respond, split_message, is_positive
 from string import capwords
 import shlex
 
@@ -44,9 +44,9 @@ class RoleCommands(BasePlugin):
                             elif t_arg[0].lower() == "color":
                                 t_dict["colour"] = Colour(int(t_arg[1], 16))
                             elif t_arg[0].lower() == "hoist":
-                                t_dict["hoist"] = t_arg[1].lower() == "true"
+                                t_dict["hoist"] = is_positive(t_arg[1])
                             elif t_arg[0].lower() == "mentionable":
-                                t_dict["mentionable"] = t_arg[1].lower() == "true"
+                                t_dict["mentionable"] = is_positive(t_arg[1])
                             elif t_arg[0].lower() == "position":
                                 if t_arg[1].isdecimal():
                                     pos = int(t_arg[1])
@@ -107,9 +107,9 @@ class RoleCommands(BasePlugin):
                             elif t_arg[0].lower() == "color":
                                 t_dict["colour"] = Colour(int(t_arg[1], 16))
                             elif t_arg[0].lower() == "hoist":
-                                t_dict["hoist"] = t_arg[1].lower() == "true"
+                                t_dict["hoist"] = is_positive(t_arg[1])
                             elif t_arg[0].lower() == "mentionable":
-                                t_dict["mentionable"] = t_arg[1].lower() == "true"
+                                t_dict["mentionable"] = is_positive(t_arg[1])
                             elif t_arg[0].lower() == "position":
                                 if t_arg[1].isdecimal():
                                     pos = int(t_arg[1])

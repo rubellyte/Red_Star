@@ -1,6 +1,6 @@
 import urllib
 from plugin_manager import BasePlugin
-from utils import Command, respond
+from utils import Command, respond, is_positive
 from discord import InvalidArgument
 
 class BotManagement(BasePlugin):
@@ -55,7 +55,7 @@ class BotManagement(BasePlugin):
     async def _update_name(self, msg):
         args = msg.clean_content.split()[1:]
         edit_username = False
-        if args[0].lower() == "true":
+        if is_positive(args[0]):
             args.pop(0)
             edit_username = True
         elif args[0].lower() == "reset":
@@ -86,7 +86,7 @@ class BotManagement(BasePlugin):
             raise PermissionError
         plgname = msg.content.split()[1]
         try:
-            permanent = msg.content.split()[2].lower() == "true"
+            permanent = is_positive(msg.content.split()[2])
         except IndexError:
             permanent = False
         all_plugins = self.plugin_manager.plugins
@@ -114,7 +114,7 @@ class BotManagement(BasePlugin):
             raise PermissionError
         plgname = msg.content.split()[1].lower()
         try:
-            permanent = msg.content.split()[2].lower() == "true"
+            permanent = is_positive(msg.content.split()[2])
         except IndexError:
             permanent = False
         if plgname == self.name:
@@ -237,12 +237,7 @@ class BotManagement(BasePlugin):
         if isinstance(orig, str):
             val[key] = value
         elif isinstance(orig, bool):
-            if value.lower() == "true":
-                val[key] = True
-            elif value.lower() == "false":
-                val[key] = False
-            else:
-                raise SyntaxError(f"{value} is not a valid boolean value (true/false).")
+                val[key] = is_positive(value)
         elif isinstance(orig, int):
             try:
                 value = int(value)
