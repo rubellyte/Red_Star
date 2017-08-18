@@ -248,6 +248,21 @@ def p_time(seconds):
     return ", ".join(t_string)
 
 
+def is_positive(string):
+    """
+    Returns True if the string is a positive word and False if the string is a negative word
+    :type string: str
+    :param string: string to be judged
+    :return: boolean
+    """
+    if string.lower() in ["off", "disable", "no", "negative", "true"]:
+        return True
+    elif string.lower() in ["on", "enable", "yes", "affirmative", "false"]:
+        return False
+    else:
+        raise SyntaxError("Expected positive/negative input.")
+
+
 class Command:
     """
     Defines a decorator that encapsulates a chat command. Provides a common
