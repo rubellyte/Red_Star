@@ -255,9 +255,9 @@ def is_positive(string):
     :return: boolean
     """
     if string.lower() in ["off", "disable", "no", "negative", "true"]:
-        return True
-    elif string.lower() in ["on", "enable", "yes", "affirmative", "false"]:
         return False
+    elif string.lower() in ["on", "enable", "yes", "affirmative", "false"]:
+        return True
     else:
         raise SyntaxError("Expected positive/negative input.")
 
