@@ -418,7 +418,7 @@ class AntiSpam(BasePlugin):
                  "time = cooldown/during/duration",
              syntax="(messages)/(time) (number) | (eval) [attribute=value, any number]")
     async def _spamsettings(self, msg):
-        msg_strings  = ["messages", "msg", "posts", "amount", "count"]
+        msg_strings = ["messages", "msg", "posts", "amount", "count"]
         time_strings = ["time", "cooldown", "during", "duration"]
 
         args = msg.content.split(" ", 2)

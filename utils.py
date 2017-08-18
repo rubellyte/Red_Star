@@ -61,7 +61,6 @@ class Cupboard(shelve.Shelf):
         del self.dict[key.encode(self.keyencoding)]
 
     def sync(self):
-        res = {}
         with dbm.open(self.db, self.flag) as db:
             for k, v in self.dict.items():
                 f = BytesIO()
@@ -310,7 +309,7 @@ class Command:
                 return asyncio.ensure_future(respond(msg, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
 
         wrapped._command = True
-        wrapped._aliases = self.aliases
+        wrapped.aliases = self.aliases
         wrapped.__doc__ = self.doc
         wrapped.name = self.name
         wrapped.perms = self.perms

@@ -1,6 +1,5 @@
 from plugin_manager import BasePlugin
 from discord import utils, VoiceChannel
-from discord.enums import ChannelType
 from utils import respond, Command, DotDict
 import shlex
 
@@ -27,28 +26,28 @@ class ChannelManager(BasePlugin):
                 self.plugin_config[gid].voice_afk = guild.afk_channel.id
             self.config_manager.save_config()
 
-    def get_channel(self, guild, type):
+    def get_channel(self, guild, chantype):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self._add_guild(guild)
-        if type.lower() in self.plugin_config[gid]:
-            chan = self.plugin_config[gid][type.lower()]
+        if chantype.lower() in self.plugin_config[gid]:
+            chan = self.plugin_config[gid][chantype.lower()]
             chan = self.client.get_channel(chan)
             if not chan:
-                raise ChannelNotFoundError(type.lower())
+                raise ChannelNotFoundError(chantype.lower())
             return chan
         else:
-            raise ChannelNotFoundError(type.lower())
+            raise ChannelNotFoundError(chantype.lower())
 
-    def set_channel(self, guild, type, channel):
+    def set_channel(self, guild, chantype, channel):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self._add_guild(guild)
         if channel:
-            self.plugin_config[gid][type.lower()] = channel.id
+            self.plugin_config[gid][chantype.lower()] = channel.id
             self.config_manager.save_config()
-        elif type.lower() in self.plugin_config[gid]:
-            self.plugin_config[gid].pop(type.lower())
+        elif chantype.lower() in self.plugin_config[gid]:
+            self.plugin_config[gid].pop(chantype.lower())
             self.config_manager.save_config()
 
     @Command("get_channel",

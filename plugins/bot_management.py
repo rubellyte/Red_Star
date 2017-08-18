@@ -3,6 +3,7 @@ from plugin_manager import BasePlugin
 from utils import Command, respond, is_positive
 from discord import InvalidArgument
 
+
 class BotManagement(BasePlugin):
     name = "bot_management"
 
@@ -40,7 +41,7 @@ class BotManagement(BasePlugin):
                 img = urllib.request.urlopen(url).read()
                 await self.client.user.edit(avatar=img)
                 await respond(msg, "**AVATAR UPDATED.**")
-            except (urllib.request.URLError, ValueError) as e:
+            except (urllib.request.URLError, ValueError):
                 await respond(msg, "**WARNING: Invalid URL provided.**")
             except InvalidArgument:
                 await respond(msg, "**NEGATIVE. Image must be a PNG or JPG.**")

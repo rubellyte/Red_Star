@@ -17,6 +17,7 @@ class PluginManager:
         self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.shelve_path = self.config_manager.config.shelve_path
+        self.shelve = None
         asyncio.ensure_future(self._write_to_shelve())
 
     def __repr__(self):

@@ -188,9 +188,9 @@ class MusicPlayer(BasePlugin):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
                     try:
                         t_future.result()
-                    except Exception as e:
-                        self.parent.logger.error(f"Something went wrong in after of play_song in {str(self.guild)}. "
-                                                 f"{e}")
+                    except Exception:
+                        self.parent.logger.exception(f"Something went wrong in play_song's post-run call in "
+                                                     f"{str(self.guild)}.", exc_info=True)
 
                 self.vc.play(self.parent.create_source(t_entry), after=p_next)
                 self.vc.source.volume = self.volume / 100

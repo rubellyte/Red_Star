@@ -60,7 +60,7 @@ class CommandDispatcher(BasePlugin):
             self.commands[name] = fn
 
         if hasattr(fn, "_aliases") and not is_alias:
-            for alias in fn._aliases:
+            for alias in fn.aliases:
                 self.register(fn, alias, is_alias=True)
 
     def deregister(self, fn, name, is_alias=False):
@@ -82,7 +82,7 @@ class CommandDispatcher(BasePlugin):
             self.logger.debug(f"Could not deregister command {name}, no such command!")
 
         if hasattr(fn, "_aliases") and not is_alias:
-            for alias in fn._aliases:
+            for alias in fn.aliases:
                 self.deregister(fn, alias, is_alias=True)
 
     async def run_command(self, command, msg):
