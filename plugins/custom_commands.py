@@ -245,7 +245,8 @@ class CustomCommands(BasePlugin):
                 self.logger.exception("Exception occurred in custom command: ", exc_info=True)
                 await respond(msg, "**WARNING: An error occurred while running the custom command.**")
             else:
-                await respond(msg, res)
+                if res:
+                    await respond(msg, res)
                 self.args = None
                 self.ccs[gid][cmd]["times_run"] += 1
                 self._save_ccs()
