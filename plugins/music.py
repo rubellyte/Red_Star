@@ -157,9 +157,15 @@ class MusicPlayer(BasePlugin):
                         await self.add_song(self.vc.source.url, index=0)
                     await self.disconnect()
                     self.parent.logger.info(f"Leaving voice on {self.guild.name} due to inactivity.")
+                    await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
+                                                                f"**WARNING: Leaving voice chat due to inactivity.**",
+                                                                log_type="musicbot_event")
                 if self.idle_count == self.config["idle_terminate"]:
                     self.stop_song()
                     self.parent.logger.info(f"Terminating queue on {self.guild.name} due to inactivity.")
+                    await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
+                                                                f"**WARNING: Terminating queue due to inactivity.**",
+                                                                log_type="musicbot_event")
 
         # Playback functions
 
@@ -216,13 +222,15 @@ class MusicPlayer(BasePlugin):
         async def play_next(self, data, exc):
             if exc:
                 self.parent.logger.warning(exc)
-            if self.vc.source and self.vc.source.url and self.cycle == 'all':
-                await self.add_song(self.vc.source.url)
             if self.vc.is_playing():
+                if self.cycle == 'all':
+                    self.queue.append(self.parent.create_entry(self.vc.source))
                 self.vc.stop()
                 return
             elif self.vc.source and self.vc.source.url and self.cycle == 'one':
-                await self.add_song(self.vc.source.url, index=0)
+                self.queue.insert(0, self.parent.create_entry(self.vc.source))
+            elif self.vc.source and self.vc.source.url and self.cycle == 'all':
+                self.queue.append(self.parent.create_entry(self.vc.source))
             if len(self.queue) > 0:
                 t_loop = asyncio.get_event_loop()
 
@@ -235,11 +243,18 @@ class MusicPlayer(BasePlugin):
                                                  f"{e}")
 
                 self.vote_set = set()
-                if self.shuffle:
-                    self.vc.play(self.parent.create_source(self.queue.pop(randint(0, len(self.queue)-1))),
-                                 after=p_next)
+
+                t_len = len(self.queue)
+
+                if self.shuffle and self.cycle != "one" and t_len > 1:
+                    if self.cycle == "all":
+                        song_to_play = randint(0, max(t_len-2, 0))
+                    else:
+                        song_to_play = randint(0, t_len-1)
                 else:
-                    self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
+                    song_to_play = 0
+
+                self.vc.play(self.parent.create_source(self.queue.pop(song_to_play)), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
                 self.time_skip = 0
@@ -394,10 +409,11 @@ class MusicPlayer(BasePlugin):
             :return: returns queue string
             """
             t_string = ""
-            for k, t_source in enumerate(self.queue):
-                title = t_source.title[0:44].ljust(47) if len(t_source.title) < 44 else t_source.title[0:44] + "..."
-                if t_source.duration:
-                    mins, secs = divmod(t_source.duration, 60)
+            for k, t_entry in enumerate(self.queue):
+                title = t_entry['title'][0:44].ljust(47) if len(t_entry['title']) < 44 else \
+                    t_entry['title'][0:44] + "..."
+                if t_entry['duration']:
+                    mins, secs = divmod(t_entry['duration'], 60)
                 else:
                     mins, secs = 99, 99
                 t_string = f"{t_string}[{k+1:02d}][{title}][{mins:02d}:{secs:02d}]\n"
@@ -1051,9 +1067,25 @@ class MusicPlayer(BasePlugin):
         source.duration = entry["duration"]
         source.description = entry["description"]
         source.upload_date = entry["upload_date"]
+        source.kwargs = entry["kwargs"]
         return source
 
-    # Utility functions
+    @staticmethod
+    def create_entry(source):
+        entry = {
+            "download_url": source.download_url,
+            "url": source.url,
+            "yt": source.yt,
+            "is_live": source.is_live,
+            "title": source.title,
+            "duration": source.duration,
+            "description": source.description,
+            "upload_date": source.upload_date,
+            "kwargs": source.kwargs
+        }
+        return DotDict(entry)
+
+        # Utility functions
 
     def start_timer(self, loop, t_loop):
         asyncio.set_event_loop(loop)
