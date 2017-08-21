@@ -37,7 +37,8 @@ class CustomCommands(BasePlugin):
             "random": self._random,
             "rot13": self._rot13,
             "delcall": self._delcall,
-            "embed": self._embed
+            "embed": self._embed,
+            "noembed": self._noembed
         }
         try:
             with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
@@ -419,3 +420,6 @@ class CustomCommands(BasePlugin):
             t_embed.set_footer(text="Custom command embed.")
             ensure_future(respond(msg, None, embed=t_embed))
         return ""
+
+    def _noembed(self, args, msg):
+        return f"<{args}>"
