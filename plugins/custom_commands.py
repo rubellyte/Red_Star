@@ -5,7 +5,8 @@ import datetime
 from asyncio import ensure_future
 from plugin_manager import BasePlugin
 import discord.utils
-from utils import respond, Command, DotDict, find_user
+from utils import respond, Command, DotDict, find_user, is_positive
+from discord import Embed
 
 
 class CustomCommands(BasePlugin):
@@ -35,7 +36,8 @@ class CustomCommands(BasePlugin):
             "lower": self._lower,
             "random": self._random,
             "rot13": self._rot13,
-            "delcall": self._delcall
+            "delcall": self._delcall,
+            "embed": self._embed
         }
         try:
             with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
@@ -377,4 +379,43 @@ class CustomCommands(BasePlugin):
 
     def _delcall(self, args, msg):
         ensure_future(msg.delete())
+        return ""
+
+    def _embed(self, args, msg):
+        t_args = self._split_args(args)
+        if t_args == ['']:
+            return ""
+        t_embed = Embed(type="rich", colour=16711680)
+        t_post = False
+        for arg in t_args:
+            t_arg = list(map(lambda x: x.replace("═", "="), arg.replace("\\=", "═").split("=")))
+            if len(t_arg) < 2:
+                continue
+            t_post = True
+            if t_arg[0].lower() == "!title":
+                t_embed.title = t_arg[1]
+            elif t_arg[0].lower() in ["!color", "!colour"]:
+                try:
+                    t_embed.colour = discord.Colour(int(t_arg[1], 16))
+                except:
+                    pass
+            elif t_arg[0].lower() == "!url":
+                t_embed.url = t_arg[1]
+            elif t_arg[0].lower() == "!thumbnail":
+                t_embed.set_thumbnail(url=t_arg[1])
+            elif t_arg[0].lower() == "!image":
+                t_embed.set_image(url=t_arg[1])
+            elif t_arg[0].lower() in ["!desc", "!description"]:
+                t_embed.description = t_arg[1]
+            else:
+                t_name = t_arg[0]
+                t_val = t_arg[1]
+                if len(t_arg) > 2:
+                    t_inline = is_positive(t_arg[2])
+                else:
+                    t_inline = False
+                t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
+        if t_post:
+            t_embed.set_footer(text="Custom command embed.")
+            ensure_future(respond(msg, None, embed=t_embed))
         return ""
