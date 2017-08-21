@@ -157,9 +157,15 @@ class MusicPlayer(BasePlugin):
                         await self.add_song(self.vc.source.url, index=0)
                     await self.disconnect()
                     self.parent.logger.info(f"Leaving voice on {self.guild.name} due to inactivity.")
+                    await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
+                                                                f"**WARNING: Leaving voice chat due to inactivity.**",
+                                                                log_type="musicbot_event")
                 if self.idle_count == self.config["idle_terminate"]:
                     self.stop_song()
                     self.parent.logger.info(f"Terminating queue on {self.guild.name} due to inactivity.")
+                    await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
+                                                                f"**WARNING: Terminating queue due to inactivity.**",
+                                                                log_type="musicbot_event")
 
         # Playback functions
 
@@ -235,11 +241,18 @@ class MusicPlayer(BasePlugin):
                                                  f"{e}")
 
                 self.vote_set = set()
-                if self.shuffle:
-                    self.vc.play(self.parent.create_source(self.queue.pop(randint(0, len(self.queue)-1))),
-                                 after=p_next)
+
+                t_len = len(self.queue)
+
+                if self.shuffle and self.cycle != "one" and t_len > 1:
+                    if self.cycle == "all":
+                        song_to_play = randint(0, max(t_len-2, 0))
+                    else:
+                        song_to_play = randint(0, t_len-1)
                 else:
-                    self.vc.play(self.parent.create_source(self.queue.pop(0)), after=p_next)
+                    song_to_play = 0
+
+                self.vc.play(self.parent.create_source(self.queue.pop(song_to_play)), after=p_next)
                 self.vc.source.volume = self.volume / 100
                 self.time_started = time.time()
                 self.time_skip = 0
