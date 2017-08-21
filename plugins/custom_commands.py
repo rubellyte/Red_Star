@@ -385,7 +385,7 @@ class CustomCommands(BasePlugin):
     def _embed(self, args, msg):
         t_args = self._split_args(args)
         if t_args == ['']:
-            return ""
+            raise SyntaxError("<embed> tag needs arguments in arg=val format.")
         t_embed = Embed(type="rich", colour=16711680)
         t_post = False
         for arg in t_args:
