@@ -250,6 +250,8 @@ class CustomCommands(BasePlugin):
             else:
                 if res:
                     await respond(msg, res)
+                else:
+                    self.logger.warning(f"CC {cmd} of {str(msg.guild)} returns nothing!")
                 self.args = None
                 self.ccs[gid][cmd]["times_run"] += 1
                 self._save_ccs()
