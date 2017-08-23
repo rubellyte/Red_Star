@@ -59,7 +59,7 @@ class CommandDispatcher(BasePlugin):
         else:
             self.commands[name] = fn
 
-        if hasattr(fn, "_aliases") and not is_alias:
+        if hasattr(fn, "aliases") and not is_alias:
             for alias in fn.aliases:
                 self.register(fn, alias, is_alias=True)
 
