@@ -482,7 +482,7 @@ class MusicPlayer(BasePlugin):
 
     # Command functions
 
-    @Command("joinvoice", "joinvc",
+    @Command("joinvc", "joinvoice",
              category="music",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):
