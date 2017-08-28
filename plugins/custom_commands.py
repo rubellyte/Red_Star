@@ -198,9 +198,10 @@ class CustomCommands(BasePlugin):
         if not search:
             raise SyntaxError("No search provided.")
         res = []
-        if msg.guild.id not in self.ccs:
-            self.ccs[msg.guild.id] = {}
-        for cc, info in self.ccs[str(msg.guild.id)].items():
+        gid = str(msg.guild.id)
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
+        for cc, info in self.ccs[gid].items():
             if not by_author and search in cc.lower():
                 res.append(cc)
             elif info["author"] == user:
