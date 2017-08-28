@@ -152,7 +152,7 @@ class MusicPlayer(BasePlugin):
                         break
                 else:
                     self.idle_count += 1
-                if self.idle_count == self.config["idle_time"]:
+                if self.idle_count >= self.config["idle_time"] and self.vc.is_connected():
                     if self.vc.source and self.vc.source.url:
                         await self.add_song(self.vc.source.url, index=0)
                     await self.disconnect()
@@ -160,7 +160,8 @@ class MusicPlayer(BasePlugin):
                     await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
                                                                 f"**WARNING: Leaving voice chat due to inactivity.**",
                                                                 log_type="musicbot_event")
-                if self.idle_count == self.config["idle_terminate"]:
+                if self.idle_count >= self.config["idle_terminate"] and (self.queue or self.cycle != 'none' or
+                                                                         self.shuffle):
                     self.stop_song()
                     self.parent.logger.info(f"Terminating queue on {self.guild.name} due to inactivity.")
                     await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
@@ -482,7 +483,7 @@ class MusicPlayer(BasePlugin):
 
     # Command functions
 
-    @Command("joinvoice", "joinvc",
+    @Command("joinvc", "joinvoice",
              category="music",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):

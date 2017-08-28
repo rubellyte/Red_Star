@@ -261,28 +261,40 @@ class CustomCommands(BasePlugin):
             json.dump(self.ccs, f, indent=2, ensure_ascii=False)
 
     def _find_tags(self, text, msg):
-        def tag_iter(level=0):
-            try:
-                token = next(tokens)
-            except StopIteration:
-                if level != 0:
-                    raise SyntaxError("Missing closing bracket!")
-                else:
-                    return ""
+        t_str = text
+        t_lst = []  # temporary list for opening bracket positions
+        t_res = []  # final list for opening bracket positions
+        t_lvl = 0  # goes up every < and down every >
+        t_pos = 0  # counter for position of symbol in string
+
+        # find all the opening brackets
+        for token in t_str:
+            if token == '<':
+                t_lvl += 1
+                t_lst.append(t_pos)
             if token == '>':
-                if level == 0:
+                t_lvl -= 1
+                if t_lvl < 0:
+                    # not enough opening brackets
                     raise SyntaxError("Missing opening bracket!")
                 else:
-                    return ""
-            elif token == '<':
-                tag = "".join([tag_iter(level + 1)])
-                parsed = self._parse_tag(tag, msg)
-                return parsed + tag_iter(level)
-            else:
-                return "".join([token]) + tag_iter(level)
+                    t_res.append(t_lst.pop())
+            t_pos += 1
 
-        tokens = iter(text)
-        return tag_iter()
+        if t_lvl > 0:
+            # too many opening brackets
+            raise SyntaxError("Missing closing bracket!")
+
+        # last tags first because otherwise positions will shift
+        t_res.sort(reverse=True)
+
+        for t_pos in t_res:
+            # find closest closing bracket
+            e_pos = t_str[t_pos:].find(">") + t_pos
+            # replace chunk of text with the parsed result
+            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos], msg) + t_str[e_pos + 1:]
+
+        return t_str
 
     def _parse_tag(self, tag, msg):
         args = tag.split(":", 1)
