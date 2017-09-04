@@ -19,7 +19,6 @@ class CustomCommands(BasePlugin):
     }
 
     async def activate(self):
-        self.args = None
         self.tags = {
             "args": self._args,
             "username": self._username,
@@ -29,17 +28,25 @@ class CustomCommands(BasePlugin):
             "authornick": self._authornick,
             "if": self._if,
             "not": self._not,
-            "isempty": self._isempty,
+            "getvar": self._getvar,
+            "setvar": self._setvar,
             "equals": self._equals,
+            "match": self._match,
+            "xor": self._xor,
+            "choice": self._choice,
+            "contains": self._contains,
+            "isempty": self._isempty,
             "hasrole": self._hasrole,
             "upper": self._upper,
             "lower": self._lower,
             "random": self._random,
+            "randint": self._randint,
             "rot13": self._rot13,
             "delcall": self._delcall,
             "embed": self._embed,
             "noembed": self._noembed
         }
+        self.ccvars = {}
         try:
             with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
                 self.ccs = json.load(f)
@@ -174,7 +181,7 @@ class CustomCommands(BasePlugin):
             cc_locked = "Yes" if ccdata["locked"] else "No"
             author = discord.utils.get(msg.guild.members, id=ccdata["author"])
             if author:
-                author = f"{author.name}#{author.discriminator}"
+                author = str(author)
             else:
                 author = "<Unknown user>"
             datastr = f"**ANALYSIS: Information for custom command {name}:**```\nName: {name}\nAuthor: {author}\n" \
@@ -253,7 +260,7 @@ class CustomCommands(BasePlugin):
                     await respond(msg, res)
                 else:
                     self.logger.warning(f"CC {cmd} of {str(msg.guild)} returns nothing!")
-                self.args = None
+                self.ccvars = {}
                 self.ccs[gid][cmd]["times_run"] += 1
                 self._save_ccs()
 
@@ -313,17 +320,29 @@ class CustomCommands(BasePlugin):
     # CC argument tag functions
 
     def _args(self, args, msg):
-        split_args = msg.clean_content.split()[1:]
+        split_args = msg.clean_content.split(" ")[1:]
         if args.isdecimal():
             try:
                 i = int(args) - 1
                 return split_args[i]
             except ValueError:
-                raise SyntaxError("<args> argument is not a number or *!")
+                raise SyntaxError("<args> argument is not an integer, slice or wildcard!")
             except IndexError:
                 return ""
         elif args == "*":
             return " ".join(split_args)
+        elif args.startswith("*"):
+            try:
+                i = int(args[1:])
+            except ValueError:
+                raise SyntaxError("<args> slice argument is not a valid integer!")
+            return " ".join(split_args[:i])
+        elif args.endswith("*"):
+            try:
+                i = int(args[:-1]) - 1
+            except ValueError:
+                raise SyntaxError("<args> slice argument is not a valid integer!")
+            return " ".join(split_args[i:])
         else:
             raise SyntaxError("<args> argument is not a number or *!")
 
@@ -337,12 +356,20 @@ class CustomCommands(BasePlugin):
         return msg.author.mention
 
     def _authorname(self, args, msg):
-        author = self.ccs[str(msg.guild.id)][msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
-        return discord.utils.get(msg.guild.members, id=author).name
+        gid = str(msg.guild.id)
+        author = self.ccs[gid][msg.clean_content.split()[0][len(self.plugin_config[gid].cc_prefix):]]["author"]
+        try:
+            return discord.utils.get(msg.guild.members, id=author).name
+        except AttributeError:
+            return "<Unknown user>"
 
     def _authornick(self, args, msg):
-        author = self.ccs[str(msg.guild.id)][msg.clean_content.split()[0][len(self.plugin_config.cc_prefix):]]["author"]
-        return discord.utils.get(msg.guild.members, id=author).display_name
+        gid = str(msg.guild.id)
+        author = self.ccs[gid][msg.clean_content.split()[0][len(self.plugin_config[gid].cc_prefix):]]["author"]
+        try:
+            return discord.utils.get(msg.guild.members, id=author).display_name
+        except AttributeError:
+            return "<Unknown user>"
 
     def _if(self, args, msg):
         args = self._split_args(args)
@@ -360,11 +387,57 @@ class CustomCommands(BasePlugin):
         else:
             return "true"
 
+    def _match(self, args, msg):
+        args = self._split_args(args)
+        test = args[0]
+        for arg in args[1:]:
+            if test == arg:
+                return "true"
+        return "false"
+
+    def _xor(self, args, msg):
+        a, b = self._split_args(args)[0:2]
+        if a != b:
+            return "true"
+        return "false"
+
+
     def _not(self, args, msg):
         if args == "true":
             return "false"
         else:
             return "true"
+
+    def _getvar(self, args, msg):
+        if args.lower() in self.ccvars:
+            return self.ccvars[args.lower()]
+        else:
+            raise SyntaxError(f"No such variable {args.lower()}.")
+
+    def _setvar(self, args, msg):
+        var, val = self._split_args(args)[0:2]
+        self.ccvars[var.lower()] = val
+        return ""
+
+    def _contains(self, args, msg):
+        args = self._split_args(args)
+        for test in args[1:]:
+            if test in args[0]:
+                return "true"
+        return "false"
+
+    def _choice(self, args, msg):
+        args = self._split_args(args)
+        try:
+            index = int(args[0])
+        except ValueError:
+            raise SyntaxError("First argument to <choice> must be integer.")
+        except IndexError:
+            raise SyntaxError("<choice> requires at least one argument!")
+        try:
+            return args[index]
+        except IndexError:
+            raise SyntaxError(f"<choice> does not have an argument at index {index}")
 
     def _isempty(self, args, msg):
         if len(args) == 0:
@@ -373,10 +446,12 @@ class CustomCommands(BasePlugin):
             return "false"
 
     def _hasrole(self, args, msg):
-        if args[0] in [x.name.lower() for x in msg.author.roles]:
-            return "true"
-        else:
-            return "false"
+        args = self._split_args(args)
+        roles = [x.name.lower() for x in msg.author.roles]
+        for r in args:
+            if r.lower() in roles:
+                return "true"
+        return "false"
 
     def _upper(self, args, msg):
         return args.upper()
@@ -386,6 +461,24 @@ class CustomCommands(BasePlugin):
 
     def _random(self, args, msg):
         return random.choice(self._split_args(args))
+
+    def _randint(self, args, msg):
+        args = self._split_args(args)
+        try:
+            a = int(args[0])
+        except IndexError:
+            raise SyntaxError("<randint> requires at least one argument.")
+        except ValueError:
+            raise SyntaxError("Arguments to <randint> must be integers.")
+        try:
+            b = int(args[1])
+        except IndexError:
+            b = 0
+        except ValueError:
+            raise SyntaxError("Arguments to <randint> must be integers.")
+        if a > b:
+            a, b = b, a
+        return str(random.randint(a, b))
 
     def _rot13(self, args, msg):
         rot13 = str.maketrans(
@@ -423,6 +516,8 @@ class CustomCommands(BasePlugin):
                 t_embed.set_image(url=t_arg[1])
             elif t_arg[0].lower() in ["!desc", "!description"]:
                 t_embed.description = t_arg[1]
+            elif t_arg[0].lower() == "!footer":
+                t_embed.set_footer(text=t_arg[1])
             else:
                 t_name = t_arg[0]
                 t_val = t_arg[1]
@@ -432,7 +527,6 @@ class CustomCommands(BasePlugin):
                     t_inline = False
                 t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
         if t_post:
-            t_embed.set_footer(text="Custom command embed.")
             ensure_future(respond(msg, None, embed=t_embed))
         return ""
 
