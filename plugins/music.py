@@ -94,13 +94,11 @@ class MusicPlayer(BasePlugin):
 
         async def connect(self, data):
             """
-            Connect to a channel in the specific server
+            Connect to a channel in the specific server, or move if already in vc
             :param: false or default channel id
             :param data: message data to get author out of
             :return: True if connected, False if something went wrong
             """
-            if self.vc:
-                await self.vc.disconnect()
             try:
                 m_channel = self.parent.plugins.channel_manager.get_channel(self.guild, "voice_music")
             except ChannelNotFoundError:
@@ -113,6 +111,9 @@ class MusicPlayer(BasePlugin):
                 m_channel = data.author.voice.channel
             elif not m_channel:
                 raise PermissionError("Must be in voice chat.")
+            if self.vc:
+                await self.vc.move_to(m_channel)
+                return m_channel
             perms = m_channel.permissions_for(self.guild.me)
             if perms.connect and perms.speak and perms.use_voice_activation:
                 try:
