@@ -721,7 +721,8 @@ class MusicPlayer(BasePlugin):
     @Command("musicban",
              category="music",
              doc="Bans members from using the music module."
-                 "\nRequires mute_members permission in the voice channel.")
+                 "\nRequires mute_members permission in the voice channel.",
+             syntax="(user)")
     async def _musicban(self, data):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
@@ -751,7 +752,8 @@ class MusicPlayer(BasePlugin):
     @Command("musicunban",
              category="music",
              doc="Unbans members from using the music module."
-                 "\nRequires mute_members permission in the voice channel.")
+                 "\nRequires mute_members permission in the voice channel.",
+             syntax="(user)")
     async def _musicunban(self, data):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
