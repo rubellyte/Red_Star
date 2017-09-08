@@ -7,7 +7,7 @@ from config_manager import ConfigManager
 from plugin_manager import PluginManager
 
 
-class RedStar(discord.Client):
+class RedStar(discord.AutoShardedClient):
 
     def __init__(self):
         super().__init__()
