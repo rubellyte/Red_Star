@@ -32,7 +32,6 @@ class CustomCommands(BasePlugin):
             "setvar": self._setvar,
             "equals": self._equals,
             "match": self._match,
-            "xor": self._xor,
             "choice": self._choice,
             "contains": self._contains,
             "isempty": self._isempty,
@@ -380,27 +379,11 @@ class CustomCommands(BasePlugin):
 
     def _equals(self, args, msg):
         args = self._split_args(args)
-        test = args[0]
-        for arg in args[1:]:
-            if test != arg:
-                return "false"
-        else:
-            return "true"
+        return str(all(i == args[0] for i in args[1:])).lower()
 
     def _match(self, args, msg):
         args = self._split_args(args)
-        test = args[0]
-        for arg in args[1:]:
-            if test == arg:
-                return "true"
-        return "false"
-
-    def _xor(self, args, msg):
-        a, b = self._split_args(args)[0:2]
-        if a != b:
-            return "true"
-        return "false"
-
+        return str(any(i == args[0] for i in args[1:])).lower()
 
     def _not(self, args, msg):
         if args == "true":
