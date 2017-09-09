@@ -4,6 +4,7 @@ import json
 import schedule
 from random import choice
 from plugin_manager import BasePlugin
+from rs_errors import CommandSyntaxError
 from rs_utils import Command, respond
 
 
@@ -98,9 +99,9 @@ class MOTD(BasePlugin):
             day = args[1].capitalize()
             newmotd = " ".join(args[2:])
         except IndexError:
-            raise SyntaxError
+            raise CommandSyntaxError
         if month not in self.valid_months or day not in self.valid_days:
-            raise SyntaxError("Month or day is invalid. Please use full names.")
+            raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         try:
             if month not in self.motds:
                 self.motds[month] = {}
@@ -110,7 +111,7 @@ class MOTD(BasePlugin):
             self._save_motds()
             await respond(msg, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
         except KeyError:
-            raise SyntaxError("Month or day is invalid. Please use full names.")
+            raise CommandSyntaxError("Month or day is invalid. Please use full names.")
 
     @Command("addholiday",
              doc="Adds a holiday. Holidays do not draw from the \"any-day\" MotD pools.",
@@ -123,11 +124,11 @@ class MOTD(BasePlugin):
             month = args[0].capitalize()
             day = args[1].capitalize()
         except IndexError:
-            raise SyntaxError
+            raise CommandSyntaxError
         if month not in self.valid_months or day not in self.valid_days:
             self.logger.debug(month)
             self.logger.debug(day)
-            raise SyntaxError("Month or day is invalid. Please use full names.")
+            raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         holidaystr = month + "/" + day
         if holidaystr not in self.motds["holidays"]:
             self.motds["holidays"].append(holidaystr)
@@ -147,12 +148,12 @@ class MOTD(BasePlugin):
             day = args[1].capitalize()
             weekday = args[2].capitalize()
             if month not in self.valid_months or day not in self.valid_days or weekday not in self.valid_days:
-                raise SyntaxError("One of the arguments is not valid.")
+                raise CommandSyntaxError("One of the arguments is not valid.")
             month = "" if month == "Any" else month
             day = "" if day == "Any" else day
             weekday = "" if weekday == "Any" else weekday
         except IndexError:
-            raise SyntaxError("Missing arguments.")
+            raise CommandSyntaxError("Missing arguments.")
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
             await respond(msg, choice(holiday_lines))

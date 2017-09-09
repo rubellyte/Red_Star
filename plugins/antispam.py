@@ -1,4 +1,5 @@
 from plugin_manager import BasePlugin
+from rs_errors import CommandSyntaxError
 from rs_utils import Command, respond, ordinal, p_time
 from discord import HTTPException, Forbidden
 from discord.object import Object as DObj
@@ -196,7 +197,7 @@ class AntiSpam(BasePlugin):
                 try:
                     await msg.add_reaction(args[1])
                 except HTTPException:
-                    raise SyntaxError(f"Non-emoji character set as spam reaction on server.")
+                    raise CommandSyntaxError(f"Non-emoji character set as spam reaction on server.")
                 else:
                     self.plugin_config[str(msg.guild.id)]["spam_reaction"] = args[1]
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New spam reaction emoji: {args[1]}.**")
@@ -207,7 +208,7 @@ class AntiSpam(BasePlugin):
                     self.plugin_config[str(msg.guild.id)]["spam_reaction"] = t_emoji.rjust(18, "0")
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New spam reaction emoji: {args[1]}.**")
             else:
-                raise SyntaxError("Expected a single emoji as argument.")
+                raise CommandSyntaxError("Expected a single emoji as argument.")
         else:
             self.plugin_config[str(msg.guild.id)]["spam_reaction"] = False
             await respond(msg, f"**AFFIRMATIVE. Spam reaction disabled.**")
@@ -225,7 +226,7 @@ class AntiSpam(BasePlugin):
             self.plugin_config[str(msg.guild.id)]["spam_delete"] = False
             await respond(msg, "**AFFIRMATIVE. Spam deleting disabled.**")
         else:
-            raise SyntaxError("Expected arguments.")
+            raise CommandSyntaxError("Expected arguments.")
 
     @Command("spam_role",
              category="anti_spam",
@@ -256,7 +257,7 @@ class AntiSpam(BasePlugin):
                 try:
                     t_time = int(args[2])
                 except ValueError:
-                    raise SyntaxError("Expected integer number of seconds.")
+                    raise CommandSyntaxError("Expected integer number of seconds.")
                 self.plugin_config[str(msg.guild.id)]["spam_role_timeout"] = t_time
                 await respond(msg, f"**AFFIRMATIVE. ANALYSIS: New anti-spam role duration: {t_time}**")
         elif len(args) > 1 and (args[1].lower() == "disable" or args[1].lower() == "off"):
@@ -284,7 +285,7 @@ class AntiSpam(BasePlugin):
             self.plugin_config[str(msg.guild.id)]["spam_ban"] = False
             await respond(msg, "**AFFIRMATIVE. Spam banning disabled.**")
         else:
-            raise SyntaxError("Expected arguments.")
+            raise CommandSyntaxError("Expected arguments.")
 
     @Command("spam_list",
              category="anti_spam",
@@ -329,7 +330,7 @@ class AntiSpam(BasePlugin):
                     try:
                         t_val = max(1, int(t_arg[1]))
                     except ValueError:
-                            raise SyntaxError("Expected integer value.")
+                            raise CommandSyntaxError("Expected integer value.")
                     if t_arg[0] in react_strings:
                         t_cfg["thresholds"][0] = t_val
                         t_string = f"{t_string}{'Reaction'.ljust(20)}: {t_val} infringements.\n"
@@ -359,7 +360,7 @@ class AntiSpam(BasePlugin):
                 try:
                     t_val = max(1, int(args[3]))
                 except ValueError:
-                    raise SyntaxError("Expected integer value.")
+                    raise CommandSyntaxError("Expected integer value.")
                 if t_arg in react_strings:
                         t_cfg["thresholds"][0] = t_val
                         await respond(msg, f"**AFFIRMATIVE. Spam response now escalates to emoji reaction on "
@@ -386,7 +387,7 @@ class AntiSpam(BasePlugin):
                 try:
                     t_cfg["infraction_timeout"] = max(1, int(args[2]))
                 except ValueError:
-                    raise SyntaxError("Expected integer value.")
+                    raise CommandSyntaxError("Expected integer value.")
                 else:
                     await respond(msg, f"**AFFIRMATIVE. Infraction is now taken off every "
                                        f"{p_time(max(1, int(args[2])))}.")
@@ -432,7 +433,7 @@ class AntiSpam(BasePlugin):
                         try:
                             t_val = max(1, int(t_arg[1]))
                         except ValueError:
-                            raise SyntaxError("Expected integer value.")
+                            raise CommandSyntaxError("Expected integer value.")
                         if t_arg[0].lower() in msg_strings:
                             t_cfg["message_count"] = t_val
                             t_string = f"{t_string}{'Message count'.ljust(15)}: {max(1, int(t_arg[1]))}\n"
@@ -447,7 +448,7 @@ class AntiSpam(BasePlugin):
                 try:
                     t_val = max(1, int(args[2]))
                 except ValueError:
-                        raise SyntaxError("Expected integer value.")
+                        raise CommandSyntaxError("Expected integer value.")
                 if args[1].lower() in msg_strings:
                     t_cfg["message_count"] = t_val
                     await respond(msg, f"**AFFIRMATIVE. Message limit set to: {t_val}.**")

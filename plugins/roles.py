@@ -1,5 +1,6 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
+from rs_errors import CommandSyntaxError
 from rs_utils import Command, respond, split_message, is_positive
 from string import capwords
 import shlex
@@ -29,7 +30,7 @@ class RoleCommands(BasePlugin):
             args = shlex.split(msg.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         if len(args) > 1:
             for role in msg.guild.roles:
                 if args[1].lower() == role.name.lower():  # found role
@@ -53,9 +54,9 @@ class RoleCommands(BasePlugin):
                                     if pos >= 0:
                                         t_dict["position"] = pos
                                 else:
-                                    raise SyntaxError("Position must be a positive integer.")
+                                    raise CommandSyntaxError("Position must be a positive integer.")
                     if len(t_dict) == 0:  # you're wasting my time
-                        raise SyntaxError
+                        raise CommandSyntaxError
                     await role.edit(**t_dict)
                     t_string = ""
                     for k, v in t_dict.items():
@@ -66,7 +67,7 @@ class RoleCommands(BasePlugin):
             else:
                 await respond(msg, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
         else:
-            raise SyntaxError
+            raise CommandSyntaxError
 
     @Command("createrole",
              perms={"manage_roles"},
@@ -84,7 +85,7 @@ class RoleCommands(BasePlugin):
             args = shlex.split(msg.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         if len(args) > 2:
             for role in msg.guild.roles:
                 if args[2].lower() == role.name.lower():
@@ -116,7 +117,7 @@ class RoleCommands(BasePlugin):
                                     if pos > 0:
                                         rolepos = pos
                                 else:
-                                    raise SyntaxError("Position must be a positive integer.")
+                                    raise CommandSyntaxError("Position must be a positive integer.")
                     t_role = await msg.guild.create_role(**t_dict)
                     try:
                         # since I can't create a role with a preset position :T
@@ -139,7 +140,7 @@ class RoleCommands(BasePlugin):
             else:
                 await respond(msg, f"**NEGATIVE. ANALYSIS: no base role {args[2].capitalize()} found.**")
         else:
-            raise SyntaxError
+            raise CommandSyntaxError
 
     @Command("deleterole",
              perms={"manage_roles"},
@@ -151,7 +152,7 @@ class RoleCommands(BasePlugin):
             args = shlex.split(msg.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         if len(args) > 1:
             name = args[1].capitalize()
             pos = -1
@@ -170,7 +171,7 @@ class RoleCommands(BasePlugin):
             else:
                 await respond(msg, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
-            raise SyntaxError("Expected role name.")
+            raise CommandSyntaxError("Expected role name.")
 
     @Command("roleinfo", "inforole",
              category="roles",
@@ -184,7 +185,7 @@ class RoleCommands(BasePlugin):
             args = shlex.split(msg.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         if len(args) > 1:
             name = capwords(args[1])
             for role in msg.guild.roles:
@@ -210,7 +211,7 @@ class RoleCommands(BasePlugin):
             else:
                 await respond(msg, f"**NEGATIVE. ANALYSIS: no role {name} found.**")
         else:
-            raise SyntaxError
+            raise CommandSyntaxError
 
     @Command("listroles", "listrole",
              category="roles",

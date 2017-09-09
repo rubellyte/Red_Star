@@ -2,7 +2,7 @@ from plugin_manager import BasePlugin
 from rs_utils import Command, respond, split_message, find_user, DotDict, is_positive
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
-from plugins.channel_manager import ChannelNotFoundError
+from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 import discord.game
 from random import choice
 from math import ceil
@@ -110,7 +110,7 @@ class MusicPlayer(BasePlugin):
             if not m_channel and data.author.voice and data.author.voice.channel:
                 m_channel = data.author.voice.channel
             elif not m_channel:
-                raise PermissionError("Must be in voice chat.")
+                raise UserPermissionError("Must be in voice chat.")
             if self.vc:
                 await self.vc.move_to(m_channel)
                 return m_channel
@@ -343,7 +343,7 @@ class MusicPlayer(BasePlugin):
 
         def pause_song(self):
             if not self.config["allow_pause"]:
-                raise PermissionError("Pause not allowed")
+                raise UserPermissionError("Pause not allowed")
             if self.vc.source and self.vc.is_playing():
                 self.vc.pause()
                 self.time_pause = time.time()
@@ -353,7 +353,7 @@ class MusicPlayer(BasePlugin):
 
         def resume_song(self):
             if not self.config["allow_pause"]:
-                raise PermissionError("Pause not allowed")
+                raise UserPermissionError("Pause not allowed")
             if self.vc.source and self.vc.is_paused():
                 self.vc.resume()
                 self.time_skip += time.time() - self.time_pause
@@ -364,7 +364,7 @@ class MusicPlayer(BasePlugin):
 
         def pop_song(self, number):
             if number < 1 or number > len(self.queue):
-                raise SyntaxError("Index out of list.")
+                raise CommandSyntaxError("Index out of list.")
             return self.queue.pop(number - 1)
 
         # Utility functions
@@ -494,7 +494,7 @@ class MusicPlayer(BasePlugin):
         """
         # leave if there's already a vc client in self.
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         a_voice = await self.players[data.guild.id].connect(data)
         if a_voice:
             await respond(data, f"**AFFIRMATIVE. Connected to: {a_voice}.**")
@@ -512,11 +512,11 @@ class MusicPlayer(BasePlugin):
         queue.
         """
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         await t_play.connected(data)
         if not t_play.check_in(data):
-            raise PermissionError("Must be in voicechat.")
+            raise UserPermissionError("Must be in voicechat.")
         args = data.content.split(' ', 1)
         if len(args) > 1:
             if not (args[1].startswith("http://") or args[1].startswith("https://")):
@@ -530,7 +530,7 @@ class MusicPlayer(BasePlugin):
                     await respond(data, "**WARNING: Failed to load query.**")
             await t_msg.delete()
         else:
-            raise SyntaxError("Expected URL or search query.")
+            raise CommandSyntaxError("Expected URL or search query.")
 
     @Command("skipsong",
              category="music",
@@ -540,10 +540,10 @@ class MusicPlayer(BasePlugin):
         Collects votes for skipping current song or skips if you got mute_members permission
         """
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_in(data):
-            raise PermissionError("Must be in voicechat.")
+            raise UserPermissionError("Must be in voicechat.")
         await t_play.skip_song(data)
 
     @Command("volume",
@@ -556,20 +556,20 @@ class MusicPlayer(BasePlugin):
         Checks that the user didn't put in something stupid and adjusts volume.
         """
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_in(data):
-            raise PermissionError("Must be in voicechat.")
+            raise UserPermissionError("Must be in voicechat.")
         args = data.content.split(" ", 1)
         if len(args) > 1:
             try:
                 vol = int(args[1])
             except ValueError:
-                raise SyntaxError("Expected integer value between 0 and 100!")
+                raise CommandSyntaxError("Expected integer value between 0 and 100!")
             if vol < 0:
                 vol = 0
             if vol > 100:
-                raise SyntaxError("Expected integer value between 0 and 100!")
+                raise CommandSyntaxError("Expected integer value between 0 and 100!")
             if vol != t_play.volume:
                 await respond(data, f"**AFFIRMATIVE. Adjusting volume: {t_play.volume}% to {vol}%.**", delete_after=5)
                 t_play.set_volume(vol)
@@ -585,10 +585,10 @@ class MusicPlayer(BasePlugin):
              syntax="(HARD) to erase the downloaded files.")
     async def _stopvc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         t_play.stop_song()
         if self.plugin_config["download_songs"]:
             args = data.content.split()
@@ -606,7 +606,7 @@ class MusicPlayer(BasePlugin):
              delcall=True)
     async def _queuevc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         t_string = "**ANALYSIS: Currently playing:**\n"
         if t_play.vc.source:
@@ -643,7 +643,7 @@ class MusicPlayer(BasePlugin):
              delcall=True)
     async def _nowvc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if t_play.vc.source:
             progress = t_play.play_length()
@@ -670,10 +670,10 @@ class MusicPlayer(BasePlugin):
              doc="Pauses currently playing music stream.")
     async def _pausevc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_in(data):
-            raise PermissionError("Must be in voicechat.")
+            raise UserPermissionError("Must be in voicechat.")
         if t_play.pause_song():
             progress = t_play.play_length()
             progress = f"{progress//60}:{progress%60:02d}"
@@ -690,10 +690,10 @@ class MusicPlayer(BasePlugin):
              doc="Resumes currently paused music stream.")
     async def _resumevc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_in(data):
-            raise PermissionError("Must be in voicechat.")
+            raise UserPermissionError("Must be in voicechat.")
         if t_play.resume_song():
             await respond(data, "**AFFIRMATIVE. Resuming song.**")
         else:
@@ -706,15 +706,15 @@ class MusicPlayer(BasePlugin):
                  "\nRequires mute_members permission in the voice channel.")
     async def _delvc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         args = data.content.split(" ", 1)
         try:
             pos = int(args[1])
         except ValueError:
-            raise SyntaxError("Expected an integer value!")
+            raise CommandSyntaxError("Expected an integer value!")
         t_p = t_play.pop_song(pos)
         await respond(data, f"**AFFIRMATIVE. Removed song \"{t_p.title}\" from position {pos}.**")
 
@@ -726,12 +726,12 @@ class MusicPlayer(BasePlugin):
     async def _musicban(self, data):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         try:
             args = shlex.split(data.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -757,12 +757,12 @@ class MusicPlayer(BasePlugin):
     async def _musicunban(self, data):
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         try:
             args = shlex.split(data.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         t_string = ""
         t_log = ""
         for uid in args[1:]:
@@ -786,10 +786,10 @@ class MusicPlayer(BasePlugin):
                  "voice channel")
     async def _dumpvc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         t_string = ""
         if t_play.vc.source:
             t_string = f"\"{t_play.vc.source.url}\" "
@@ -808,16 +808,16 @@ class MusicPlayer(BasePlugin):
                     "Can accept [index:int] as first argument to append to specific position.")
     async def _appendvc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         await t_play.connected(data)
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         try:
             args = shlex.split(data.content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         if len(args) > 1:
             await respond(data, "**AFFIRMATIVE. Extending queue.**")
             with data.channel.typing():
@@ -842,14 +842,14 @@ class MusicPlayer(BasePlugin):
                 if not t_play.vc.source:
                     await t_play.play_next(data, None)
         else:
-            raise SyntaxError("Expected arguments!")
+            raise CommandSyntaxError("Expected arguments!")
 
     @Command("leavevc", "leavevoice",
              category="music",
              doc="Leaves voicechat.\nRequires mute_members permission in the voice channel to exit while playing.")
     async def _leavevc(self, data):
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.vc.source or (t_play.vc.source and not t_play.vc.is_playing() and not t_play.vc.is_paused()):
             await t_play.disconnect()
@@ -874,12 +874,12 @@ class MusicPlayer(BasePlugin):
         try:
             args = shlex.split(data.content)
         except ValueError as e:
-            raise SyntaxError(e)
+            raise CommandSyntaxError(e)
         if self.check_ban(data):
-            raise PermissionError("You are banned from using the music module.")
+            raise UserPermissionError("You are banned from using the music module.")
         t_play = self.players[data.guild.id]
         if not t_play.check_perm(data):
-            raise PermissionError
+            raise UserPermissionError
         if len(args) > 2:
             if args[1].lower() == "cycle":
                 if args[2].lower() == "none":

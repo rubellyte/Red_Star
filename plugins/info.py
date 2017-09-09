@@ -1,6 +1,7 @@
 import asyncio
 from string import capwords
 from plugin_manager import BasePlugin
+from rs_errors import UserPermissionError
 from rs_utils import respond, Command
 from discord import Embed
 
@@ -57,7 +58,7 @@ class Info(BasePlugin):
             cate = capwords(cmd.category, "_")
             aliases = f"(Aliases: {', '.join([capwords(x, '_') for x in cmd.aliases])})" if cmd.aliases else ""
             if not {x for x, y in msg.author.guild_permissions if y} >= perms:
-                raise PermissionError
+                raise UserPermissionError
             text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) {aliases}\n\n{doc}\n\n" \
                    f"Syntax: {syn}\n```"
             await respond(msg, text)

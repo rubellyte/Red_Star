@@ -1,6 +1,6 @@
 import inspect
 from plugin_manager import BasePlugin
-from plugins.channel_manager import ChannelNotFoundError
+from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
 from rs_utils import respond, DotDict
 
@@ -99,14 +99,14 @@ class CommandDispatcher(BasePlugin):
             await fn(msg)
             if fn.delcall:
                 await msg.delete()
-        except (SyntaxError, SyntaxWarning) as e:
+        except CommandSyntaxError as e:
             err = e if e else "Invalid syntax."
             if fn.syntax:
                 deco = self.plugin_config[gid].command_prefix
                 await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
                 await respond(msg, f"**WARNING: {err}.**")
-        except PermissionError as e:
+        except UserPermissionError as e:
             err = f"\nANALYSIS: {e}" if str(e) else ""
             await respond(msg, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
         except Forbidden:

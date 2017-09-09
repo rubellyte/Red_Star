@@ -1,6 +1,7 @@
 import re
 from asyncio import sleep
 from plugin_manager import BasePlugin
+from rs_errors import CommandSyntaxError
 from rs_utils import Command, respond, find_user
 import shlex
 
@@ -23,9 +24,9 @@ class AdminCommands(BasePlugin):
             elif count < 0:
                 raise ValueError
         except IndexError:
-            raise SyntaxError("No count to delete provided.")
+            raise CommandSyntaxError("No count to delete provided.")
         except ValueError:
-            raise SyntaxError("Count to delete is not a valid number.")
+            raise CommandSyntaxError("Count to delete is not a valid number.")
         if len(args) > 2:
             searchstr = args[2]
         else:

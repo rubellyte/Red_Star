@@ -1,5 +1,6 @@
 import urllib
 from plugin_manager import BasePlugin
+from rs_errors import CommandSyntaxError, UserPermissionError
 from rs_utils import Command, respond, is_positive
 from discord import InvalidArgument
 
@@ -32,9 +33,9 @@ class BotManagement(BasePlugin):
              perms={"manage_guild"})
     async def _update_avatar(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
-            raise PermissionError("No bot maintainers are set!")
+            raise UserPermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise PermissionError
+            raise UserPermissionError
         url = " ".join(msg.content.split()[1:])
         if url:
             try:
@@ -46,7 +47,7 @@ class BotManagement(BasePlugin):
             except InvalidArgument:
                 await respond(msg, "**NEGATIVE. Image must be a PNG or JPG.**")
         else:
-            raise SyntaxError("No URL provided.")
+            raise CommandSyntaxError("No URL provided.")
 
     @Command("update_name",
              doc="Updates the bot's (nick)name.",
@@ -66,9 +67,9 @@ class BotManagement(BasePlugin):
         newname = " ".join(args)
         if edit_username:
             if "bot_maintainers" not in self.config_manager.config:
-                raise PermissionError("No bot maintainers are set!")
+                raise UserPermissionError("No bot maintainers are set!")
             if msg.author.id not in self.config_manager.config.bot_maintainers:
-                raise PermissionError
+                raise UserPermissionError
             await self.client.user.edit(username=newname)
             await respond(msg, f"**ANALYSIS: Username changed to {newname} successfully.**")
         else:
@@ -82,9 +83,9 @@ class BotManagement(BasePlugin):
              perms={"manage_guild"})
     async def _activate(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
-            raise PermissionError("No bot maintainers are set!")
+            raise UserPermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise PermissionError
+            raise UserPermissionError
         plgname = msg.content.split()[1]
         try:
             permanent = is_positive(msg.content.split()[2])
@@ -110,9 +111,9 @@ class BotManagement(BasePlugin):
              perms={"manage_guild"})
     async def _deactivate(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
-            raise PermissionError("No bot maintainers are set!")
+            raise UserPermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise PermissionError
+            raise UserPermissionError
         plgname = msg.content.split()[1].lower()
         try:
             permanent = is_positive(msg.content.split()[2])
@@ -136,9 +137,9 @@ class BotManagement(BasePlugin):
              perms={"manage_guild"})
     async def _list_plugins(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
-            raise PermissionError("No bot maintainers are set!")
+            raise UserPermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise PermissionError
+            raise UserPermissionError
         active_plgs = ", ".join(self.plugins.keys())
         if not active_plgs:
             active_plgs = "None."
@@ -156,15 +157,15 @@ class BotManagement(BasePlugin):
              perms={"manage_guild"})
     async def _get_config(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
-            raise PermissionError("No bot maintainers are set!")
+            raise UserPermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise PermissionError
+            raise UserPermissionError
         conf = self.config_manager.config
         args = msg.clean_content.split()[1:]
         try:
             path = args[0]
         except IndexError:
-            raise SyntaxError("Missing path to config value.")
+            raise CommandSyntaxError("Missing path to config value.")
         path = path.replace("<server>", str(msg.guild.id))
         if path.startswith("/"):
             path = path[1:]
@@ -178,11 +179,11 @@ class BotManagement(BasePlugin):
                     i = int(k)
                     val = val[i]
                 except ValueError:
-                    raise SyntaxError(f"{k} is not a valid integer.")
+                    raise CommandSyntaxError(f"{k} is not a valid integer.")
                 except IndexError:
-                    raise SyntaxError(f"Path {args[0]} is invalid.")
+                    raise CommandSyntaxError(f"Path {args[0]} is invalid.")
             except KeyError:
-                raise SyntaxError(f"Path {args[0]} is invalid.")
+                raise CommandSyntaxError(f"Path {args[0]} is invalid.")
         await respond(msg, f"**ANALYSIS: Value of {args[0]}:** `{val}`")
 
     @Command("set_config",
@@ -192,9 +193,9 @@ class BotManagement(BasePlugin):
              perms={"manage_guild"})
     async def _set_config(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
-            raise PermissionError("No bot maintainers are set!")
+            raise UserPermissionError("No bot maintainers are set!")
         elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise PermissionError
+            raise UserPermissionError
         conf = self.config_manager.config
         args = msg.clean_content.split()[1:]
         try:
@@ -206,9 +207,9 @@ class BotManagement(BasePlugin):
             key = path.pop()
             value = " ".join(args[1:])
             if not value:
-                raise SyntaxError("Missing new config value.")
+                raise CommandSyntaxError("Missing new config value.")
         except IndexError:
-            raise SyntaxError("Missing path to config value.")
+            raise CommandSyntaxError("Missing path to config value.")
         val = conf
         for k in path:
             try:
@@ -218,11 +219,11 @@ class BotManagement(BasePlugin):
                     i = int(k)
                     val = val[i]
                 except ValueError:
-                    raise SyntaxError(f"{k} is not a valid integer.")
+                    raise CommandSyntaxError(f"{k} is not a valid integer.")
                 except IndexError:
-                    raise SyntaxError(f"Path {args[0]} is invalid.")
+                    raise CommandSyntaxError(f"Path {args[0]} is invalid.")
             except KeyError:
-                raise SyntaxError(f"Path {args[0]} is invalid.")
+                raise CommandSyntaxError(f"Path {args[0]} is invalid.")
         try:
             orig = val[key]
         except TypeError:
@@ -230,11 +231,11 @@ class BotManagement(BasePlugin):
                 key = int(key)
                 orig = val[key]
             except ValueError:
-                raise SyntaxError(f"{k} is not a valid integer.")
+                raise CommandSyntaxError(f"{k} is not a valid integer.")
             except IndexError:
-                raise SyntaxError(f"Path {args[0]} is invalid.")
+                raise CommandSyntaxError(f"Path {args[0]} is invalid.")
         except KeyError:
-            raise SyntaxError(f"Path {args[0]} is invalid.")
+            raise CommandSyntaxError(f"Path {args[0]} is invalid.")
         if isinstance(orig, str):
             val[key] = value
         elif isinstance(orig, bool):
@@ -244,14 +245,14 @@ class BotManagement(BasePlugin):
                 value = int(value)
                 val[key] = value
             except ValueError:
-                raise SyntaxError(f"{value} is not a valid integer.")
+                raise CommandSyntaxError(f"{value} is not a valid integer.")
         elif isinstance(orig, float):
             try:
                 value = float(value)
                 val[key] = value
             except ValueError:
-                raise SyntaxError(f"{value} is not a valid floating-point number.")
+                raise CommandSyntaxError(f"{value} is not a valid floating-point number.")
         else:
-            raise SyntaxError(f"{args[0]} is an object or array.")
+            raise CommandSyntaxError(f"{args[0]} is an object or array.")
         self.config_manager.save_config()
         await respond(msg, f"**ANALYSIS: Config value {args[0]} edited to** `{value}` **successfully.**")

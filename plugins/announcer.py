@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from plugins.channel_manager import ChannelNotFoundError
+from rs_errors import ChannelNotFoundError
 from rs_utils import sub_user_data, DotDict
 
 

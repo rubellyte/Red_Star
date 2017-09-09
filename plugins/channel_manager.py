@@ -1,11 +1,8 @@
 from plugin_manager import BasePlugin
 from discord import utils, VoiceChannel
 from rs_utils import respond, Command, DotDict
+from rs_errors import ChannelNotFoundError, CommandSyntaxError
 import shlex
-
-
-class ChannelNotFoundError(TypeError):
-    pass
 
 
 class ChannelManager(BasePlugin):
@@ -140,7 +137,7 @@ class ChannelManager(BasePlugin):
         if len(args) > 1:
             chantype = args[1].lower()
         else:
-            raise SyntaxError("No channel type provided.")
+            raise CommandSyntaxError("No channel type provided.")
 
         if len(args) > 2:
             if chantype.startswith("voice"):
@@ -148,12 +145,12 @@ class ChannelManager(BasePlugin):
                 channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
                                      msg.guild.channels)
                 if not channel:
-                    raise SyntaxError(f"Voice channel {args[2].lower()} not found.")
+                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
             else:
                 if msg.channel_mentions:
                     channel = msg.channel_mentions[0]
                 else:
-                    raise SyntaxError("No channel provided.")
+                    raise CommandSyntaxError("No channel provided.")
         else:
             channel = None
 
@@ -198,7 +195,7 @@ class ChannelManager(BasePlugin):
         if len(args) > 1:
             category = args[1].lower()
         else:
-            raise SyntaxError("No category provided.")
+            raise CommandSyntaxError("No category provided.")
 
         if len(args) > 2:
             if category.startswith("voice"):
@@ -206,18 +203,18 @@ class ChannelManager(BasePlugin):
                 channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
                                      msg.guild.channels)
                 if not channel:
-                    raise SyntaxError(f"Voice channel {args[2].lower()} not found.")
+                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
             else:
                 if msg.channel_mentions:
                     channel = msg.channel_mentions[0]
                 else:
-                    raise SyntaxError("No channel provided.")
+                    raise CommandSyntaxError("No channel provided.")
 
             self.add_channel_to_category(msg.guild, category, channel)
 
             await respond(msg, f"**ANALYSIS: Channel {channel.mention} was added to category {category}.**")
         else:
-            raise SyntaxError("No channel provided.")
+            raise CommandSyntaxError("No channel provided.")
 
     @Command("rm_from_category",
              doc="Removes the given channel from the specified category from the server.\n"
@@ -231,7 +228,7 @@ class ChannelManager(BasePlugin):
         if len(args) > 1:
             category = args[1].lower()
         else:
-            raise SyntaxError("No category provided.")
+            raise CommandSyntaxError("No category provided.")
 
         if len(args) > 2:
             if category.startswith("voice"):
@@ -239,12 +236,12 @@ class ChannelManager(BasePlugin):
                 channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
                                      msg.guild.channels)
                 if not channel:
-                    raise SyntaxError(f"Voice channel {args[2].lower()} not found.")
+                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
             else:
                 if msg.channel_mentions:
                     channel = msg.channel_mentions[0]
                 else:
-                    raise SyntaxError("No channel provided.")
+                    raise CommandSyntaxError("No channel provided.")
 
             success = self.remove_channel_from_category(msg.guild, category, channel)
             if success:
@@ -252,4 +249,4 @@ class ChannelManager(BasePlugin):
             else:
                 await respond(msg, f"**ANALYSIS: Channel {channel.mention} is not in category {category}.**")
         else:
-            raise SyntaxError("No channel provided.")
+            raise CommandSyntaxError("No channel provided.")

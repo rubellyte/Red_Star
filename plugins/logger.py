@@ -1,6 +1,6 @@
 import asyncio
 from plugin_manager import BasePlugin
-from plugins.channel_manager import ChannelNotFoundError
+from rs_errors import ChannelNotFoundError, CommandSyntaxError
 from rs_utils import split_message, Command, respond
 
 
@@ -167,7 +167,7 @@ class DiscordLogger(BasePlugin):
                 else:
                     await respond(msg, f"**ANALYSIS: Event type {args[2].lower()} is already logged.**")
         elif len(args) == 2:
-            raise SyntaxError
+            raise CommandSyntaxError
         else:
             disabled = ", ".join(cfg)
             await respond(msg, f"**ANALYSIS: Disabled log events: **`{disabled}`")

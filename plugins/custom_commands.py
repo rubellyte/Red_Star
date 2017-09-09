@@ -5,6 +5,8 @@ import datetime
 from asyncio import ensure_future
 from plugin_manager import BasePlugin
 import discord.utils
+
+from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
 from rs_utils import respond, Command, DotDict, find_user, is_positive
 from discord import Embed
 
@@ -87,16 +89,16 @@ class CustomCommands(BasePlugin):
         gid = str(msg.guild.id)
         self.initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
-            raise PermissionError("You are banned from creating custom commands.")
+            raise UserPermissionError("You are banned from creating custom commands.")
         try:
             args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
         except IndexError:
-            raise SyntaxError("No name provided.")
+            raise CommandSyntaxError("No name provided.")
         try:
             content = " ".join(args[1:])
         except IndexError:
-            raise SyntaxError("No content provided.")
+            raise CommandSyntaxError("No content provided.")
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
@@ -108,7 +110,7 @@ class CustomCommands(BasePlugin):
                 self.config_manager.config.bot_maintainers) or "bot_maintainers" not in self.config_manager.config:
                 if t_count >= self.storage[gid]["cc_limit"] \
                         and not msg.author.permissions_in(msg.channel).manage_messages:
-                    raise PermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
+                    raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
             newcc = {
                 "name": name,
                 "content": content,
@@ -130,16 +132,16 @@ class CustomCommands(BasePlugin):
         gid = str(msg.guild.id)
         self.initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
-            raise PermissionError("You are banned from editing custom commands.")
+            raise UserPermissionError("You are banned from editing custom commands.")
         try:
             args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
         except IndexError:
-            raise SyntaxError("No name provided.")
+            raise CommandSyntaxError("No name provided.")
         try:
             content = " ".join(args[1:])
         except IndexError:
-            raise SyntaxError("No content provided.")
+            raise CommandSyntaxError("No content provided.")
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
@@ -163,11 +165,11 @@ class CustomCommands(BasePlugin):
         gid = str(msg.guild.id)
         self.initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
-            raise PermissionError("You are banned from deleting custom commands.")
+            raise UserPermissionError("You are banned from deleting custom commands.")
         try:
             name = msg.clean_content.split()[1].lower()
         except IndexError:
-            raise SyntaxError("No name provided.")
+            raise CommandSyntaxError("No name provided.")
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
@@ -189,7 +191,7 @@ class CustomCommands(BasePlugin):
         try:
             name = msg.clean_content.split()[1].lower()
         except IndexError:
-            raise SyntaxError("No name provided.")
+            raise CommandSyntaxError("No name provided.")
         gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
@@ -221,7 +223,7 @@ class CustomCommands(BasePlugin):
             by_author = True
             user = user.id
         if not search:
-            raise SyntaxError("No search provided.")
+            raise CommandSyntaxError("No search provided.")
         res = []
         gid = str(msg.guild.id)
         if gid not in self.ccs:
@@ -246,7 +248,7 @@ class CustomCommands(BasePlugin):
         try:
             name = msg.clean_content.split()[1].lower()
         except IndexError:
-            raise SyntaxError("No name provided.")
+            raise CommandSyntaxError("No name provided.")
         gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
@@ -273,7 +275,7 @@ class CustomCommands(BasePlugin):
         t_member = find_user(msg.guild, args[1])
 
         if not t_member:
-            raise SyntaxError("Not a user, or user not found.")
+            raise CommandSyntaxError("Not a user, or user not found.")
 
         if t_member.id in self.storage[gid]["cc_use_ban"]:
             self.storage[gid]["cc_use_ban"].remove(t_member.id)
@@ -298,7 +300,7 @@ class CustomCommands(BasePlugin):
         t_member = find_user(msg.guild, args[1])
 
         if not t_member:
-            raise SyntaxError("Not a user, or user not found.")
+            raise CommandSyntaxError("Not a user, or user not found.")
 
         if t_member.id in self.storage[gid]["cc_create_ban"]:
             self.storage[gid]["cc_create_ban"].remove(t_member.id)
@@ -317,7 +319,10 @@ class CustomCommands(BasePlugin):
             ccdat = self.ccs[gid][cmd]["content"]
             try:
                 res = self._find_tags(ccdat, msg)
-            except (SyntaxError, SyntaxWarning) as e:
+            except CustomCommandSyntaxError as e:
+                err = e if e else "Syntax error."
+                await respond(msg, f"**WARNING: Author made syntax error: {err}**")
+            except CommandSyntaxError as e:
                 err = e if e else "Syntax error."
                 await respond(msg, f"**WARNING: {err}**")
             except Exception:
@@ -352,14 +357,14 @@ class CustomCommands(BasePlugin):
                 t_lvl -= 1
                 if t_lvl < 0:
                     # not enough opening brackets
-                    raise SyntaxError("Missing opening bracket!")
+                    raise CommandSyntaxError("Missing opening bracket!")
                 else:
                     t_res.append(t_lst.pop())
             t_pos += 1
 
         if t_lvl > 0:
             # too many opening brackets
-            raise SyntaxError("Missing closing bracket!")
+            raise CommandSyntaxError("Missing closing bracket!")
 
         # last tags first because otherwise positions will shift
         t_res.sort(reverse=True)
@@ -379,7 +384,7 @@ class CustomCommands(BasePlugin):
         if tag.lower() in self.tags:
             return self.tags[tag](args, msg)
         else:
-            raise SyntaxError(f"No such tag {tag}!")
+            raise CustomCommandSyntaxError(f"No such tag {tag}!")
 
     def _split_args(self, argstr):
         args = re.split(r"(?<!\\);", argstr)
@@ -394,7 +399,7 @@ class CustomCommands(BasePlugin):
                 i = int(args) - 1
                 return split_args[i]
             except ValueError:
-                raise SyntaxError("<args> argument is not an integer, slice or wildcard!")
+                raise CustomCommandSyntaxError("<args> argument is not an integer, slice or wildcard!")
             except IndexError:
                 return ""
         elif args == "*":
@@ -403,16 +408,16 @@ class CustomCommands(BasePlugin):
             try:
                 i = int(args[1:])
             except ValueError:
-                raise SyntaxError("<args> slice argument is not a valid integer!")
+                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
             return " ".join(split_args[:i])
         elif args.endswith("*"):
             try:
                 i = int(args[:-1]) - 1
             except ValueError:
-                raise SyntaxError("<args> slice argument is not a valid integer!")
+                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
             return " ".join(split_args[i:])
         else:
-            raise SyntaxError("<args> argument is not a number or *!")
+            raise CustomCommandSyntaxError("<args> argument is not a number or *!")
 
     def _username(self, args, msg):
         return msg.author.name
@@ -464,7 +469,7 @@ class CustomCommands(BasePlugin):
         if args.lower() in self.ccvars:
             return self.ccvars[args.lower()]
         else:
-            raise SyntaxError(f"No such variable {args.lower()}.")
+            raise CustomCommandSyntaxError(f"No such variable {args.lower()}.")
 
     def _setvar(self, args, msg):
         var, val = self._split_args(args)[0:2]
@@ -483,13 +488,13 @@ class CustomCommands(BasePlugin):
         try:
             index = int(args[0])
         except ValueError:
-            raise SyntaxError("First argument to <choice> must be integer.")
+            raise CommandSyntaxError("First argument to <choice> must be integer.")
         except IndexError:
-            raise SyntaxError("<choice> requires at least one argument!")
+            raise CustomCommandSyntaxError("<choice> requires at least one argument!")
         try:
             return args[index]
         except IndexError:
-            raise SyntaxError(f"<choice> does not have an argument at index {index}")
+            raise CommandSyntaxError(f"<choice> does not have an argument at index {index}")
 
     def _isempty(self, args, msg):
         if len(args) == 0:
@@ -519,15 +524,15 @@ class CustomCommands(BasePlugin):
         try:
             a = int(args[0])
         except IndexError:
-            raise SyntaxError("<randint> requires at least one argument.")
+            raise CustomCommandSyntaxError("<randint> requires at least one argument.")
         except ValueError:
-            raise SyntaxError("Arguments to <randint> must be integers.")
+            raise CommandSyntaxError("Arguments to <randint> must be integers.")
         try:
             b = int(args[1])
         except IndexError:
             b = 0
         except ValueError:
-            raise SyntaxError("Arguments to <randint> must be integers.")
+            raise CommandSyntaxError("Arguments to <randint> must be integers.")
         if a > b:
             a, b = b, a
         return str(random.randint(a, b))
@@ -545,7 +550,7 @@ class CustomCommands(BasePlugin):
     def _embed(self, args, msg):
         t_args = self._split_args(args)
         if t_args == ['']:
-            raise SyntaxError("<embed> tag needs arguments in arg=val format.")
+            raise CustomCommandSyntaxError("<embed> tag needs arguments in arg=val format.")
         t_embed = Embed(type="rich", colour=16711680)
         t_post = False
         for arg in t_args:
