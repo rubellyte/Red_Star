@@ -138,7 +138,7 @@ class CustomCommands(BasePlugin):
             self.plugin_config[gid] = DotDict(self.default_config["default"])
             self.config_manager.save_config()
         if msg.author.id in self.plugin_config[gid]["cc_create_ban"]:
-            raise PermissionError("Banned from editing custom commands.")
+            raise PermissionError("You are banned from editing custom commands.")
         try:
             args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
@@ -173,7 +173,7 @@ class CustomCommands(BasePlugin):
             self.plugin_config[gid] = DotDict(self.default_config["default"])
             self.config_manager.save_config()
         if msg.author.id in self.plugin_config[gid]["cc_create_ban"]:
-            raise PermissionError("Banned from deleting custom commands.")
+            raise PermissionError("You are banned from deleting custom commands.")
         try:
             name = msg.clean_content.split()[1].lower()
         except IndexError:
@@ -290,7 +290,7 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from using custom commands.**")
 
     @Command("ccban", "bancc",
-             doc="Toggles users ability to crate and alter custom commands.",
+             doc="Toggles users ability to create and alter custom commands.",
              syntax="(user)",
              category="custom_commands",
              perms={"manage_messages"})
