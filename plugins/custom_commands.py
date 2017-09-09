@@ -16,7 +16,8 @@ class CustomCommands(BasePlugin):
         "default": {
             "cc_prefix": "!!",
             "cc_create_ban": [],
-            "cc_use_ban": []
+            "cc_use_ban": [],
+            "cc_limit": 25
         }
     }
 
@@ -66,7 +67,7 @@ class CustomCommands(BasePlugin):
             self.plugin_config[gid] = DotDict(self.default_config["default"])
             self.config_manager.save_config()
         if msg.author.id in self.plugin_config[gid]["cc_use_ban"]:
-            await msg.author.send(f"**WARNING: You are banned from usage of custom command on the server "
+            await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
                                   f"{str(msg.guild)}**")
             return
         deco = self.plugin_config[gid].cc_prefix
@@ -81,7 +82,7 @@ class CustomCommands(BasePlugin):
 
     # Commands
 
-    @Command("createcc",
+    @Command("createcc", "newcc",
              doc="Creates a custom command.\n"
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
@@ -92,7 +93,7 @@ class CustomCommands(BasePlugin):
             self.plugin_config[gid] = DotDict(self.default_config["default"])
             self.config_manager.save_config()
         if msg.author.id in self.plugin_config[gid]["cc_create_ban"]:
-            raise PermissionError("Banned from creating custom commands.")
+            raise PermissionError("You are banned from creating custom commands.")
         try:
             args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
@@ -107,6 +108,13 @@ class CustomCommands(BasePlugin):
         if name in self.ccs[gid]:
             await respond(msg, f"**WARNING: Custom command {args[0]} already exists.**")
         else:
+            t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
+
+            if ("bot_maintainers" in self.config_manager.config and msg.author.id not in
+                    self.config_manager.config.bot_maintainers) or "bot_maintainers" not in self.config_manager.config:
+                if t_count >= self.plugin_config[gid]["cc_limit"]\
+                        and not msg.author.permissions_in(msg.channel).manage_messages:
+                    raise PermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
             newcc = {
                 "name": name,
                 "content": content,
