@@ -4,7 +4,7 @@ import json
 import schedule
 from random import choice
 from plugin_manager import BasePlugin
-from utils import Command, respond
+from rs_utils import Command, respond
 
 
 class MOTD(BasePlugin):

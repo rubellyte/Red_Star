@@ -2,7 +2,7 @@ import inspect
 from plugin_manager import BasePlugin
 from plugins.channel_manager import ChannelNotFoundError
 from discord import Forbidden
-from utils import respond, DotDict
+from rs_utils import respond, DotDict
 
 
 class CommandDispatcher(BasePlugin):

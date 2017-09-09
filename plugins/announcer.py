@@ -1,6 +1,6 @@
 from plugin_manager import BasePlugin
 from plugins.channel_manager import ChannelNotFoundError
-from utils import sub_user_data, DotDict
+from rs_utils import sub_user_data, DotDict
 
 
 class Announcer(BasePlugin):

@@ -1,7 +1,7 @@
 import asyncio
 from string import capwords
 from plugin_manager import BasePlugin
-from utils import respond, Command
+from rs_utils import respond, Command
 from discord import Embed
 
 

@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, split_message, find_user, DotDict, is_positive
+from rs_utils import Command, respond, split_message, find_user, DotDict, is_positive
 from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from plugins.channel_manager import ChannelNotFoundError

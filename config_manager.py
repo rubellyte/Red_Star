@@ -3,7 +3,7 @@ import logging
 import sys
 from pathlib import Path
 from shutil import copyfile
-from utils import DotDict, dict_merge
+from rs_utils import DotDict, dict_merge
 
 
 class ConfigManager:

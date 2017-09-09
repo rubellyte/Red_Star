@@ -1,6 +1,6 @@
 from plugin_manager import BasePlugin
 from discord import utils, VoiceChannel
-from utils import respond, Command, DotDict
+from rs_utils import respond, Command, DotDict
 import shlex
 
 

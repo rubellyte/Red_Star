@@ -1,6 +1,6 @@
 import urllib
 from plugin_manager import BasePlugin
-from utils import Command, respond, is_positive
+from rs_utils import Command, respond, is_positive
 from discord import InvalidArgument
 
 

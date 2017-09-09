@@ -1,6 +1,6 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
-from utils import Command, respond, split_message, is_positive
+from rs_utils import Command, respond, split_message, is_positive
 from string import capwords
 import shlex
 

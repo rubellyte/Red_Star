@@ -5,7 +5,7 @@ import datetime
 from asyncio import ensure_future
 from plugin_manager import BasePlugin
 import discord.utils
-from utils import respond, Command, DotDict, find_user, is_positive
+from rs_utils import respond, Command, DotDict, find_user, is_positive
 from discord import Embed
 
 

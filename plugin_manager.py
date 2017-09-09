@@ -2,7 +2,7 @@ import inspect
 import logging
 import importlib
 import asyncio
-from utils import DotDict, Cupboard
+from rs_utils import DotDict, Cupboard
 
 
 class PluginManager:

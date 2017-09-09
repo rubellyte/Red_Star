@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from utils import Command, respond, ordinal, p_time
+from rs_utils import Command, respond, ordinal, p_time
 from discord import HTTPException, Forbidden
 from discord.object import Object as DObj
 from math import ceil

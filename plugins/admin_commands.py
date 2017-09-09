@@ -1,7 +1,7 @@
 import re
 from asyncio import sleep
 from plugin_manager import BasePlugin
-from utils import Command, respond, find_user
+from rs_utils import Command, respond, find_user
 import shlex
 
 
