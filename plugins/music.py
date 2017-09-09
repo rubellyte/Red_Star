@@ -1,10 +1,9 @@
 from plugin_manager import BasePlugin
 from rs_utils import Command, respond, split_message, find_user, DotDict, is_positive
-from youtube_dl.utils import DownloadError
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 import discord.game
-from random import choice
+from random import choice, randint
 from math import ceil
 import asyncio
 import threading
@@ -14,7 +13,6 @@ import datetime
 import time
 import os
 import shlex
-from random import randint
 
 
 class MusicPlayer(BasePlugin):
@@ -178,7 +176,7 @@ class MusicPlayer(BasePlugin):
             try:
                 t_entries, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
                     "ytdl_options"], before_options=before_args)
-            except DownloadError as e:
+            except youtube_dl.utils.DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
             t_count = len(t_entries)
@@ -298,7 +296,7 @@ class MusicPlayer(BasePlugin):
             try:
                 t_sources, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
                     "ytdl_options"], before_options=before_args)
-            except DownloadError as e:
+            except youtube_dl.utils.DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
             for t_entry in t_sources:
@@ -1044,7 +1042,7 @@ class MusicPlayer(BasePlugin):
         func = functools.partial(ydl.extract_info, url, download=self.plugin_config["download_songs"])
         data = await loop.run_in_executor(None, func)
         if not data:
-            raise DownloadError("Could not download video(s).")
+            raise youtube_dl.utils.DownloadError("Could not download video(s).")
 
         if "entries" in data:
             t_sources = []
