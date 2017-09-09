@@ -14,7 +14,8 @@ class CustomCommands(BasePlugin):
     default_config = {
         "cc_file": "config/ccs.json",
         "default": {
-            "cc_prefix": "!!"
+            "cc_prefix": "!!",
+            "cc_limit": 25
         }
     }
 
@@ -60,9 +61,11 @@ class CustomCommands(BasePlugin):
 
     async def on_message(self, msg):
         gid = str(msg.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict(self.default_config["default"])
-            self.config_manager.save_config()
+        self.initialize(gid)
+        if msg.author.id in self.storage[gid]["cc_use_ban"]:
+            await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
+                                  f"{str(msg.guild)}**")
+            return
         deco = self.plugin_config[gid].cc_prefix
         if msg.author != self.client.user:
             cnt = msg.content
@@ -75,13 +78,16 @@ class CustomCommands(BasePlugin):
 
     # Commands
 
-    @Command("createcc",
+    @Command("createcc", "newcc",
              doc="Creates a custom command.\n"
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
              category="custom_commands")
     async def _createcc(self, msg):
         gid = str(msg.guild.id)
+        self.initialize(gid)
+        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+            raise PermissionError("You are banned from creating custom commands.")
         try:
             args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
@@ -96,6 +102,13 @@ class CustomCommands(BasePlugin):
         if name in self.ccs[gid]:
             await respond(msg, f"**WARNING: Custom command {args[0]} already exists.**")
         else:
+            t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
+
+            if ("bot_maintainers" in self.config_manager.config and msg.author.id not in
+                self.config_manager.config.bot_maintainers) or "bot_maintainers" not in self.config_manager.config:
+                if t_count >= self.storage[gid]["cc_limit"] \
+                        and not msg.author.permissions_in(msg.channel).manage_messages:
+                    raise PermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
             newcc = {
                 "name": name,
                 "content": content,
@@ -114,6 +127,10 @@ class CustomCommands(BasePlugin):
              syntax="(name) (content)",
              category="custom_commands")
     async def _editcc(self, msg):
+        gid = str(msg.guild.id)
+        self.initialize(gid)
+        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+            raise PermissionError("You are banned from editing custom commands.")
         try:
             args = msg.clean_content.split(" ")[1:]
             name = args[0].lower()
@@ -123,7 +140,6 @@ class CustomCommands(BasePlugin):
             content = " ".join(args[1:])
         except IndexError:
             raise SyntaxError("No content provided.")
-        gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
@@ -144,11 +160,14 @@ class CustomCommands(BasePlugin):
              syntax="(name)",
              category="custom_commands")
     async def _delcc(self, msg):
+        gid = str(msg.guild.id)
+        self.initialize(gid)
+        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+            raise PermissionError("You are banned from deleting custom commands.")
         try:
             name = msg.clean_content.split()[1].lower()
         except IndexError:
             raise SyntaxError("No name provided.")
-        gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
@@ -237,6 +256,56 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**ANALYSIS: Custom command {name} has been {lock_status}.**")
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
+
+    @Command("ccmute", "mutecc",
+             doc="Toggles users ability to use custom commands.",
+             syntax="(user)",
+             category="custom_commands",
+             perms={"manage_messages"})
+    async def _mutecc(self, msg):
+        gid = str(msg.guild.id)
+        self.initialize(gid)
+
+        args = msg.content.split(" ", 1)
+
+        print(args[1])
+
+        t_member = find_user(msg.guild, args[1])
+
+        if not t_member:
+            raise SyntaxError("Not a user, or user not found.")
+
+        if t_member.id in self.storage[gid]["cc_use_ban"]:
+            self.storage[gid]["cc_use_ban"].remove(t_member.id)
+            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was allowed the usage of custom commands.**")
+        else:
+            self.storage[gid]["cc_use_ban"].append(t_member.id)
+            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from using custom commands.**")
+
+    @Command("ccban", "bancc",
+             doc="Toggles users ability to create and alter custom commands.",
+             syntax="(user)",
+             category="custom_commands",
+             perms={"manage_messages"})
+    async def _bancc(self, msg):
+        gid = str(msg.guild.id)
+        self.initialize(gid)
+
+        args = msg.content.split(" ", 1)
+
+        print(args[1])
+
+        t_member = find_user(msg.guild, args[1])
+
+        if not t_member:
+            raise SyntaxError("Not a user, or user not found.")
+
+        if t_member.id in self.storage[gid]["cc_create_ban"]:
+            self.storage[gid]["cc_create_ban"].remove(t_member.id)
+            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was allowed creation of custom commands.**")
+        else:
+            self.storage[gid]["cc_create_ban"].append(t_member.id)
+            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from creating custom commands.**")
 
     # Custom command machinery
 
@@ -515,3 +584,15 @@ class CustomCommands(BasePlugin):
 
     def _noembed(self, args, msg):
         return f"<{args}>"
+
+    # util functions
+
+    def initialize(self, gid):
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = DotDict(self.default_config["default"])
+            self.config_manager.save_config()
+        if gid not in self.storage:
+            self.storage[gid] = {
+                "cc_create_ban": [],
+                "cc_use_ban": []
+            }
