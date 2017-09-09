@@ -1,4 +1,5 @@
 import inspect
+from asyncio import sleep
 from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
@@ -98,6 +99,7 @@ class CommandDispatcher(BasePlugin):
                     return
             await fn(msg)
             if fn.delcall:
+                await sleep(1)
                 await msg.delete()
         except CommandSyntaxError as e:
             err = e if e else "Invalid syntax."

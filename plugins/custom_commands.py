@@ -2,7 +2,7 @@ import re
 import random
 import json
 import datetime
-from asyncio import ensure_future
+from asyncio import ensure_future, sleep
 from plugin_manager import BasePlugin
 import discord.utils
 
@@ -63,7 +63,7 @@ class CustomCommands(BasePlugin):
 
     async def on_message(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_use_ban"]:
             await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
                                   f"{str(msg.guild)}**")
@@ -87,7 +87,7 @@ class CustomCommands(BasePlugin):
              category="custom_commands")
     async def _createcc(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from creating custom commands.")
         try:
@@ -130,7 +130,7 @@ class CustomCommands(BasePlugin):
              category="custom_commands")
     async def _editcc(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from editing custom commands.")
         try:
@@ -163,7 +163,7 @@ class CustomCommands(BasePlugin):
              category="custom_commands")
     async def _delcc(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from deleting custom commands.")
         try:
@@ -266,7 +266,7 @@ class CustomCommands(BasePlugin):
              perms={"manage_messages"})
     async def _mutecc(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
 
         args = msg.content.split(" ", 1)
 
@@ -291,7 +291,7 @@ class CustomCommands(BasePlugin):
              perms={"manage_messages"})
     async def _bancc(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
 
         args = msg.content.split(" ", 1)
 
@@ -544,7 +544,7 @@ class CustomCommands(BasePlugin):
         return str.translate(args, rot13)
 
     def _delcall(self, args, msg):
-        ensure_future(msg.delete())
+        ensure_future(self._rm_msg(msg))
         return ""
 
     def _embed(self, args, msg):
@@ -592,7 +592,11 @@ class CustomCommands(BasePlugin):
 
     # util functions
 
-    def initialize(self, gid):
+    async def _rm_msg(self, msg):
+        await sleep(1)
+        await msg.delete()
+
+    def _initialize(self, gid):
         if gid not in self.plugin_config:
             self.plugin_config[gid] = DotDict(self.default_config["default"])
             self.config_manager.save_config()
