@@ -42,6 +42,8 @@ class MOTD(BasePlugin):
         self.run_timer = False
 
     async def _run_motd(self):
+        now = datetime.datetime.now()
+        await asyncio.sleep(60 - now.second)
         while self.run_timer:
             schedule.run_pending()
             await asyncio.sleep(60)
