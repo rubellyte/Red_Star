@@ -270,8 +270,6 @@ class CustomCommands(BasePlugin):
 
         args = msg.content.split(" ", 1)
 
-        print(args[1])
-
         t_member = find_user(msg.guild, args[1])
 
         if not t_member:
@@ -294,8 +292,6 @@ class CustomCommands(BasePlugin):
         self._initialize(gid)
 
         args = msg.content.split(" ", 1)
-
-        print(args[1])
 
         t_member = find_user(msg.guild, args[1])
 
