@@ -47,7 +47,7 @@ class DumpChannel(BasePlugin):
         async for message in msg.channel.history(before=m_start, after=m_end, reverse=True):
             t_list.append(f"{str(message.author)} @ {str(message.created_at)}\n{message.clean_content}\n\n")
 
-        t_list.append(f"{str(m_start.author)} @ {str(m_start.created_at)}\n{m_start.clean_content}\n\n")
+        t_list.append(f"{str(m_start.author)} @ {str(m_start.created_at)}\n{m_start.clean_content}")
 
         t_msg = await respond(msg, f"**AFFIRMATIVE. Processing file {t_name}.**")
         async with msg.channel.typing():
