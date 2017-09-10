@@ -2,6 +2,7 @@ from plugin_manager import BasePlugin
 from rs_utils import Command, respond
 from rs_errors import CommandSyntaxError
 from discord import File
+from discord.errors import NotFound
 from io import BytesIO
 import time
 
@@ -11,7 +12,7 @@ class DumpChannel(BasePlugin):
 
     @Command("dump",
              doc="Dumps the messages between two specified messages into a text file, inclusively.",
-             syntax="(start message ID) (end message ID) [filename]",
+             syntax="(latest message ID) (earliest message ID) [filename]",
              perms={"manage_messages"},
              run_anywhere=True)
     async def _dump(self, msg):
@@ -27,30 +28,31 @@ class DumpChannel(BasePlugin):
             m_end = int(args[2])
         except ValueError:
             raise CommandSyntaxError("Second Argument is not a valid integer.")
-        if not await msg.channel.get_message(m_start):
+        try:
+            m_start = await msg.channel.get_message(m_start)
+        except NotFound:
             raise CommandSyntaxError(f"No message with ID {m_start}")
-        if not await msg.channel.get_message(m_end):
+        try:
+            m_end = await msg.channel.get_message(m_end)
+        except NotFound:
             raise CommandSyntaxError(f"No message with ID {m_end}")
 
         if len(args) > 3:
-            t_name = "."+args[3]+".txt"
+            t_name = args[3]+".txt"
         else:
             t_name = str(time.time())+".txt"
 
-        flag = False
+        s = "%Y-%m-%d %H:%M:%S"
 
-        t_list = []
+        t_list = [f"{str(m_end.author)} @ {str(m_end.created_at.strftime(s))}\n{m_end.clean_content}\n\n"]
 
-        async for message in msg.channel.history():
-            if message.id == m_start:
-                flag = True
-            if flag:
-                t_list.append(f"{str(message.author)} @ {str(message.created_at)}\n{message.clean_content}\n\n")
-            if message.id == m_end:
-                break
+        async for message in msg.channel.history(before=m_start, after=m_end, reverse=True):
+            t_list.append(f"{str(message.author)} @ {str(message.created_at.strftime(s))}\n{message.clean_content}\n\n")
+
+        t_list.append(f"{str(m_start.author)} @ {str(m_start.created_at.strftime(s))}\n{m_start.clean_content}")
 
         t_msg = await respond(msg, f"**AFFIRMATIVE. Processing file {t_name}.**")
         async with msg.channel.typing():
             await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                          file=File(BytesIO(bytes("".join(t_list[::-1]), encoding="utf-8")), filename=t_name))
+                          file=File(BytesIO(bytes("".join(t_list), encoding="utf-8")), filename=t_name))
         await t_msg.delete()
