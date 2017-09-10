@@ -11,7 +11,7 @@ class DumpChannel(BasePlugin):
 
     @Command("dump",
              doc="Dumps the messages between two specified messages into a text file, inclusively.",
-             syntax="(start message ID) (end message ID) [filename]",
+             syntax="(latest message ID) (earliest message ID) [filename]",
              perms={"manage_messages"},
              run_anywhere=True)
     async def _dump(self, msg):
