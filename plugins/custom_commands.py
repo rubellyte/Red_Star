@@ -76,6 +76,12 @@ class CustomCommands(BasePlugin):
                     except Forbidden:
                         pass
                     return
+                elif self.plugins.channel_manager.channel_in_category(msg.guild, "no_cc", msg.channel):
+                    await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                                                         f"**WARNING: Attempted CC use in restricted channel"
+                                                         f" {msg.channel.mention} by: {msg.author.display_name}**",
+                                                         log_type="cc_event")
+                    return
                 cmd = cnt[len(deco):].split()[0].lower()
                 if gid not in self.ccs:
                     self.ccs[gid] = {}
