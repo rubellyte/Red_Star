@@ -64,7 +64,7 @@ class CustomCommands(BasePlugin):
 
     async def on_message(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
         deco = self.plugin_config[gid].cc_prefix
         if msg.author != self.client.user:
             cnt = msg.content
