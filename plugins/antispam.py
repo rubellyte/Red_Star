@@ -297,6 +297,8 @@ class AntiSpam(BasePlugin):
                 t_m, t_s = divmod(ceil(time.time()-t_member.update_time), 60)
                 t_string = f"{t_string} {t_member.member.display_name.ljust(32)} : " \
                            f"{t_member.infractions:02d} [{t_m:02d}:{t_s:02d}]\n"
+                if t_string == "":
+                    t_string = "NONE"
         await respond(msg, f"**ANALYSIS: Members in spam list:**\n```{t_string}```")
 
     @Command("spam_infractions", "spam_infs",
