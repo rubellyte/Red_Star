@@ -70,12 +70,18 @@ class ChannelManager(BasePlugin):
             self.plugin_config[gid].channels.pop(chantype)
             self.config_manager.save_config()
 
+    def register_category(self, guild, category):
+        gid = str(guild.id)
+        category = category.lower()
+        if category not in self.plugin_config[gid].categories:
+            self.plugin_config[gid]["categories"][category] = []
+
     def channel_in_category(self, guild, category, channel):
         gid = str(guild.id)
         category = category.lower()
         if category not in self.plugin_config[gid].categories:
             return False
-        if channel not in self.plugin_config[gid]["categories"][category]:
+        if channel.id not in self.plugin_config[gid]["categories"][category]:
             return False
         return True
 
@@ -83,19 +89,19 @@ class ChannelManager(BasePlugin):
         gid = str(guild.id)
         category = category.lower()
         if category not in self.plugin_config[gid].categories:
-            self.plugin_config[gid].categories[category] = [channel]
+            self.plugin_config[gid].categories[category] = [channel.id]
         elif category not in self.plugin_config[gid].categories[category]:
-            self.plugin_config[gid].categories[category].append(channel)
+            self.plugin_config[gid].categories[category].append(channel.id)
 
     def remove_channel_from_category(self, guild, category, channel):
         gid = str(guild.id)
         category = category.lower()
         if category not in self.plugin_config[gid].categories:
             return False
-        elif channel not in self.plugin_config[gid].categories[category]:
+        elif channel.id not in self.plugin_config[gid].categories[category]:
             return False
         else:
-            self.plugin_config[gid].categories[category].remove(channel)
+            self.plugin_config[gid].categories[category].remove(channel.id)
             return True
 
     @Command("get_channel",
@@ -174,7 +180,8 @@ class ChannelManager(BasePlugin):
             self._add_guild(msg.guild)
         if category:
             if category in self.plugin_config[gid].categories:
-                catestr = ", ".join([x.name for x in self.plugin_config[gid].categories[category]])
+                catestr = ", ".join([msg.guild.get_channel(x).name for x in self.plugin_config[gid].categories[
+                    category]])
                 await respond(msg, f"**ANALYSIS: Category {category} contains the following channels:**\n"
                                    f"```{catestr}```")
             else:
