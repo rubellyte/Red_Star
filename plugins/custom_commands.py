@@ -9,6 +9,7 @@ import discord.utils
 from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
 from rs_utils import respond, Command, DotDict, find_user, is_positive
 from discord import Embed
+from discord.errors import Forbidden
 
 
 class CustomCommands(BasePlugin):
@@ -64,14 +65,23 @@ class CustomCommands(BasePlugin):
     async def on_message(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        if msg.author.id in self.storage[gid]["cc_use_ban"]:
-            await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
-                                  f"{str(msg.guild)}**")
-            return
         deco = self.plugin_config[gid].cc_prefix
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):
+                if msg.author.id in self.storage[gid]["cc_use_ban"]:
+                    try:
+                        await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
+                                              f"{str(msg.guild)}**")
+                    except Forbidden:
+                        pass
+                    return
+                elif self.plugins.channel_manager.channel_in_category(msg.guild, "no_cc", msg.channel):
+                    await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                                                         f"**WARNING: Attempted CC use in restricted channel"
+                                                         f" {msg.channel.mention} by: {msg.author.display_name}**",
+                                                         log_type="cc_event")
+                    return
                 cmd = cnt[len(deco):].split()[0].lower()
                 if gid not in self.ccs:
                     self.ccs[gid] = {}
@@ -270,8 +280,6 @@ class CustomCommands(BasePlugin):
 
         args = msg.content.split(" ", 1)
 
-        print(args[1])
-
         t_member = find_user(msg.guild, args[1])
 
         if not t_member:
@@ -295,8 +303,6 @@ class CustomCommands(BasePlugin):
 
         args = msg.content.split(" ", 1)
 
-        print(args[1])
-
         t_member = find_user(msg.guild, args[1])
 
         if not t_member:
@@ -308,6 +314,35 @@ class CustomCommands(BasePlugin):
         else:
             self.storage[gid]["cc_create_ban"].append(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from creating custom commands.**")
+
+    @Command("listccban",
+             doc="Lists users banned from using or creating CCs",
+             syntax="(user)",
+             category="custom_commands",
+             perms={"manage_messages"})
+    async def _listccban(self, msg):
+        gid = str(msg.guild.id)
+        self.initialize(gid)
+
+        t_dict = {}
+
+        for t_id in self.storage[gid]["cc_create_ban"]:
+            if t_id in self.storage[gid]["cc_use_ban"]:
+                t_dict[t_id] = (True, True)
+            else:
+                t_dict[t_id] = (True, False)
+        for t_id in self.storage[gid]["cc_use_ban"]:
+            if t_id not in t_dict:
+                t_dict[t_id] = (False, True)
+        t_string = f"**ANALYSIS: Currently banned members:**\n```{'Username'.ljust(32)} |  Ban  |  Mute\n"
+        for k, v in t_dict.items():
+            t_s = f"{msg.guild.get_member(k).display_name.ljust(32)} | {str(v[0]).ljust(5)} | {str(v[1]).ljust(5)}\n"
+            if len(t_string+t_s) < 1997:
+                t_string += t_s
+            else:
+                await respond(msg, t_string+"```")
+                t_string = "```"+t_s
+        await respond(msg, t_string+"```")
 
     # Custom command machinery
 
