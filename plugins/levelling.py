@@ -18,17 +18,17 @@ class Levelling(BasePlugin):
 
     async def activate(self):
         for guild in self.client.guilds:
-            self.plugins.channel_manager.register_category(guild, "no_lvl")
+            self.plugins.channel_manager.register_category(guild, "no_xp")
 
     async def on_message(self, msg):
-        if self.plugins.channel_manager.channel_in_category(msg.guild, "no_lvl", msg.channel):
+        if self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
             return
         gid = str(msg.guild.id)
         self._initialize(gid)
         self._give_xp(msg)
 
     async def on_message_delete(self, msg):
-        if self.plugins.channel_manager.channel_in_category(msg.guild, "no_lvl", msg.channel):
+        if self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
             return
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -37,11 +37,20 @@ class Levelling(BasePlugin):
     # Commands
 
     @Command("listxp",
-             doc="Lists all registered users from highest XP to lowest.",
+             doc="Lists all registered users from highest XP to lowest, up to amount specified or 10.",
+             syntax="[number]",
              category="XP")
     async def _listxp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
+        args = msg.content.split(" ")
+        if len(args) > 1:
+            try:
+                limit = int(args[1])
+            except ValueError:
+                raise CommandSyntaxError(f"{args[1]} is not a valid integer.")
+        else:
+            limit = 10
         t_str = "**ANALYSIS: Current XP leaderboard:**\n```"
         t_int = 1
         for t_id in sorted(self.storage[gid], key=self.storage[gid].get, reverse=True):
@@ -57,7 +66,34 @@ class Levelling(BasePlugin):
                 t_str = "```"+t_s
             else:
                 t_str += t_s
+            if t_int > limit:
+                break
         await respond(msg, t_str+"```")
+
+    @Command("xp",
+             doc="Shows your xp or xp of specified user.",
+             syntax="[user]",
+             category="XP")
+    async def _xp(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        args = msg.content.split(" ",1)
+        if len(args) > 1:
+            t_member = find_user(args[1])
+            if t_member:
+                if t_member.id in self.storage[gid]:
+                    await respond(msg, f"**ANALYSIS: User {t_member.display_name} has "
+                                       f"{self.storage[gid][t_member.id]} XP.**")
+                else:
+                    await respond(msg, f"**WARNING: User {t_member.display_name} has no XP record.**")
+            else:
+                raise CommandSyntaxError("Not a user or user not found.")
+        else:
+            if msg.author.id in self.storage[gid]:
+                await respond(msg, f"**ANALYSIS: You have {self.storage[gid][msg.author.id]} XP.**")
+            else:
+                await respond(msg, "**ANALYSIS: You have no XP record.**")  # I don't think this is possible
+
 
     @Command("evalxp",
              doc="Processes all message history and grants members xp.\nAccepts one argument to determine "
