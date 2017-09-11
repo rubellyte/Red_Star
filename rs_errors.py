@@ -16,3 +16,7 @@ class ChannelNotFoundError(TypeError):
 class CustomCommandSyntaxError(CommandSyntaxError):
     # For when the CC author made a syntax error
     pass
+
+class ConsoleCommandSyntaxError(CommandSyntaxError):
+    # For errors in console commands
+    pass
