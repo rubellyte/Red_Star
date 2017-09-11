@@ -86,6 +86,20 @@ class CustomCommands(BasePlugin):
                 if gid not in self.ccs:
                     self.ccs[gid] = {}
                 if cmd in self.ccs[gid]:
+                    if "restricted" not in self.ccs[gid][cmd]:
+                        self.ccs[gid][cmd]["restricted"] = []
+                    if self.ccs[gid][cmd]["restricted"]:
+                        for t_cat in self.ccs[gid][cmd]["restricted"]:
+                            if self.plugins.channel_manager.channel_in_category(msg.guild, t_cat, msg.channel):
+                                break
+                        else:
+                            await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                                                                 f"**WARNING: Attempted CC use "
+                                                                 f"outside of it's categories in"
+                                                                 f" {msg.channel.mention} by: "
+                                                                 f"{msg.author.display_name}**",
+                                                                 log_type="cc_event")
+                            return
                     await self.run_cc(cmd, msg)
 
     # Commands
@@ -128,6 +142,7 @@ class CustomCommands(BasePlugin):
                 "date_created": datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S"),
                 "last_edited": None,
                 "locked": False,
+                "restricted": [],
                 "times_run": 0
             }
             self.ccs[gid][args[0].lower()] = newcc
@@ -268,6 +283,36 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**ANALYSIS: Custom command {name} has been {lock_status}.**")
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
+
+    @Command("restrictcc",
+             doc="Restricts specified custom command to a specified category of channels, or removes said "
+                 "restriction.",
+             syntax="(name) (category)",
+             category="custom_commands",
+             perms={"manage_messages"})
+    async def _restrictcc(self, msg):
+        gid = str(msg.guild.id)
+        if gid not in self.ccs:
+            self.ccs[gid] = {}
+        args = msg.content.split(" ", 2)
+        if len(args) < 3:
+            raise CommandSyntaxError("Two arguments required.")
+        t_name = args[1].lower()
+        t_cat = args[2].lower()
+        if t_name in self.ccs[gid]:
+            if "restricted" in self.ccs[gid][t_name]:
+                if t_cat not in self.ccs[gid][t_name]["restricted"]:
+                    self.ccs[gid][t_name]["restricted"].append(t_cat)
+                    await respond(msg, f"**AFFIRMATIVE. Custom command {t_name} restricted to category {t_cat}.**")
+                else:
+                    self.ccs[gid][t_name]["restricted"].remove(t_cat)
+                    await respond(msg, f"**AFFIRMATIVE. Custom command {t_name} no longer restricted to category "
+                                       f"{t_cat}.**")
+            else:
+                self.ccs[gid][t_name]["restricted"] = [t_cat]
+                await respond(msg, f"**AFFIRMATIVE. Custom command {t_name} restricted to category {t_cat}.**")
+        else:
+            raise CommandSyntaxError(f"No custom command by name of {t_name}.")
 
     @Command("ccmute", "mutecc",
              doc="Toggles users ability to use custom commands.",
