@@ -5,6 +5,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from config_manager import ConfigManager
 from plugin_manager import PluginManager
+from os import _exit
 
 
 class RedStar(discord.AutoShardedClient):
@@ -49,7 +50,8 @@ class RedStar(discord.AutoShardedClient):
         self.config_manager.save_config()
         self.logger.info("Logging out.")
         await self.logout()
-        quit()
+        self.logger.info("Quitting now.")
+        _exit(0)
 
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
