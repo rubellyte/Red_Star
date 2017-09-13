@@ -264,8 +264,14 @@ class CustomCommands(BasePlugin):
             elif info["author"] == user:
                 res.append(cc)
         if res:
-            res = ", ".join(res)
-            await respond(msg, f"**ANALYSIS: The following custom commands match your search:** `{res}`")
+            t_str = f"**ANALYSIS: The following custom commands match your search:** `{res[1]}"
+            for r in res[1:]:
+                if len(t_str)+len(r) > 1999:
+                    await respond(msg, f"{t_str}`")
+                    t_str = f"`{r}"
+                else:
+                    t_str += f", {r}"
+            await respond(msg, t_str+"`")
         else:
             await respond(msg, "**WARNING: No results found for your search.**")
 
