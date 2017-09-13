@@ -244,7 +244,10 @@ class CustomCommands(BasePlugin):
         search = " ".join(msg.content.split(" ")[1:]).lower()
         user = find_user(msg.guild, search)
         by_author = False
-        if user:
+        get_all = False
+        if search == "*":
+            get_all = True
+        elif user:
             by_author = True
             user = user.id
         if not search:
@@ -254,7 +257,9 @@ class CustomCommands(BasePlugin):
         if gid not in self.ccs:
             self.ccs[gid] = {}
         for cc, info in self.ccs[gid].items():
-            if not by_author and search in cc.lower():
+            if get_all:
+                res.append(cc)
+            elif not by_author and search in cc.lower():
                 res.append(cc)
             elif info["author"] == user:
                 res.append(cc)
@@ -422,40 +427,47 @@ class CustomCommands(BasePlugin):
             json.dump(self.ccs, f, indent=2, ensure_ascii=False)
 
     def _find_tags(self, text, msg):
-        t_str = text
-        t_lst = []  # temporary list for opening bracket positions
-        t_res = []  # final list for opening bracket positions
-        t_lvl = 0  # goes up every < and down every >
+        """
+        Finds and processes tags, right-to-left, starting from the deepest ones.
+        :param text: text of the custom command
+        :param msg: message that summoned the custom command
+        :return:
+        """
+        t_str = text[::-1]
+        t_lst = []  # temporary list for closing bracket positions
+        t_res = []  # final list for closing bracket positions
+        t_lvl = 0  # goes up every > and down every <
         t_pos = 0  # counter for position of symbol in string
 
-        # find all the opening brackets
+        # find all the closing brackets
+        # the algorithm runs in reverse now to parse in the right direction.
         for token in t_str:
-            if token == '<':
+            if token == '>':
                 t_lvl += 1
                 t_lst.append(t_pos)
-            if token == '>':
+            if token == '<':
                 t_lvl -= 1
                 if t_lvl < 0:
-                    # not enough opening brackets
-                    raise CommandSyntaxError("Missing opening bracket!")
+                    # not enough closing brackets
+                    raise CommandSyntaxError("Missing closing bracket!")
                 else:
                     t_res.append(t_lst.pop())
             t_pos += 1
 
         if t_lvl > 0:
-            # too many opening brackets
-            raise CommandSyntaxError("Missing closing bracket!")
+            # too many closing brackets
+            raise CommandSyntaxError("Missing opening bracket!")
 
         # last tags first because otherwise positions will shift
         t_res.sort(reverse=True)
 
         for t_pos in t_res:
-            # find closest closing bracket
-            e_pos = t_str[t_pos:].find(">") + t_pos
+            # find closest opening bracket
+            e_pos = t_str[t_pos:].find("<") + t_pos
             # replace chunk of text with the parsed result
-            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos], msg) + t_str[e_pos + 1:]
+            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg)[::-1] + t_str[e_pos + 1:]
 
-        return t_str
+        return t_str[::-1]
 
     def _parse_tag(self, tag, msg):
         args = tag.split(":", 1)
