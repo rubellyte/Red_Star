@@ -51,7 +51,7 @@ class Levelling(BasePlugin):
                 raise CommandSyntaxError(f"{args[1]} is not a valid integer.")
         else:
             limit = 10
-        t_str = "**ANALYSIS: Current XP leaderboard:**\n```"
+        t_str = "**ANALYSIS: Current XP leaderboard:**\n```\n"
         t_int = 1
         for t_id in sorted(self.storage[gid], key=self.storage[gid].get, reverse=True):
             t_m = msg.guild.get_member(t_id)
@@ -94,7 +94,6 @@ class Levelling(BasePlugin):
             else:
                 await respond(msg, "**ANALYSIS: You have no XP record.**")  # I don't think this is possible
 
-
     @Command("evalxp",
              doc="Processes all message history and grants members xp.\nAccepts one argument to determine "
                  "how far into the history to search.\nWARNING - VERY SLOW.\nUSE ONLY AFTER "
@@ -103,6 +102,8 @@ class Levelling(BasePlugin):
              perms={"manage_guild"},
              category="XP")
     async def _evalxp(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
         args = msg.content.split(" ", 1)
         if len(args) > 1:
             try:
@@ -184,7 +185,7 @@ class Levelling(BasePlugin):
 
         return int(t_xp)
 
+    # TODO implement xp decay
     def _xpdecay(self, gid):
         for k, v in self.storage[gid]:
             self.storage[gid][k] = v*(100-self.plugin_config[gid]["xp_decay"])/100
-
