@@ -90,8 +90,12 @@ class ChannelManager(BasePlugin):
         category = category.lower()
         if category not in self.plugin_config[gid].categories:
             self.plugin_config[gid].categories[category] = [channel.id]
-        elif category not in self.plugin_config[gid].categories[category]:
+            return True
+        elif channel.id not in self.plugin_config[gid].categories[category]:
             self.plugin_config[gid].categories[category].append(channel.id)
+            return True
+        else:
+            return False
 
     def remove_channel_from_category(self, guild, category, channel):
         gid = str(guild.id)
@@ -183,12 +187,12 @@ class ChannelManager(BasePlugin):
                 catestr = ", ".join([msg.guild.get_channel(x).name for x in self.plugin_config[gid].categories[
                     category]])
                 await respond(msg, f"**ANALYSIS: Category {category} contains the following channels:**\n"
-                                   f"```{catestr}```")
+                                   f"```\n{catestr}```")
             else:
                 await respond(msg, f"**ANALYSIS: No such category {category}.**")
         else:
             catestr = "\n".join(self.plugin_config[gid].categories.keys())
-            await respond(msg, f"**ANALYSIS: Available categories:**\n```{catestr}```")
+            await respond(msg, f"**ANALYSIS: Available categories:**\n```\n{catestr}```")
 
     @Command("add_to_category",
              doc="Adds the given channel to the specified category for this server.\n"
@@ -205,21 +209,24 @@ class ChannelManager(BasePlugin):
             raise CommandSyntaxError("No category provided.")
 
         if len(args) > 2:
+            res = ""
             if category.startswith("voice"):
-                channel = args[2].lower()
-                channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
-                                     msg.guild.channels)
-                if not channel:
-                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
+                for arg in args[2:]:
+                    channel = arg.lower()
+                    channel = utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
+                    if not channel:
+                        raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
+                    if self.add_channel_to_category(msg.guild, category, channel):
+                        res = f"{res}{str(channel)}\n"
             else:
                 if msg.channel_mentions:
-                    channel = msg.channel_mentions[0]
+                    for channel in msg.channel_mentions:
+                        if self.add_channel_to_category(msg.guild, category, channel):
+                            res = f"{res}{str(channel)}\n"
                 else:
                     raise CommandSyntaxError("No channel provided.")
 
-            self.add_channel_to_category(msg.guild, category, channel)
-
-            await respond(msg, f"**ANALYSIS: Channel {channel.mention} was added to category {category}.**")
+            await respond(msg, f"**ANALYSIS: Following channels were added to category {category}:**```\n{res}```")
         else:
             raise CommandSyntaxError("No channel provided.")
 
@@ -238,22 +245,27 @@ class ChannelManager(BasePlugin):
             raise CommandSyntaxError("No category provided.")
 
         if len(args) > 2:
+            res = ""
             if category.startswith("voice"):
-                channel = args[2].lower()
-                channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
-                                     msg.guild.channels)
-                if not channel:
-                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
+                for arg in args[2:]:
+                    channel = arg.lower()
+                    channel = utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
+                    if not channel:
+                        raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
+                    if self.remove_channel_from_category(msg.guild, category, channel):
+                        res += f"✓ - {str(channel)}\n"
+                    else:
+                        res += f"✗ - {str(channel)}\n"
             else:
                 if msg.channel_mentions:
-                    channel = msg.channel_mentions[0]
+                    for channel in msg.channel_mentions:
+                        if self.remove_channel_from_category(msg.guild, category, channel):
+                            res += f"✓ - {str(channel)}\n"
+                        else:
+                            res += f"✗ - {str(channel)}\n"
                 else:
                     raise CommandSyntaxError("No channel provided.")
 
-            success = self.remove_channel_from_category(msg.guild, category, channel)
-            if success:
-                await respond(msg, f"**ANALYSIS: Channel {channel.mention} was removed from category {category}.**")
-            else:
-                await respond(msg, f"**ANALYSIS: Channel {channel.mention} is not in category {category}.**")
+            await respond(msg, f"**ANALYSIS: Processed channel removals from category {category}:**\n```\n{res}```")
         else:
             raise CommandSyntaxError("No channel provided.")
