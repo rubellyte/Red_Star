@@ -152,7 +152,7 @@ class Levelling(BasePlugin):
             self.storage[gid] = {}
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
 
-    @Command("setxp",
+    @Command("xpconfig", "xpsettings",
              doc="Edit the xp module settings, or see the current settings."
                  "\nIt is advised to do !nukexp !evalxp after adjusting settings.",
              syntax="[option] [value]",
