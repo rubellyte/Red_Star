@@ -114,8 +114,9 @@ class Levelling(BasePlugin):
         t_msg = await respond(msg, "**AFFIRMATIVE. Processing messages.**")
         async with msg.channel.typing():
             for channel in msg.guild.text_channels:
-                async for message in channel.history(limit=depth):
-                    self._give_xp(message)
+                if not self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+                    async for message in channel.history(limit=depth):
+                        self._give_xp(message)
         await t_msg.delete()
 
     @Command("nukexp",
