@@ -116,6 +116,7 @@ class Levelling(BasePlugin):
         async with msg.channel.typing():
             for channel in msg.guild.text_channels:
                 if not self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+                    await t_msg.edit(content=f"**AFFIRMATIVE. Processing messages in channel {channel}.**")
                     async for message in channel.history(limit=depth):
                         self._give_xp(message)
         await t_msg.delete()
@@ -138,7 +139,15 @@ class Levelling(BasePlugin):
                 else:
                     await respond(msg, f"**NEGATIVE. User {t_member.display_name} has no XP record.**")
             else:
-                raise CommandSyntaxError("Not a user or no user found.")
+                try:
+                    t_member = int(args[1])
+                except ValueError:
+                    raise CommandSyntaxError("Not a user or no user found.")
+                if t_member in self.storage[gid]:
+                    del self.storage[gid][t_member]
+                    await respond(msg, f"**AFFIRMATIVE. ID {t_member} was removed from XP table.**")
+                else:
+                    raise CommandSyntaxError("Not a user or no user found.")
         else:
             self.storage[gid] = {}
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
