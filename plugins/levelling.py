@@ -51,7 +51,7 @@ class Levelling(BasePlugin):
                 raise CommandSyntaxError(f"{args[1]} is not a valid integer.")
         else:
             limit = 10
-        t_str = "**ANALYSIS: Current XP leaderboard:**\n```"
+        t_str = "**ANALYSIS: Current XP leaderboard:**\n```\n"
         t_int = 1
         for t_id in sorted(self.storage[gid], key=self.storage[gid].get, reverse=True):
             t_m = msg.guild.get_member(t_id)
@@ -94,7 +94,6 @@ class Levelling(BasePlugin):
             else:
                 await respond(msg, "**ANALYSIS: You have no XP record.**")  # I don't think this is possible
 
-
     @Command("evalxp",
              doc="Processes all message history and grants members xp.\nAccepts one argument to determine "
                  "how far into the history to search.\nWARNING - VERY SLOW.\nUSE ONLY AFTER "
@@ -103,6 +102,8 @@ class Levelling(BasePlugin):
              perms={"manage_guild"},
              category="XP")
     async def _evalxp(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
         args = msg.content.split(" ", 1)
         if len(args) > 1:
             try:
@@ -115,6 +116,7 @@ class Levelling(BasePlugin):
         async with msg.channel.typing():
             for channel in msg.guild.text_channels:
                 if not self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+                    await t_msg.edit(content=f"**AFFIRMATIVE. Processing messages in channel {channel}.**")
                     async for message in channel.history(limit=depth):
                         self._give_xp(message)
         await t_msg.delete()
@@ -137,7 +139,15 @@ class Levelling(BasePlugin):
                 else:
                     await respond(msg, f"**NEGATIVE. User {t_member.display_name} has no XP record.**")
             else:
-                raise CommandSyntaxError("Not a user or no user found.")
+                try:
+                    t_member = int(args[1])
+                except ValueError:
+                    raise CommandSyntaxError("Not a user or no user found.")
+                if t_member in self.storage[gid]:
+                    del self.storage[gid][t_member]
+                    await respond(msg, f"**AFFIRMATIVE. ID {t_member} was removed from XP table.**")
+                else:
+                    raise CommandSyntaxError("Not a user or no user found.")
         else:
             self.storage[gid] = {}
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
@@ -184,7 +194,7 @@ class Levelling(BasePlugin):
 
         return int(t_xp)
 
+    # TODO implement xp decay
     def _xpdecay(self, gid):
         for k, v in self.storage[gid]:
             self.storage[gid][k] = v*(100-self.plugin_config[gid]["xp_decay"])/100
-
