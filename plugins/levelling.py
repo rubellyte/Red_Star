@@ -77,9 +77,9 @@ class Levelling(BasePlugin):
     async def _xp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        args = msg.content.split(" ",1)
+        args = msg.content.split(" ", 1)
         if len(args) > 1:
-            t_member = find_user(args[1])
+            t_member = find_user(msg.guild, args[1])
             if t_member:
                 if t_member.id in self.storage[gid]:
                     await respond(msg, f"**ANALYSIS: User {t_member.display_name} has "
