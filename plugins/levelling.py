@@ -115,7 +115,7 @@ class Levelling(BasePlugin):
         t_msg = await respond(msg, "**AFFIRMATIVE. Processing messages.**")
         async with msg.channel.typing():
             for channel in msg.guild.text_channels:
-                if not self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+                if not self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", channel):
                     await t_msg.edit(content=f"**AFFIRMATIVE. Processing messages in channel {channel}.**")
                     async for message in channel.history(limit=depth):
                         self._give_xp(message)
