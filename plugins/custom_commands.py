@@ -47,7 +47,8 @@ class CustomCommands(BasePlugin):
             "rot13": self._rot13,
             "delcall": self._delcall,
             "embed": self._embed,
-            "noembed": self._noembed
+            "noembed": self._noembed,
+            "transcode": self._transcode
         }
         self.ccvars = {}
         try:
@@ -640,6 +641,58 @@ class CustomCommands(BasePlugin):
                 "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz",
                 "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm")
         return str.translate(args, rot13)
+
+    def _transcode(self, args, msg):
+        def_code = "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz"
+        alt_code = {
+            "rot13": "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm",
+            "circled": "ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ",
+            "circled_neg": "🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩",
+            "fwidth": "ＡＢＣＤＥＦＧＨＩＪＫＬＭａｂｃｄｅｆｇｈｉｊｋｌｍＮＯＰＱＲＳＴＵＶＷＸＹＺｎｏｐｑｒｓｔｕｖｗｘｙｚ",
+            "mbold": "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳",
+            "mbolditalic": "𝑨𝑩𝑪𝑫𝑬𝑭𝑮𝑯𝑰𝑱𝑲𝑳𝑴𝒂𝒃𝒄𝒅𝒆𝒇𝒈𝒉𝒊𝒋𝒌𝒍𝒎𝑵𝑶𝑷𝑸𝑹𝑺𝑻𝑼𝑽𝑾𝑿𝒀𝒁𝒏𝒐𝒑𝒒𝒓𝒔𝒕𝒖𝒗𝒘𝒙𝒚𝒛",
+            "frakturbold": "𝕬𝕭𝕮𝕯𝕰𝕱𝕲𝕳𝕴𝕵𝕶𝕷𝕸𝖆𝖇𝖈𝖉𝖊𝖋𝖌𝖍𝖎𝖏𝖐𝖑𝖒𝕹𝕺𝕻𝕼𝕽𝕾𝕿𝖀𝖁𝖂𝖃𝖄𝖅𝖓𝖔𝖕𝖖𝖗𝖘𝖙𝖚𝖛𝖜𝖝𝖞𝖟",
+            "fraktur": "𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷",
+            "scriptbold": "𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃",
+            "script": "𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏",
+            "sans": "𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓",
+            "sansbold": "𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇",
+            "sansbolditalic": "𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯",
+            "sansitalic": "𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻",
+            "parenthesized": "⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵",
+            "doublestruck": "𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫",
+            "region": "🇦🇧🇨🇩🇪🇫🇬🇭🇮🇯🇰🇱🇲🇦🇧🇨🇩🇪🇫🇬🇭🇮🇯🇰🇱🇲🇳🇴🇵🇶🇷🇸🇹🇺🇻🇼🇽🇾🇿🇳🇴🇵🇶🇷🇸🇹🇺🇻🇼🇽🇾🇿",
+            "squared": "🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉",
+            "squared_neg": "🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉",
+            "subscript": "ₐBCDₑFGₕᵢⱼₖₗₘₐbcdₑfgₕᵢⱼₖₗₘₙₒₚQᵣₛₜᵤᵥWₓYZₙₒₚqᵣₛₜᵤᵥwₓyz",
+            "superscript": "ᴬᴮᶜᴰᴱᶠᴳᴴᴵᴶᴷᴸᴹᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᴺᴼᴾQᴿˢᵀᵁⱽᵂˣʸᶻⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻ",
+            "inverted": "ɐqɔpǝɟƃɥıɾʞןɯɐqɔpǝɟƃɥıɾʞןɯuodbɹsʇn𐌡ʍxʎzuodbɹsʇnʌʍxʎz",
+            "reversed": "AdↃbƎꟻGHIJK⅃MAdↄbɘꟻgHijklmᴎOꟼpᴙꙄTUVWXYZᴎoqpᴙꙅTUvwxYz",
+            "smallcaps": "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴩQʀꜱᴛᴜᴠᴡxYᴢɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ",
+            "weird1": "ልጌርዕቿቻኗዘጎጋጕረጠልጌርዕቿቻኗዘጎጋጕረጠክዐየዒዪነፕሁሀሠሸሃጊክዐየዒዪነፕሁሀሠሸሃጊ",
+            "weird2": "ДБҀↁЄFБНІЈЌLМаъсↁэfБЂіјкlмИФРQЯЅГЦVЩЖЧZиорqѓѕтцvшхЎz",
+            "weird3": "ค๒ƈɗﻉिﻭɦٱﻝᛕɭ๓ค๒ƈɗﻉिﻭɦٱﻝᛕɭ๓กѻρ۹ɼรՇપ۷ฝซץչกѻρ۹ɼรՇપ۷ฝซץչ",
+            "weird4": "αв¢∂єƒﻭнιנкℓмαв¢∂єƒﻭнιנкℓмησρ۹яѕтυνωχуչησρ۹яѕтυνωχуչ",
+            "weird5": "ค๒ς๔єŦﻮђเןкɭ๓ค๒ς๔єŦﻮђเןкɭ๓ภ๏קợгรՇยשฬאץչภ๏קợгรՇยשฬאץչ",
+            "weird6": "ﾑ乃cd乇ｷgんﾉﾌズﾚﾶﾑ乃cd乇ｷgんﾉﾌズﾚﾶ刀oｱq尺丂ｲu√wﾒﾘ乙刀oｱq尺丂ｲu√wﾒﾘ乙"
+        }
+        t_args = self._split_args(args)
+        if t_args == [''] or len(t_args) < 2:
+            raise CustomCommandSyntaxError("<transcode> tag needs at least two arguments.")
+        t_str = t_args[0]
+        if len(t_args) == 2:
+            t_name = t_args[1].lower()
+            if t_name in alt_code:
+                tcode = str.maketrans(def_code, alt_code[t_name])
+                return t_str.translate(tcode)
+            else:
+                raise CustomCommandSyntaxError(f"{t_name} is not a supported transcoding.")
+        else:
+            if len(t_args[1]) == len(t_args[2]):
+                tcode = str.maketrans(t_args[1], t_args[2])
+                return t_str.translate(tcode)
+            else:
+                raise CustomCommandSyntaxError("To and From transcoding patterns must be the same length.")
 
     def _delcall(self, args, msg):
         ensure_future(self._rm_msg(msg))
