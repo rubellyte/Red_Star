@@ -152,6 +152,40 @@ class Levelling(BasePlugin):
             self.storage[gid] = {}
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
 
+    @Command("xpconfig", "xpsettings",
+             doc="Edit the xp module settings, or see the current settings."
+                 "\nIt is advised to do !nukexp !evalxp after adjusting settings.",
+             syntax="[option] [value]",
+             perms={"manage_guild"},
+             category="XP")
+    async def _setxp(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        args = msg.content.split(" ", 2)
+        if len(args) != 3:
+            if len(args) == 1:
+                await respond(msg, "**ANALYSIS: Current XP settings:**```\n"
+                                   f"low_cutoff: {self.plugin_config[gid]['low_cutoff']}\n"
+                                   f"xp_min    : {self.plugin_config[gid]['xp_min']}\n"
+                                   f"xp_max    : {self.plugin_config[gid]['xp_max']}```")
+            else:
+                raise CommandSyntaxError("Two arguments required.")
+        else:
+            try:
+                val = int(args[2])
+            except ValueError:
+                raise CommandSyntaxError("Second argument must be an integer.")
+            else:
+                if args[1].lower() == "low_cutoff":
+                    self.plugin_config[gid]["low_cutoff"] = val
+                elif args[1].lower() == "xp_min":
+                    self.plugin_config[gid]["xp_min"] = val
+                elif args[1].lower() == "xp_max":
+                    self.plugin_config[gid]["xp_min"] = val
+                else:
+                    raise CommandSyntaxError(f"No option {args[1].lower()}")
+
+
     # Utilities
 
     def _initialize(self, gid):
