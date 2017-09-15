@@ -139,6 +139,27 @@ def find_user(guild, search, return_all=False):
         return final
 
 
+def find_role(guild, search, return_all=False):
+    """
+    Convenience function to find users via several checks.
+    :param guild: The discord.Guild object in which to search.
+    :param search: The search string.
+    :param return_all: Whether to return all roles that match the criteria or just the first one.
+    :return: discord.Role: The Role that matches the criteria, or none.
+    """
+    funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search,
+             lambda x: str(x).lower() == search.lower())
+    final = []
+    for func in funcs:
+        found = tuple(filter(func, guild.roles))
+        if found:
+            if return_all:
+                final += found
+            else:
+                return found[0]
+    if return_all:
+        return final
+
 async def respond(msg, response, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
@@ -270,7 +291,7 @@ class Command:
     """
 
     def __init__(self, name, *aliases, perms=set(), doc=None, syntax=None, priority=0, delcall=False,
-                 run_anywhere=False, category="other"):
+                 run_anywhere=False, bot_maintainers_only=False, category="other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
@@ -289,6 +310,7 @@ class Command:
         self.delcall = delcall
         self.run_anywhere = run_anywhere
         self.category = category
+        self.bot_maintainers_only = bot_maintainers_only
 
     def __call__(self, f):
         """
@@ -302,7 +324,11 @@ class Command:
             user_perms = msg.author.permissions_in(msg.channel)
             user_perms = {x for x, y in user_perms if y}
             try:
-                if not user_perms >= self.perms:
+                if not user_perms >= self.perms and msg.author.id \
+                        not in s.config_manager.config.get("bot_maintainers", []):
+                    raise PermissionError
+                if self.bot_maintainers_only and msg.author.id \
+                        not in s.config_manager.config.get("bot_maintainers", []):
                     raise PermissionError
                 return asyncio.ensure_future(f(s, msg))
             except PermissionError:

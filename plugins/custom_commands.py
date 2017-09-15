@@ -5,10 +5,11 @@ import datetime
 from asyncio import ensure_future, sleep
 from plugin_manager import BasePlugin
 import discord.utils
+from io import BytesIO
 
 from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
 from rs_utils import respond, Command, DotDict, find_user, is_positive
-from discord import Embed
+from discord import Embed, File
 from discord.errors import Forbidden
 
 
@@ -131,11 +132,10 @@ class CustomCommands(BasePlugin):
         else:
             t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
 
-            if ("bot_maintainers" in self.config_manager.config and msg.author.id not in
-                self.config_manager.config.bot_maintainers) or "bot_maintainers" not in self.config_manager.config:
-                if t_count >= self.plugin_config[gid]["cc_limit"] \
-                        and not msg.author.permissions_in(msg.channel).manage_messages:
-                    raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
+            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and\
+                    not msg.author.permissions_in(msg.channel).manage_messages and\
+                    t_count >= self.plugin_config[gid]["cc_limit"]:
+                raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
             newcc = {
                 "name": name,
                 "content": content,
@@ -149,6 +149,33 @@ class CustomCommands(BasePlugin):
             self.ccs[gid][args[0].lower()] = newcc
             self._save_ccs()
             await respond(msg, f"**ANALYSIS: Custom command {name} created successfully.**")
+
+    @Command("dumpcc",
+             doc="Uploads the contents of the specified custom command as a text file.",
+             syntax="(name)",
+             category="custom_commands")
+    async def _dumpcc(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+            raise UserPermissionError("You are banned from editing custom commands.")
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        args = msg.content.split(" ", 1)
+        if len(args) < 2:
+            raise CommandSyntaxError("No name provided.")
+        name = args[1].lower()
+        if name in self.ccs[gid]:
+            t_cc = {
+                "name": name,
+                "content": self.ccs[gid][name]["content"]
+            }
+            t_cc = json.dumps(t_cc, indent=2, ensure_ascii=False)
+            async with msg.channel.typing():
+                await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
+                              file=File(BytesIO(bytes(t_cc, encoding="utf-8")), filename=name+".json"))
+        else:
+            raise CommandSyntaxError("No such custom command.")
 
     @Command("editcc",
              doc="Edits a custom command you created.",
@@ -379,7 +406,7 @@ class CustomCommands(BasePlugin):
              perms={"manage_messages"})
     async def _listccban(self, msg):
         gid = str(msg.guild.id)
-        self.initialize(gid)
+        self._initialize(gid)
 
         t_dict = {}
 
