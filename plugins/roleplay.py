@@ -115,6 +115,8 @@ class Roleplay(BasePlugin):
                           f"getting {t_res}.**{t_r_s}")
 
     @Command("racerole",
+             doc="Adds or removes roles from the list of race roles that are searched by the bio command.",
+             syntax="add/remove (role mentions)",
              perms={"manage_messages"},
              category="role_play")
     async def _racerole(self, msg):
@@ -153,6 +155,16 @@ class Roleplay(BasePlugin):
                 raise CommandSyntaxError(f"Unsupported mode {args[1].lower()}.")
 
     @Command("bio",
+             doc="Adds, edits, prints, dumps or deletes character bios.\n"
+                 "Each character name must be unique.\n"
+                 "Fields: race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
+                 "appearance/equipment/skills/personality/backstory/interests: limit 1024 characters.\n"
+                 "Setting 'race' to the same name as a registered character role will fetch the colour.\n"
+                 "Be aware that the total length of the bio must not exceed 6000 characters.",
+             syntax="\nediting/creating : (name) set (field) [value]\n"
+                    "printing : (name)\n"
+                    "dumping : (name) dump\n"
+                    "deleting: (name) delete",
              category="role_play",
              run_anywhere=True)
     async def _bio(self, msg):
@@ -250,6 +262,8 @@ class Roleplay(BasePlugin):
                                                      f"Maximum length is 64 characters.")
                         bio[t_field] = args[4]
                         await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
+            elif t_field not in self.fields:
+                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields)}")
             self._save_bios()
 
     # util commands
