@@ -12,6 +12,9 @@ from traceback import format_tb
 
 class ConsoleListener(BasePlugin):
     name = "console"
+    default_config = {
+        "allow_stdout_logging": False
+    }
 
 
     async def activate(self):
@@ -29,11 +32,14 @@ class ConsoleListener(BasePlugin):
             "help": self._help,
             "exec": self._exec
         }
-        base_logger = logging.getLogger()
-        self.logger.info("Disabling STDOUT logger and starting console...")
-        for h in base_logger.handlers:
-            if isinstance(h, logging.StreamHandler):
-                base_logger.removeHandler(h)
+        if not self.plugin_config.allow_stdout_logging:
+            base_logger = logging.getLogger()
+            self.logger.info("Disabling STDOUT logger and starting console...")
+            for h in base_logger.handlers:
+                if isinstance(h, logging.StreamHandler):
+                    base_logger.removeHandler(h)
+        else:
+            self.logger.info("Starting console...")
         self.task = asyncio.ensure_future(self._listen())
 
     async def deactivate(self):
