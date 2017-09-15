@@ -291,7 +291,7 @@ class Command:
     """
 
     def __init__(self, name, *aliases, perms=set(), doc=None, syntax=None, priority=0, delcall=False,
-                 run_anywhere=False, category="other"):
+                 run_anywhere=False, bot_maintainers_only=False, category="other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
@@ -310,6 +310,7 @@ class Command:
         self.delcall = delcall
         self.run_anywhere = run_anywhere
         self.category = category
+        self.bot_maintainers_only = bot_maintainers_only
 
     def __call__(self, f):
         """
@@ -323,7 +324,11 @@ class Command:
             user_perms = msg.author.permissions_in(msg.channel)
             user_perms = {x for x, y in user_perms if y}
             try:
-                if not user_perms >= self.perms:
+                if not user_perms >= self.perms and msg.author.id \
+                        not in s.config_manager.config.get("bot_maintainers", []):
+                    raise PermissionError
+                if self.bot_maintainers_only and msg.author.id \
+                        not in s.config_manager.config.get("bot_maintainers", []):
                     raise PermissionError
                 return asyncio.ensure_future(f(s, msg))
             except PermissionError:

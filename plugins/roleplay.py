@@ -16,6 +16,7 @@ class Roleplay(BasePlugin):
     mandatory_fields = ["name", "race", "gender", "appearance", "backstory"]
     default_config = {
         "bio_file": "config/bios.json",
+        "allow_race_requesting": False,
         "default": {
             "race_roles": []
         }
@@ -201,7 +202,7 @@ class Roleplay(BasePlugin):
                 if t_name in self.bios[gid]:
                     if self.bios[gid][t_name].get("author", 0) == msg.author.id or \
                             msg.author.permissions_in(msg.channel).manage_messages or \
-                                    msg.author.id in self.config_manager.config.get("bot_maintainers", []):
+                            msg.author.id in self.config_manager.config.get("bot_maintainers", []):
                         del self.bios[gid][t_name]
                         await respond(msg, f"**AFFIRMATIVE. Character bio {args[1]} was deleted.**")
                     else:
