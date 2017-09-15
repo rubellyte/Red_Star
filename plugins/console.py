@@ -3,20 +3,15 @@ import sys
 import shlex
 import re
 import json
+import logging
 from plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
 from rs_errors import ConsoleCommandSyntaxError
+from discord import NotFound, Forbidden
 
 
 class ConsoleListener(BasePlugin):
     name = "console"
-    docstring = "This is the terminal control plugin.\n" \
-                "Current commands:\n" \
-                "shutdown: shuts bot down\n" \
-                "guilds: lists all the servers the bot is currently connected to\n" \
-                "get_config: pretty-prints a value from a desired path. " \
-                "Can substitute guild id with <server(number)>\n" \
-                "help: you are reading it right now"
 
 
     async def activate(self):
@@ -28,9 +23,17 @@ class ConsoleListener(BasePlugin):
             "shutdown": self._shutdown,
             "guilds": self._guilds,
             "channels": self._channels,
+            "read": self._read,
             "say": self._say,
-            "help": self._help
+            "delete_msg": self._delete_msg,
+            "help": self._help,
+            "exec": self._exec
         }
+        base_logger = logging.getLogger()
+        self.logger.info("Disabling STDOUT logger and starting console...")
+        for h in base_logger.handlers:
+            if isinstance(h, logging.StreamHandler):
+                base_logger.removeHandler(h)
         self.task = asyncio.ensure_future(self._listen())
 
     async def deactivate(self):
@@ -42,7 +45,7 @@ class ConsoleListener(BasePlugin):
 
     async def _readline(self):
         loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, sys.stdin.readline)
+        data = await loop.run_in_executor(None, input, ">> ")
         if not isinstance(data, str):
             data = data.decode(encoding="utf-8")
         self.eof = not data
@@ -77,11 +80,20 @@ class ConsoleListener(BasePlugin):
     # Console command functions
 
     async def _shutdown(self, args):
+        """
+        Shuts down the bot.
+        Syntax: shutdown
+        """
         self.logger.info("Shutdown called from console.")
         self.run_loop = False
         await self.client.stop_bot()
 
     async def _get_config_cmd(self, args):
+        """
+        Retrieves the specified config key, or all of the config if none specified.
+        Use <guildX>, where X is the index of a guild as shown in 'guilds', to substitute in a guild's ID.
+        Syntax: get_config [path]
+        """
         if args:
             path = " ".join(args)
         else:
@@ -91,7 +103,7 @@ class ConsoleListener(BasePlugin):
     def _get_config(self, path=None):
         conf = self.config_manager.config
         if path and path != "/":
-            pattern = re.compile("<server(\d+)>")
+            pattern = re.compile("<guild(\d+)>")
 
             t_s = pattern.search(path)
             if t_s:
@@ -125,6 +137,12 @@ class ConsoleListener(BasePlugin):
             return conf
 
     async def _set_config(self, args):
+        """
+        Sets the specified config key to the specified value, or all of the config if none specified.
+        Use <guildX>, where X is the index of a guild as shown in 'guilds', to substitute in a guild's ID.
+        An optional third argument, type, can be used to set to a specific type of value.
+        Syntax: set_config (path) (value) [type]
+        """
         if len(args) not in [2, 3]:
             print("Useage : set_config (path) (value) [type]")
         t_path = args[0].lower().split("/")
@@ -222,10 +240,18 @@ class ConsoleListener(BasePlugin):
             self.config_manager.save_config()
 
     async def _guilds(self, args):
+        """
+        Prints the list of guilds the bot is in, with numbers usable for addressing them in other commands.
+        Syntax: guilds
+        """
         for i, guild in enumerate(self.client.guilds):
             print(f"{i:02d} : {guild.name[:40].ljust(40)} : {guild.id}")
 
     async def _channels(self, args):
+        """
+        Prints the list of channels in the specified guild, with numbers usable for addressing them in other commands.
+        Syntax: channels (guild)
+        """
         try:
             server_index = int(args[0])
             if server_index < 0:
@@ -241,7 +267,44 @@ class ConsoleListener(BasePlugin):
         for i, chan in enumerate(srv.text_channels):
             print(f"{i:02d} : {chan.name[:40].ljust(40)} : {chan.id}")
 
+    async def _read(self, args):
+        """
+        Reads the last x messages from the specified guild and channel and prints them.
+        Syntax: read (guild.channel) (amount)
+        """
+        try:
+            chanstr = args[0]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("No arguments provided.")
+        try:
+            count = int(args[1])
+            if count < 1:
+                raise ValueError
+        except ValueError:
+            raise ConsoleCommandSyntaxError("Invalid amount.")
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Missing amount argument.")
+        try:
+            guild, chan = re.match(r"(\d+).(\d+)", chanstr).group(1, 2)
+        except AttributeError:
+            raise ConsoleCommandSyntaxError("Invalid indices string.")
+        try:
+            guild = self.client.guilds[int(guild)]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Invalid guild index.")
+        try:
+            chan = guild.text_channels[int(chan)]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Invalid channel index.")
+        print(f"Last {count} messages in channel {chan.name}:")
+        async for msg in chan.history(limit=count, reverse=True):
+            print(f"{msg.author} @ {msg.created_at.strftime('%H:%M:%S')}: {msg.clean_content} [{msg.id}]")
+
     async def _say(self, args):
+        """
+        Sends the given text to the specified guild and channel.
+        Syntax: say (guild.channel) (text)
+        """
         try:
             chanstr = args.pop(0)
         except IndexError:
@@ -263,5 +326,72 @@ class ConsoleListener(BasePlugin):
             raise ConsoleCommandSyntaxError("Invalid channel index.")
         await chan.send(res)
 
+    async def _delete_msg(self, args):
+        """
+        Deletes the given message.
+        Syntax: delete_msg (id)
+        """
+        try:
+            chanstr = args[0]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("No arguments provided.")
+        try:
+            id = int(args[1])
+            if id < 1:
+                raise ValueError
+        except ValueError:
+            raise ConsoleCommandSyntaxError("Invalid amount.")
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Missing amount argument.")
+        try:
+            guild, chan = re.match(r"(\d+).(\d+)", chanstr).group(1, 2)
+        except AttributeError:
+            raise ConsoleCommandSyntaxError("Invalid indices string.")
+        try:
+            guild = self.client.guilds[int(guild)]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Invalid guild index.")
+        try:
+            chan = guild.text_channels[int(chan)]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Invalid channel index.")
+        try:
+            msg = chan.get_message(id)
+        except NotFound:
+            raise ConsoleCommandSyntaxError(f"Message with ID {id} not found.")
+        try:
+            await msg.delete()
+        except Forbidden:
+            raise ConsoleCommandSyntaxError("Cannot delete message; no permissions.")
+
     async def _help(self, args):
-        print(self.docstring)
+        """
+        Displays information on a specified command, or lists all available commands.
+        Syntax: help [command]
+        """
+        if args:
+            cmd = args[0].lower()
+            try:
+                doc = self.con_commands[cmd].__doc__
+                if not doc:
+                    raise AttributeError
+                print(doc)
+            except KeyError:
+                print(f"No such command {cmd}. Use 'help' to list available commands.")
+            except AttributeError:
+                print(f"Command {cmd} has no documentation.")
+        else:
+            cmds = ", ".join(self.con_commands.keys())
+            print(f"Available commands:\n{cmds}")
+
+    async def _exec(self, args):
+        """
+        Executes a code snippet in the plugin's context. This is *not* a function; return cannot be used.
+        Be careful with this, you can break things pretty badly!
+        Syntax: exec (code)
+        """
+        cmd = " ".join(args)
+        try:
+            exec(cmd)
+        except Exception as e:
+            raise ConsoleCommandSyntaxError(e)
