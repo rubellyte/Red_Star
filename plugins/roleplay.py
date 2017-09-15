@@ -315,6 +315,63 @@ class Roleplay(BasePlugin):
                 raise CommandSyntaxError(f"Available fields: {', '.join(self.fields)}.")
             self._save_bios()
 
+    @Command("uploadbio",
+             doc="Parses a json file to update/create character bios.\n"
+                 "See output of !bio (charname) dump for more details on file formatting.",
+             syntax="(attach the file to the message, no arguments required)",
+             category="role_play")
+    async def _uploadbio(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        if msg.attachments:
+            t_file = BytesIO()
+            await msg.attachments[0].save(t_file)
+            try:
+                t_data = json.loads(t_file.getvalue().decode())
+            except:
+                raise CommandSyntaxError("Not a valid JSON file.")
+
+            if "name" not in t_data:
+                raise CommandSyntaxError("Not a valid character file: No name.")
+
+            t_bio = {}
+
+            for field in self.fields:
+                t_field = t_data.get(field,"")
+                if t_field:
+                    t_len = len(t_field)
+                    if field in ["name","race", "gender", "height", "age"] and t_len > 64:
+                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
+                    elif field in ["link", "theme"] and t_len > 256:
+                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
+                    elif t_len > 1024:
+                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 1024 chars).")
+                    t_bio[field] = t_field
+
+            t_name = t_bio["name"].lower()
+            if t_name in self.bios[gid]:
+                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                    raise PermissionError("Character belongs to other user.")
+            else:
+                self.bios[gid][t_name] = {
+                    "author": msg.author.id,
+                    "name": t_bio["name"],
+                    "race": "undefined",
+                    "gender": "undefined",
+                    "appearance": "undefined",
+                    "backstory": "undefined"
+                }
+                for f in self.fields:
+                    if f not in self.bios[gid][t_name]:
+                        self.bios[gid][t_name][f] = ""
+                await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
+                self._save_bios()
+            for field, value in t_bio.items():
+                self.bios[gid][t_name][field] = value
+            self._save_bios()
+            await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+
+
     # util commands
 
     def _initialize(self, gid):
