@@ -2,6 +2,7 @@ import inspect
 import logging
 import importlib
 import asyncio
+from sys import exc_info
 from rs_utils import DotDict, Cupboard
 
 
@@ -18,6 +19,7 @@ class PluginManager:
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.shelve_path = self.config_manager.config.shelve_path
         self.shelve = None
+        self.last_error = None
         asyncio.ensure_future(self._write_to_shelve())
 
     def __repr__(self):
@@ -93,17 +95,23 @@ class PluginManager:
         to_load = self.config_manager.config.disabled_plugins
         for n, plugin in self.plugins.items():
             if n not in self.active_plugins and n not in to_load:
-                self.logger.info("Activated " + plugin.name)
-                await plugin.activate()
-                self.active_plugins[n] = plugin
+                self.logger.info("Activating " + plugin.name)
+                try:
+                    await plugin.activate()
+                    self.active_plugins[n] = plugin
+                except Exception:
+                    self.logger.exception(f"Error occurred while activating plugin {plugin.name}: ", exc_info=True)
         await self.hook_event("on_all_plugins_loaded")
 
     async def deactivate_all(self):
         self.logger.info("Deactivating plugins.")
         for n, plugin in self.plugins.items():
             if n in self.active_plugins:
-                self.logger.info("Deactivated " + plugin.name)
-                await plugin.deactivate()
+                self.logger.info("Deactivating " + plugin.name)
+                try:
+                    await plugin.deactivate()
+                except Exception:
+                    self.logger.exception(f"Error occurred while deactivating plugin {plugin.name}: ", exc_info=True)
                 del self.active_plugins[n]
 
     async def activate(self, name):
@@ -111,9 +119,12 @@ class PluginManager:
             plg = self.plugins[name]
             if name not in self.active_plugins:
                 self.logger.info(f"Activating plugin {name}.")
-                await plg.activate()
-                self.active_plugins[name] = plg
-                await self.hook_event("on_plugin_activated", name)
+                try:
+                    await plg.activate()
+                    self.active_plugins[name] = plg
+                    await self.hook_event("on_plugin_activated", name)
+                except Exception:
+                    self.logger.exception(f"Error occurred while activating plugin {name}: ", exc_info=True)
             else:
                 self.logger.warning(f"Attempted to activate already active plugin {name}.")
         except KeyError:
@@ -124,7 +135,10 @@ class PluginManager:
             plg = self.plugins[name]
             if name in self.active_plugins:
                 self.logger.info(f"Deactivating plugin {name}.")
-                await plg.deactivate()
+                try:
+                    await plg.deactivate()
+                except Exception:
+                    self.logger.exception(f"Error occurred while deactivating plugin {name}: ", exc_info=True)
                 del self.active_plugins[name]
                 await self.hook_event("on_plugin_deactivated", name)
             else:
@@ -146,6 +160,7 @@ class PluginManager:
                 try:
                     await hook(*args, **kwargs)
                 except Exception:
+                    self.last_error = exc_info()
                     self.logger.exception(f"Exception encountered in plugin {plugin.name} on event {event}: ",
                                           exc_info=True)
 

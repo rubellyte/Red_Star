@@ -5,6 +5,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from config_manager import ConfigManager
 from plugin_manager import PluginManager
+from sys import exc_info
 from os import _exit
 
 
@@ -26,6 +27,7 @@ class RedStar(discord.AutoShardedClient):
         self.plugin_manager.final_load()
         self.logged_in = False
         self.server_ready = False
+        self.last_error = None
         asyncio.ensure_future(self.start_bot())
 
     async def start_bot(self):
@@ -52,6 +54,11 @@ class RedStar(discord.AutoShardedClient):
         await self.logout()
         self.logger.info("Quitting now.")
         _exit(0)
+
+    async def on_error(self, event_method, *args, **kwargs):
+        exc = exc_info()
+        self.last_error = exc
+        self.logger.exception(f"Unhandled {exc.type} occurred in {event_method}: ", exc_info=True)
 
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")

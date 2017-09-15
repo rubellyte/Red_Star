@@ -3,6 +3,7 @@ from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, UserPermissionError
 from rs_utils import Command, respond, is_positive
 from discord import InvalidArgument
+from traceback import format_tb
 
 
 class BotManagement(BasePlugin):
@@ -256,3 +257,27 @@ class BotManagement(BasePlugin):
             raise CommandSyntaxError(f"{args[0]} is an object or array.")
         self.config_manager.save_config()
         await respond(msg, f"**ANALYSIS: Config value {args[0]} edited to** `{value}` **successfully.**")
+
+    @Command("last_error",
+             doc="Gets the last error to occur in the specified context.",
+             syntax="(command/event/unhandled)",
+             category="bot_management",
+             perms={"manage_guild"})
+    async def _last_error(self, msg):
+        try:
+            args = msg.clean_content.split(" ", 1)[1].lower()
+        except IndexError:
+            raise CommandSyntaxError("No error context specified.")
+        if args == "command":
+            e = self.plugins.command_dispatcher.last_error
+        elif args == "event":
+            e = self.plugin_manager.last_error
+        elif args == "unhandled":
+            e = self.client.last_error
+        else:
+            raise CommandSyntaxError("Invalid error context.")
+        if e:
+            excstr = "\n".join(format_tb(e[2]))
+            await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{excstr}\n```")
+        else:
+            await respond(msg, f"**ANALYSIS: No error in context {args}.**")

@@ -1,5 +1,6 @@
 import inspect
 from asyncio import sleep
+from sys import exc_info
 from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
@@ -17,6 +18,7 @@ class CommandDispatcher(BasePlugin):
 
     async def activate(self):
         self.commands = {}
+        self.last_error = None
 
     async def on_all_plugins_loaded(self):
         for plugin in self.plugins.values():
@@ -116,6 +118,7 @@ class CommandDispatcher(BasePlugin):
         except ChannelNotFoundError as e:
             await respond(msg, f"**NEGATIVE. Channel type `{e}` is not set on this server.**")
         except Exception:
+            self.last_error = exc_info()
             self.logger.exception("Exception occurred in command. ", exc_info=True)
             await respond(msg, "**WARNING: Error occurred while running command.**")
 
