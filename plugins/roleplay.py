@@ -125,7 +125,7 @@ class Roleplay(BasePlugin):
         self._initialize(gid)
         args = msg.content.split()
         if len(args) < 2:
-            t_r = "**ANALYSIS: Current race roles registered:**\n```\n"
+            t_r = "**ANALYSIS: Currently approved race roles:**\n```\n"
             for t_role in msg.guild.roles:
                 if t_role.id in self.plugin_config[gid]["race_roles"]:
                     t_s = f"{t_role.name}\n"
@@ -182,6 +182,26 @@ class Roleplay(BasePlugin):
                     raise CommandSyntaxError("Not an approved race role.")
             else:
                 raise CommandSyntaxError("Not a role or role not found.")
+
+    @Command("listraceroles",
+             doc="Lists all approved race roles.",
+             category="role_play")
+    async def _listraceroles(self, msg):
+        if not self.plugin_config.get("allow_race_requesting", False):
+            return
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        t_r = "**ANALYSIS: Currently approved race roles:**\n```\n"
+        for t_role in msg.guild.roles:
+            if t_role.id in self.plugin_config[gid]["race_roles"]:
+                t_s = f"{t_role.name}\n"
+                if len(t_r)+len(t_s) > 1997:
+                    await respond(msg, t_r+"```")
+                    t_r = t_s
+                else:
+                    t_r += t_s
+        await respond(msg, t_r+"```")
+
 
     @Command("bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
