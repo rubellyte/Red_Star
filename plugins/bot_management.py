@@ -281,3 +281,7 @@ class BotManagement(BasePlugin):
             await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{excstr}\n```")
         else:
             await respond(msg, f"**ANALYSIS: No error in context {args}.**")
+
+    @Command("test")
+    async def _test(self, msg):
+        raise RuntimeError
