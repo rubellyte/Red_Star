@@ -57,62 +57,62 @@ class Roleplay(BasePlugin):
             t_die = min(max(int(d_data.group(2)), 2), 10000)
             if d_data.group(3):
                 t_bonus = int(d_data.group(3))
-                t_b = f" with a {t_bonus} modifier"
+                t_bonus_string = f" with a {t_bonus} modifier"
             else:
                 t_bonus = 0
-                t_b = ""
+                t_bonus_string = ""
             t_adv = d_data.group(4)
             if t_adv == 'a':
                 t_s = "an advantageous"
-                t_1 = t_2 = 0
-                t_s1 = t_s2 = ""
+                t_roll_1 = t_roll_2 = 0
+                t_roll_string_1 = t_roll_string_2 = ""
                 for i in range(t_num):
-                    t_r = randint(1, t_die)
-                    t_1 += t_r
-                    t_s1 += f"[{t_r}] "
-                    t_r = randint(1, t_die)
-                    t_2 += t_r
-                    t_s2 += f"[{t_r}] "
-                if t_1 > t_2:
-                    t_res = t_1 + t_bonus
-                    t_r_s = t_s1
+                    t_roll = randint(1, t_die)
+                    t_roll_1 += t_roll
+                    t_roll_string_1 += f"[{t_roll}] "
+                    t_roll = randint(1, t_die)
+                    t_roll_2 += t_roll
+                    t_roll_string_2 += f"[{t_roll}] "
+                if t_roll_1 > t_roll_2:
+                    t_res = t_roll_1 + t_bonus
+                    t_roll_string = t_roll_string_1
                 else:
-                    t_res = t_2 + t_bonus
-                    t_r_s = t_s2
+                    t_res = t_roll_2 + t_bonus
+                    t_roll_string = t_roll_string_2
             elif t_adv == 'd':
                 t_s = "a disadvantageous"
-                t_1 = t_2 = 0
-                t_s1 = t_s2 = ""
+                t_roll_1 = t_roll_2 = 0
+                t_roll_string_1 = t_roll_string_2 = ""
                 for i in range(t_num):
-                    t_r = randint(1, t_die)
-                    t_1 += t_r
-                    t_s1 += f"[{t_r}] "
-                    t_r = randint(1, t_die)
-                    t_2 += t_r
-                    t_s2 += f"[{t_r}] "
-                if t_1 < t_2:
-                    t_res = t_1 + t_bonus
-                    t_r_s = t_s1
+                    t_roll = randint(1, t_die)
+                    t_roll_1 += t_roll
+                    t_roll_string_1 += f"[{t_roll}] "
+                    t_roll = randint(1, t_die)
+                    t_roll_2 += t_roll
+                    t_roll_string_2 += f"[{t_roll}] "
+                if t_roll_1 < t_roll_2:
+                    t_res = t_roll_1 + t_bonus
+                    t_roll_string = t_roll_string_1
                 else:
-                    t_res = t_2 + t_bonus
-                    t_r_s = t_s2
+                    t_res = t_roll_2 + t_bonus
+                    t_roll_string = t_roll_string_2
             else:
                 t_s = "a"
                 t_res = 0
-                t_r_s = ""
+                t_roll_string = ""
                 for i in range(t_num):
-                    t_r = randint(1, t_die)
-                    t_res += t_r
-                    t_r_s += f"[{t_r}] "
+                    t_roll = randint(1, t_die)
+                    t_res += t_roll
+                    t_roll_string += f"[{t_roll}] "
 
             if t_num > 1:
-                t_r_s = f"\n**ANALYSIS: Rolled dice:** `{t_r_s}`"
+                t_roll_string = f"\n**ANALYSIS: Rolled dice:** `{t_roll_string}`"
             else:
-                t_r_s = ""
+                t_roll_string = ""
 
             await respond(msg,
-                          f"**ANALYSIS: {msg.author.display_name} has attempted {t_s} {t_num}D{t_die} roll{t_b}, "
-                          f"getting {t_res}.**{t_r_s}")
+                          f"**ANALYSIS: {msg.author.display_name} has attempted {t_s} "
+                          f"{t_num}D{t_die} roll{t_bonus_string}, getting {t_res}.**{t_roll_string}")
 
     @Command("racerole",
              doc="Adds or removes roles from the list of race roles that are searched by the bio command.",
@@ -161,9 +161,9 @@ class Roleplay(BasePlugin):
                  "appearance/equipment/skills/personality/backstory/interests: limit 1024 characters.\n"
                  "Setting 'race' to the same name as a registered character role will fetch the colour.\n"
                  "Be aware that the total length of the bio must not exceed 6000 characters.",
-             syntax="\nediting/creating : (name) set (field) [value]\n"
-                    "printing : (name)\n"
-                    "dumping : (name) dump\n"
+             syntax="\nediting/creating: (name) set (field) [value]\n"
+                    "printing: (name)\n"
+                    "dumping: (name) dump\n"
                     "deleting: (name) delete",
              category="role_play",
              run_anywhere=True)
@@ -187,7 +187,7 @@ class Roleplay(BasePlugin):
             raise CommandSyntaxError(e)
 
         if len(args) < 2:
-            raise CommandSyntaxError("At least one argument required")
+            raise CommandSyntaxError("At least one argument required.")
 
         t_name = args[1].lower()
 
@@ -195,7 +195,7 @@ class Roleplay(BasePlugin):
             if t_name in self.bios[gid]:
                 await respond(msg, None, embed=self._print_bio(msg.guild, t_name))
             else:
-                raise CommandSyntaxError(f"No such character {args[1]}")
+                raise CommandSyntaxError(f"No such character {args[1]}.")
         elif len(args) == 3:
             if args[2].lower() == "delete":
                 if t_name in self.bios[gid]:
@@ -207,7 +207,7 @@ class Roleplay(BasePlugin):
                     else:
                         raise UserPermissionError("Character belongs to other user.")
                 else:
-                    raise CommandSyntaxError(f"No such character {args[1]}")
+                    raise CommandSyntaxError(f"No such character {args[1]}.")
                 self._save_bios()
             elif args[2].lower() == "dump":
                 if t_name in self.bios[gid]:
@@ -218,7 +218,7 @@ class Roleplay(BasePlugin):
                         await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
                                       file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name+".json"))
                 else:
-                    raise CommandSyntaxError(f"No such character {args[1]}")
+                    raise CommandSyntaxError(f"No such character {args[1]}.")
 
         elif len(args) >= 4 and args[2].lower() == "set":
             if t_name in self.bios[gid]:
@@ -263,7 +263,7 @@ class Roleplay(BasePlugin):
                         bio[t_field] = args[4]
                         await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
             elif t_field not in self.fields:
-                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields)}")
+                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields)}.")
             self._save_bios()
 
     # util commands

@@ -151,9 +151,9 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**ANALYSIS: Custom command {name} created successfully.**")
 
     @Command("dumpcc",
-             doc="Uploads the custom command code as a text file.",
+             doc="Uploads the contents of the specified custom command as a text file.",
              syntax="(name)",
-             category="cuatom_commands")
+             category="custom_commands")
     async def _dumpcc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
