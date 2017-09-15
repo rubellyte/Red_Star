@@ -139,6 +139,27 @@ def find_user(guild, search, return_all=False):
         return final
 
 
+def find_role(guild, search, return_all=False):
+    """
+    Convenience function to find users via several checks.
+    :param guild: The discord.Guild object in which to search.
+    :param search: The search string.
+    :param return_all: Whether to return all roles that match the criteria or just the first one.
+    :return: discord.Role: The Role that matches the criteria, or none.
+    """
+    funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search,
+             lambda x: str(x).lower() == search.lower())
+    final = []
+    for func in funcs:
+        found = tuple(filter(func, guild.roles))
+        if found:
+            if return_all:
+                final += found
+            else:
+                return found[0]
+    if return_all:
+        return final
+
 async def respond(msg, response, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
