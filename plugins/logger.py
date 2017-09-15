@@ -157,12 +157,14 @@ class DiscordLogger(BasePlugin):
             if args[1].lower() == "remove":
                 if args[2].lower() not in cfg:
                     cfg.append(args[2].lower())
+                    self.config_manager.save_config()
                     await respond(msg, f"**ANALYSIS: No longer logging events of type {args[2].lower()}.**")
                 else:
                     await respond(msg, f"**ANALYSIS: Event type {args[2].lower()} is already disabled.**")
             elif args[1].lower() == "add":
                 if args[2].lower() in cfg:
                     cfg.remove(args[2].lower())
+                    self.config_manager.save_config()
                     await respond(msg, f"**ANALYSIS: Now logging events of type {args[2].lower()}.**")
                 else:
                     await respond(msg, f"**ANALYSIS: Event type {args[2].lower()} is already logged.**")
