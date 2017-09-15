@@ -155,6 +155,34 @@ class Roleplay(BasePlugin):
             else:
                 raise CommandSyntaxError(f"Unsupported mode {args[1].lower()}.")
 
+    @Command("getracerole",
+             doc="Allows the user to request one of the approved race roles for themselves.",
+             syntax="(role)",
+             category="role_play")
+    async def _getracerole(self, msg):
+        if not self.plugin_config.get("allow_race_requesting", False):
+            return
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        args = msg.content.split(" ", 1)
+        t_role_list = []
+        for role in msg.author.roles:
+            if role.id in self.plugin_config[gid]["race_roles"]:
+                t_role_list.append(role)
+        await msg.author.remove_roles(*t_role_list)
+        if len(args) < 2:
+            await respond(msg, "**AFFIRMATIVE. Race role removed.**")
+        else:
+            t_role = find_role(msg.guild, args[1])
+            if t_role:
+                if t_role.id in self.plugin_config[gid]["race_roles"]:
+                    await msg.author.add_roles(t_role)
+                    await respond(msg, f"**AFFIRMATIVE. Race role {str(t_role)} granted.**")
+                else:
+                    raise CommandSyntaxError("Not an approved race role.")
+            else:
+                raise CommandSyntaxError("Not a role or role not found.")
+
     @Command("bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
                  "Each character name must be unique.\n"
