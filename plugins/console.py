@@ -7,6 +7,7 @@ from plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
 from rs_errors import ConsoleCommandSyntaxError
 from discord import NotFound, Forbidden
+from traceback import format_tb
 
 
 class ConsoleListener(BasePlugin):
@@ -394,3 +395,22 @@ class ConsoleListener(BasePlugin):
             exec(cmd)
         except Exception as e:
             raise ConsoleCommandSyntaxError(e)
+
+    async def _last_error(self, args):
+        try:
+            args = args[0]
+        except IndexError:
+            raise ConsoleCommandSyntaxError("No error context specified.")
+        if args == "command":
+            e = self.plugins.command_dispatcher.last_error
+        elif args == "event":
+            e = self.plugin_manager.last_error
+        elif args == "unhandled":
+            e = self.client.last_error
+        else:
+            raise ConsoleCommandSyntaxError("Invalid error context.")
+        if e:
+            excstr = "\n".join(format_tb(e[2]))
+            print(f"Last error in context {args}:\n{excstr}")
+        else:
+            print(f"No error in context {args}.")
