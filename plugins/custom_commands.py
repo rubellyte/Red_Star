@@ -52,6 +52,17 @@ class CustomCommands(BasePlugin):
             "noembed": self._noembed,
             "transcode": self._transcode
         }
+        v_tags = {
+            "args": self._valid_args,
+            "username": self._valid_username,
+            "usernick": self._valid_username,
+            "choice": self._valid_choice,
+            "random": self._valid_random,
+            "randint": self._valid_randint,
+            "embed": self._valid_embed
+        }
+        self.validator_tags = self.tags.copy()
+        self.validator_tags.update(v_tags)
         self.ccvars = {}
         try:
             with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
@@ -117,26 +128,41 @@ class CustomCommands(BasePlugin):
         self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from creating custom commands.")
-        try:
-            args = msg.clean_content.split(" ")[1:]
-            name = args[0].lower()
-        except IndexError:
-            raise CommandSyntaxError("No name provided.")
-        try:
-            content = " ".join(args[1:])
-        except IndexError:
-            raise CommandSyntaxError("No content provided.")
+        if msg.attachments:
+            fp = BytesIO()
+            await msg.attachments[0].save(fp)
+            self.logger.debug(fp.getvalue())
+            try:
+                jsdata = json.loads(fp.getvalue().decode())
+            except json.JSONDecodeError:
+                raise CommandSyntaxError("Uploaded file is not valid JSON!")
+            name = jsdata["name"].lower()
+            content = jsdata["content"]
+        else:
+            try:
+                args = msg.clean_content.split(" ")[1:]
+                name = args[0].lower()
+            except IndexError:
+                raise CommandSyntaxError("No name provided.")
+            try:
+                content = " ".join(args[1:])
+            except IndexError:
+                raise CommandSyntaxError("No content provided.")
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
-            await respond(msg, f"**WARNING: Custom command {args[0]} already exists.**")
+            await respond(msg, f"**WARNING: Custom command {name} already exists.**")
         else:
             t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and\
                     not msg.author.permissions_in(msg.channel).manage_messages and\
                     t_count >= self.plugin_config[gid]["cc_limit"]:
-                raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}")
+                raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}.")
+            valid, err = self.validate_cc(content, msg)
+            if not valid:
+                await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
+                return
             newcc = {
                 "name": name,
                 "content": content,
@@ -147,7 +173,7 @@ class CustomCommands(BasePlugin):
                 "restricted": [],
                 "times_run": 0
             }
-            self.ccs[gid][args[0].lower()] = newcc
+            self.ccs[gid][name] = newcc
             self._save_ccs()
             await respond(msg, f"**ANALYSIS: Custom command {name} created successfully.**")
 
@@ -187,20 +213,35 @@ class CustomCommands(BasePlugin):
         self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from editing custom commands.")
-        try:
-            args = msg.clean_content.split(" ")[1:]
-            name = args[0].lower()
-        except IndexError:
-            raise CommandSyntaxError("No name provided.")
-        try:
-            content = " ".join(args[1:])
-        except IndexError:
-            raise CommandSyntaxError("No content provided.")
+        if msg.attachments:
+            fp = BytesIO()
+            await msg.attachments[0].save(fp)
+            self.logger.debug(fp.getvalue())
+            try:
+                jsdata = json.loads(fp.getvalue().decode())
+            except json.JSONDecodeError:
+                raise CommandSyntaxError("Uploaded file is not valid JSON!")
+            name = jsdata["name"].lower()
+            content = jsdata["content"]
+        else:
+            try:
+                args = msg.clean_content.split(" ")[1:]
+                name = args[0].lower()
+            except IndexError:
+                raise CommandSyntaxError("No name provided.")
+            try:
+                content = " ".join(args[1:])
+            except IndexError:
+                raise CommandSyntaxError("No content provided.")
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
             ccdata = self.ccs[gid][name]
             if ccdata["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
+                valid, err = self.validate_cc(content, msg)
+                if not valid:
+                    await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
+                    return
                 ccdata["content"] = content
                 ccdata["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
                 self.ccs[gid][name] = ccdata
@@ -431,6 +472,15 @@ class CustomCommands(BasePlugin):
 
     # Custom command machinery
 
+    def validate_cc(self, cc, msg):
+        try:
+            res = self._find_tags(cc, msg, validate=True)
+        except CustomCommandSyntaxError as e:
+            return False, str(e)
+        if len(res) > 2000:
+            return False, "Custom command output exceeds 2000 characters."
+        return True, ""
+
     async def run_cc(self, cmd, msg):
         gid = str(msg.guild.id)
         if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
@@ -461,7 +511,7 @@ class CustomCommands(BasePlugin):
         with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
             json.dump(self.ccs, f, indent=2, ensure_ascii=False)
 
-    def _find_tags(self, text, msg):
+    def _find_tags(self, text, msg, validate=False):
         """
         Finds and processes tags, right-to-left, starting from the deepest ones.
         :param text: text of the custom command
@@ -484,14 +534,14 @@ class CustomCommands(BasePlugin):
                 t_lvl -= 1
                 if t_lvl < 0:
                     # not enough closing brackets
-                    raise CommandSyntaxError("Missing closing bracket!")
+                    raise CustomCommandSyntaxError("Missing closing bracket!")
                 else:
                     t_res.append(t_lst.pop())
             t_pos += 1
 
         if t_lvl > 0:
             # too many closing brackets
-            raise CommandSyntaxError("Missing opening bracket!")
+            raise CustomCommandSyntaxError("Missing opening bracket!")
 
         # last tags first because otherwise positions will shift
         t_res.sort(reverse=True)
@@ -500,16 +550,20 @@ class CustomCommands(BasePlugin):
             # find closest opening bracket
             e_pos = t_str[t_pos:].find("<") + t_pos
             # replace chunk of text with the parsed result
-            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg)[::-1] + t_str[e_pos + 1:]
+            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg, validate)[::-1] \
+                    + t_str[e_pos+ 1:]
 
         return t_str[::-1]
 
-    def _parse_tag(self, tag, msg):
+    def _parse_tag(self, tag, msg, validate=False):
         args = tag.split(":", 1)
         tag = args.pop(0)
         args = " ".join(args)
         if tag.lower() in self.tags:
-            return self.tags[tag](args, msg)
+            if validate:
+                return self.validator_tags[tag](args, msg)
+            else:
+                return self.tags[tag](args, msg)
         else:
             raise CustomCommandSyntaxError(f"No such tag {tag}!")
 
@@ -769,6 +823,126 @@ class CustomCommands(BasePlugin):
 
     def _noembed(self, args, msg):
         return f"<{args}>"
+
+    # CC validator tag functions
+
+    def _valid_args(self, args, msg):
+        split_args = ["Teststring"] * 10
+        if args.isdecimal():
+            try:
+                i = int(args) - 1
+                return split_args[i]
+            except ValueError:
+                raise CustomCommandSyntaxError("<args> argument is not an integer, slice or wildcard!")
+            except IndexError:
+                return ""
+        elif args == "*":
+            return " ".join(split_args)
+        elif args.startswith("*"):
+            try:
+                i = int(args[1:])
+            except ValueError:
+                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
+            return " ".join(split_args[:i])
+        elif args.endswith("*"):
+            try:
+                i = int(args[:-1]) - 1
+            except ValueError:
+                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
+            return " ".join(split_args[i:])
+        else:
+            raise CustomCommandSyntaxError("<args> argument is not a number or *!")
+
+    def _valid_username(self, args, msg):
+        return "12345678901234567890123456789012"
+
+    def _valid_choice(self, args, msg):
+        args = self._split_args(args)
+        try:
+            index = int(args.pop(0))
+        except ValueError:
+            raise CommandSyntaxError("First argument to <choice> must be integer.")
+        except IndexError:
+            raise CustomCommandSyntaxError("<choice> requires at least one argument!")
+        return max(args, key=len)
+
+    def _valid_random(self, args, msg):
+        args = self._split_args(args)
+        return max(args, key=len)
+
+    def _valid_randint(self, args, msg):
+        args = self._split_args(args)
+        try:
+            a = int(args[0])
+        except IndexError:
+            raise CustomCommandSyntaxError("<randint> requires at least one argument.")
+        except ValueError:
+            raise CommandSyntaxError("Arguments to <randint> must be integers.")
+        try:
+            b = int(args[1])
+        except IndexError:
+            b = 0
+        except ValueError:
+            raise CommandSyntaxError("Arguments to <randint> must be integers.")
+        return max(str(a), str(b), key=len)
+
+    def _valid_embed(self, args, msg):
+        t_args = self._split_args(args)
+        if t_args == ['']:
+            raise CustomCommandSyntaxError("<embed> tag needs arguments in arg=val format.")
+        t_embed = Embed(type="rich", colour=16711680)
+        t_post = False
+        total_len = 0
+        for arg in t_args:
+            t_arg = list(map(lambda x: x.replace("═", "="), arg.replace("\\=", "═").split("=")))
+            if len(t_arg) < 2:
+                continue
+            t_post = True
+            if t_arg[0].lower() == "!title":
+                t_embed.title = t_arg[1]
+                if len(t_arg[1]) > 256:
+                    raise CustomCommandSyntaxError("<embed> !title argument exceeds 256 characters.")
+                total_len += len(t_arg[1])
+            elif t_arg[0].lower() in ["!color", "!colour"]:
+                try:
+                    t_embed.colour = discord.Colour(int(t_arg[1], 16))
+                except:
+                    pass
+            elif t_arg[0].lower() == "!url":
+                t_embed.url = t_arg[1]
+                total_len += len(t_arg[1])
+            elif t_arg[0].lower() == "!thumbnail":
+                t_embed.set_thumbnail(url=t_arg[1])
+            elif t_arg[0].lower() == "!image":
+                t_embed.set_image(url=t_arg[1])
+            elif t_arg[0].lower() in ["!desc", "!description"]:
+                t_embed.description = t_arg[1]
+                if len(t_arg[1]) > 2048:
+                    raise CustomCommandSyntaxError("<embed> !description argument exceeds 2048 characters.")
+                total_len += len(t_arg[1])
+            elif t_arg[0].lower() == "!footer":
+                t_embed.set_footer(text=t_arg[1])
+                if len(t_arg[1]) > 2048:
+                    raise CustomCommandSyntaxError("<embed> !footer argument exceeds 2048 characters.")
+                total_len += len(t_arg[1])
+            else:
+                t_name = t_arg[0]
+                t_val = t_arg[1]
+                if len(t_arg) > 2:
+                    t_inline = is_positive(t_arg[2])
+                else:
+                    t_inline = False
+                if len(t_name) > 256:
+                    raise CustomCommandSyntaxError(f"<embed> {t_name} field name exceeds 256 characters.")
+                elif len(t_val) > 1024:
+                    raise CustomCommandSyntaxError(f"<embed> {t_name} field text exceeds 1024 characters.")
+                total_len += len(t_name) + len(t_val)
+                t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
+        if t_post:
+            if total_len > 6000:
+                raise CustomCommandSyntaxError("<embed> tag total text length exceeds 6000 characters.")
+        return ""
+
 
     # util functions
 
