@@ -40,81 +40,41 @@ class Roleplay(BasePlugin):
              category="role_play",
              run_anywhere=True)
     async def _roll(self, msg):
-        """
-        Roll a specified die with a specified bonus and advantage
-        :param msg:
-        :return:
-        """
-
         args = msg.content.split(" ", 1)
         if len(args) < 2:
             raise CommandSyntaxError("Needs an argument, dumbass.")
-        d_pattern = re.compile("(\d+|)d(\d+)(\+\d+|-\d+|)(a|d|)")
-        d_data = d_pattern.search(args[1].lower())
-        if d_data:
-            if d_data.group(1):
-                t_num = min(max(int(d_data.group(1)), 1), 10000)
+        dice_data = re.search(r"(\d+|)d(\d+)(\+\d+|-\d+|)(a|d|)", args[1].lower())
+        if dice_data:
+            if dice_data.group(1):
+                num_dice = min(max(int(dice_data.group(1)), 1), 10000)
             else:
-                t_num = 1
-            t_die = min(max(int(d_data.group(2)), 2), 10000)
-            if d_data.group(3):
-                t_bonus = int(d_data.group(3))
-                t_bonus_string = f" with a {t_bonus} modifier"
+                num_dice = 1
+            die_sides = min(max(int(dice_data.group(2)), 2), 10000)
+            if dice_data.group(3):
+                modif = int(dice_data.group(3))
+                modif_str = f" with a {'+' if modif > 0 else ''}{modif} modifier"
             else:
-                t_bonus = 0
-                t_bonus_string = ""
-            t_adv = d_data.group(4)
-            if t_adv == 'a':
-                t_s = "an advantageous"
-                t_roll_1 = t_roll_2 = 0
-                t_roll_string_1 = t_roll_string_2 = ""
-                for i in range(t_num):
-                    t_roll = randint(1, t_die)
-                    t_roll_1 += t_roll
-                    t_roll_string_1 += f"[{t_roll}] "
-                    t_roll = randint(1, t_die)
-                    t_roll_2 += t_roll
-                    t_roll_string_2 += f"[{t_roll}] "
-                if t_roll_1 > t_roll_2:
-                    t_res = t_roll_1 + t_bonus
-                    t_roll_string = t_roll_string_1
-                else:
-                    t_res = t_roll_2 + t_bonus
-                    t_roll_string = t_roll_string_2
-            elif t_adv == 'd':
-                t_s = "a disadvantageous"
-                t_roll_1 = t_roll_2 = 0
-                t_roll_string_1 = t_roll_string_2 = ""
-                for i in range(t_num):
-                    t_roll = randint(1, t_die)
-                    t_roll_1 += t_roll
-                    t_roll_string_1 += f"[{t_roll}] "
-                    t_roll = randint(1, t_die)
-                    t_roll_2 += t_roll
-                    t_roll_string_2 += f"[{t_roll}] "
-                if t_roll_1 < t_roll_2:
-                    t_res = t_roll_1 + t_bonus
-                    t_roll_string = t_roll_string_1
-                else:
-                    t_res = t_roll_2 + t_bonus
-                    t_roll_string = t_roll_string_2
+                modif = 0
+                modif_str = ""
+            t_adv = dice_data.group(4)
+            dice_set_a = [randint(1, die_sides) for i in range(num_dice)]
+            dice_set_b = [randint(1, die_sides) for i in range(num_dice)]
+            if t_adv == "a":
+                rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
+                advstr = "an advantageous"
+            elif t_adv == "d":
+                rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
+                advstr = "a disadvantageous"
             else:
-                t_s = "a"
-                t_res = 0
-                t_roll_string = ""
-                for i in range(t_num):
-                    t_roll = randint(1, t_die)
-                    t_res += t_roll
-                    t_roll_string += f"[{t_roll}] "
-
-            if t_num > 1:
-                t_roll_string = f"\n**ANALYSIS: Rolled dice:** `{t_roll_string}`"
-            else:
-                t_roll_string = ""
-
+                rolled_dice = dice_set_a
+                advstr = "a"
+            rolled_sum = sum(rolled_dice) + modif
+            dicestr = "] [".join(map(str, rolled_dice))
+            dicestr = f"[{dicestr}]"
             await respond(msg,
-                          f"**ANALYSIS: {msg.author.display_name} has attempted {t_s} "
-                          f"{t_num}D{t_die} roll{t_bonus_string}, getting {t_res}.**{t_roll_string}")
+                          f"**ANALYSIS: {msg.author.display_name} has attempted {advstr} "
+                          f"{num_dice}D{die_sides} roll{modif_str}, getting {rolled_sum}.**\n"
+                          f"**ANALYSIS: Rolled dice:** `{dicestr}`")
 
     @Command("racerole",
              doc="Adds or removes roles from the list of race roles that are searched by the bio command.",
