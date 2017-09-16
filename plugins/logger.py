@@ -1,7 +1,8 @@
 import asyncio
 from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError, CommandSyntaxError
-from rs_utils import split_message, Command, respond
+from rs_utils import split_message, respond
+from command_dispatcher import Command
 
 
 class DiscordLogger(BasePlugin):

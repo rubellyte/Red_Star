@@ -2,7 +2,8 @@ import re
 from asyncio import sleep
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError
-from rs_utils import Command, respond, find_user
+from rs_utils import respond, find_user
+from command_dispatcher import Command
 import shlex
 
 

@@ -1,5 +1,6 @@
 from plugin_manager import BasePlugin
-from rs_utils import Command, respond
+from rs_utils import respond
+from command_dispatcher import Command
 from rs_errors import CommandSyntaxError
 from discord import File
 from discord.errors import NotFound

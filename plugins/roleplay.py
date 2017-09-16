@@ -3,7 +3,8 @@ import json
 import shlex
 from random import randint
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, Command, DotDict, find_role, is_positive
+from rs_utils import respond, DotDict, find_role, is_positive
+from command_dispatcher import Command
 from plugin_manager import BasePlugin
 from discord import Embed, File
 from io import BytesIO

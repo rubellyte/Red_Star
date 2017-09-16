@@ -413,7 +413,7 @@ class ConsoleListener(BasePlugin):
         except IndexError:
             raise ConsoleCommandSyntaxError("No error context specified.")
         if args == "command":
-            e = self.plugins.command_dispatcher.last_error
+            e = self.client.command_dispatcher.last_error
         elif args == "event":
             e = self.plugin_manager.last_error
         elif args == "unhandled":

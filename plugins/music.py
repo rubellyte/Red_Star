@@ -1,5 +1,6 @@
 from plugin_manager import BasePlugin
-from rs_utils import Command, respond, split_message, find_user, DotDict, is_positive
+from rs_utils import respond, split_message, find_user, DotDict, is_positive
+from command_dispatcher import Command
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 import discord.game

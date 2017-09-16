@@ -8,7 +8,8 @@ import discord.utils
 from io import BytesIO
 
 from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from rs_utils import respond, Command, DotDict, find_user, is_positive
+from rs_utils import respond, DotDict, find_user, is_positive
+from command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
 

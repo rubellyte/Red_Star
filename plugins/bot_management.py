@@ -1,7 +1,8 @@
 import urllib
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import Command, respond, is_positive
+from rs_utils import respond, is_positive
+from command_dispatcher import Command
 from discord import InvalidArgument
 from traceback import format_tb
 
@@ -269,7 +270,7 @@ class BotManagement(BasePlugin):
         except IndexError:
             raise CommandSyntaxError("No error context specified.")
         if args == "command":
-            e = self.plugins.command_dispatcher.last_error
+            e = self.client.command_dispatcher.last_error
         elif args == "event":
             e = self.plugin_manager.last_error
         elif args == "unhandled":

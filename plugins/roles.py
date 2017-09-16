@@ -1,7 +1,8 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError
-from rs_utils import Command, respond, split_message, is_positive
+from rs_utils import respond, split_message, is_positive
+from command_dispatcher import Command
 from string import capwords
 import shlex
 

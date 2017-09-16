@@ -4,6 +4,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from channel_manager import ChannelManager
+from command_dispatcher import CommandDispatcher
 from config_manager import ConfigManager
 from plugin_manager import PluginManager
 from sys import exc_info
@@ -24,6 +25,7 @@ class RedStar(discord.AutoShardedClient):
         self.config_manager.load_config(path / "config" / "config.json")
         self.config = self.config_manager.config
         self.channel_manager = ChannelManager(self)
+        self.command_dispatcher = CommandDispatcher(self)
         self.plugin_manager = PluginManager(self)
         self.plugin_manager.load_from_path(path / self.config.plugin_path)
         self.plugin_manager.final_load()
@@ -66,6 +68,8 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_resumed")
 
     async def on_message(self, msg):
+        self.logger.debug(f"Message received: {msg.id}")
+        await self.command_dispatcher.command_check(msg)
         await self.plugin_manager.hook_event("on_message", msg)
 
     async def on_message_delete(self, msg):

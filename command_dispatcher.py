@@ -1,39 +1,34 @@
 import inspect
+import logging
 from asyncio import sleep
 from sys import exc_info
-from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
 from rs_utils import respond, DotDict
 
 
-class CommandDispatcher(BasePlugin):
-    name = "command_dispatcher"
-    default_config = {
-        "default": {
-            "command_prefix": "!",
-            "use_command_channel": True
+class CommandDispatcher:
+    def __init__(self, client):
+        self.client = client
+        self.config_manager = client.config_manager
+        self.logger = logging.getLogger("red_star.command_dispatcher")
+        try:
+            self.conf = client.config_manager.config.command_dispatcher
+        except AttributeError:
+            client.config_manager.config.command_dispatcher = DotDict({})
+            self.conf = client.config_manager.config.command_dispatcher
+        self.default_config = {
+            "command_prefix": "!"
         }
-    }
-
-    async def activate(self):
         self.commands = {}
         self.last_error = None
 
-    async def on_all_plugins_loaded(self):
-        for plugin in self.plugins.values():
-            for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
-                if hasattr(mth, "_command"):
-                    self.register(mth, mth.name)
-
-    async def on_plugin_activated(self, plgname):
-        plugin = self.plugins[plgname]
+    def register_plugin(self, plugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
                 self.register(mth, mth.name)
 
-    async def on_plugin_deactivated(self, plgname):
-        plugin = self.plugin_manager.plugins[plgname]
+    def deregister_plugin(self, plugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
                 self.deregister(mth, mth.name)
@@ -84,7 +79,7 @@ class CommandDispatcher(BasePlugin):
         else:
             self.logger.debug(f"Could not deregister command {name}, no such command!")
 
-        if hasattr(fn, "_aliases") and not is_alias:
+        if hasattr(fn, "aliases") and not is_alias:
             for alias in fn.aliases:
                 self.deregister(fn, alias, is_alias=True)
 
@@ -93,12 +88,15 @@ class CommandDispatcher(BasePlugin):
             fn = self.commands[command]
         except KeyError:
             return
+        gid = str(msg.guild.id)
         try:
-            gid = str(msg.guild.id)
-            if self.plugin_config[gid].use_command_channel and not fn.run_anywhere:
-                cmd_channel = self.channel_manager.get_channel(msg.guild, "commands")
-                if msg.channel != cmd_channel:
-                    return
+            if not fn.run_anywhere:
+                try:
+                    cmd_channel = self.client.channel_manager.get_channel(msg.guild, "commands")
+                    if msg.channel != cmd_channel:
+                        return
+                except ChannelNotFoundError:
+                    pass
             await fn(msg)
             if fn.delcall:
                 await sleep(1)
@@ -106,7 +104,7 @@ class CommandDispatcher(BasePlugin):
         except CommandSyntaxError as e:
             err = e if e else "Invalid syntax."
             if fn.syntax:
-                deco = self.plugin_config[gid].command_prefix
+                deco = self.conf[gid].command_prefix
                 await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
             else:
                 await respond(msg, f"**WARNING: {err}.**")
@@ -124,14 +122,78 @@ class CommandDispatcher(BasePlugin):
 
     # Event hooks
 
-    async def on_message(self, msg):
+    async def command_check(self, msg):
         gid = str(msg.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict(self.default_config)
-        deco = self.plugin_config[gid].command_prefix
+        if gid not in self.conf:
+            self.conf[gid] = DotDict(self.default_config)
+        deco = self.conf[gid].command_prefix
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):
                 cmd = cnt[len(deco):].split()[0].lower()
                 if cmd in self.commands:
                     await self.run_command(cmd, msg)
+
+
+class Command:
+    """
+    Defines a decorator that encapsulates a chat command. Provides a common
+    interface for all commands, including roles, documentation, usage syntax,
+    and aliases.
+    """
+
+    def __init__(self, name, *aliases, perms=set(), doc=None, syntax=None, priority=0, delcall=False,
+                 run_anywhere=False, bot_maintainers_only=False, category="other"):
+        if syntax is None:
+            syntax = ()
+        if isinstance(syntax, str):
+            syntax = (syntax,)
+        if doc is None:
+            doc = ""
+        self.name = name
+        if isinstance(perms, str):
+            perms = {perms}
+        self.perms = perms
+        self.syntax = syntax
+        self.human_syntax = " ".join(syntax)
+        self.doc = doc
+        self.aliases = aliases
+        self.priority = priority
+        self.delcall = delcall
+        self.run_anywhere = run_anywhere
+        self.category = category
+        self.bot_maintainers_only = bot_maintainers_only
+
+    def __call__(self, f):
+        """
+        Whenever a command is called, its handling gets done here.
+
+        :param f: The function the Command decorator is wrapping.
+        :return: The now-wrapped command, with all the trappings.
+        """
+
+        async def wrapped(s, msg):
+            user_perms = msg.author.permissions_in(msg.channel)
+            user_perms = {x for x, y in user_perms if y}
+            try:
+                if not user_perms >= self.perms and msg.author.id \
+                        not in s.config_manager.config.get("bot_maintainers", []):
+                    raise PermissionError
+                if self.bot_maintainers_only and msg.author.id \
+                        not in s.config_manager.config.get("bot_maintainers", []):
+                    raise PermissionError
+                return await f(s, msg)
+            except PermissionError:
+                return await respond(msg, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**")
+
+        wrapped._command = True
+        wrapped.aliases = self.aliases
+        wrapped.__doc__ = self.doc
+        wrapped.name = self.name
+        wrapped.perms = self.perms
+        wrapped.syntax = self.human_syntax
+        wrapped.priority = self.priority
+        wrapped.delcall = self.delcall
+        wrapped.run_anywhere = self.run_anywhere
+        wrapped.category = self.category
+        return wrapped

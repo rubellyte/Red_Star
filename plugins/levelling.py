@@ -1,5 +1,6 @@
 from plugin_manager import BasePlugin
-from rs_utils import Command, respond, DotDict, find_user
+from rs_utils import respond, DotDict, find_user
+from command_dispatcher import Command
 from rs_errors import CommandSyntaxError
 
 

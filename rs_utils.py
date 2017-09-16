@@ -1,9 +1,8 @@
 # Miscellaneous utility functions and classes found here.
 import collections
-import re
-import asyncio
-import shelve
 import dbm
+import re
+import shelve
 from io import BytesIO
 from pickle import Pickler, Unpickler
 
@@ -283,65 +282,3 @@ def is_positive(string):
         raise SyntaxError("Expected positive/negative input.")
 
 
-class Command:
-    """
-    Defines a decorator that encapsulates a chat command. Provides a common
-    interface for all commands, including roles, documentation, usage syntax,
-    and aliases.
-    """
-
-    def __init__(self, name, *aliases, perms=set(), doc=None, syntax=None, priority=0, delcall=False,
-                 run_anywhere=False, bot_maintainers_only=False, category="other"):
-        if syntax is None:
-            syntax = ()
-        if isinstance(syntax, str):
-            syntax = (syntax,)
-        if doc is None:
-            doc = ""
-        self.name = name
-        if isinstance(perms, str):
-            perms = {perms}
-        self.perms = perms
-        self.syntax = syntax
-        self.human_syntax = " ".join(syntax)
-        self.doc = doc
-        self.aliases = aliases
-        self.priority = priority
-        self.delcall = delcall
-        self.run_anywhere = run_anywhere
-        self.category = category
-        self.bot_maintainers_only = bot_maintainers_only
-
-    def __call__(self, f):
-        """
-        Whenever a command is called, its handling gets done here.
-
-        :param f: The function the Command decorator is wrapping.
-        :return: The now-wrapped command, with all the trappings.
-        """
-
-        def wrapped(s, msg):
-            user_perms = msg.author.permissions_in(msg.channel)
-            user_perms = {x for x, y in user_perms if y}
-            try:
-                if not user_perms >= self.perms and msg.author.id \
-                        not in s.config_manager.config.get("bot_maintainers", []):
-                    raise PermissionError
-                if self.bot_maintainers_only and msg.author.id \
-                        not in s.config_manager.config.get("bot_maintainers", []):
-                    raise PermissionError
-                return asyncio.ensure_future(f(s, msg))
-            except PermissionError:
-                return asyncio.ensure_future(respond(msg, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**"))
-
-        wrapped._command = True
-        wrapped.aliases = self.aliases
-        wrapped.__doc__ = self.doc
-        wrapped.name = self.name
-        wrapped.perms = self.perms
-        wrapped.syntax = self.human_syntax
-        wrapped.priority = self.priority
-        wrapped.delcall = self.delcall
-        wrapped.run_anywhere = self.run_anywhere
-        wrapped.category = self.category
-        return wrapped

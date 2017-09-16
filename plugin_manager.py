@@ -15,6 +15,7 @@ class PluginManager:
         self.client = client
         self.config_manager = client.config_manager
         self.channel_manager = client.channel_manager
+        self.command_dispatcher = client.command_dispatcher
         self.plugins = DotDict({})
         self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
@@ -101,6 +102,7 @@ class PluginManager:
                 try:
                     await plugin.activate()
                     self.active_plugins[n] = plugin
+                    self.command_dispatcher.register_plugin(plugin)
                 except Exception:
                     self.logger.exception(f"Error occurred while activating plugin {plugin.name}: ", exc_info=True)
         await self.hook_event("on_all_plugins_loaded")
@@ -115,6 +117,7 @@ class PluginManager:
                 except Exception:
                     self.logger.exception(f"Error occurred while deactivating plugin {plugin.name}: ", exc_info=True)
                 del self.active_plugins[n]
+                self.command_dispatcher.deregister_plugin(plugin)
 
     async def activate(self, name):
         try:
@@ -124,6 +127,7 @@ class PluginManager:
                 try:
                     await plg.activate()
                     self.active_plugins[name] = plg
+                    self.command_dispatcher.register_plugin(plg)
                     await self.hook_event("on_plugin_activated", name)
                 except Exception:
                     self.logger.exception(f"Error occurred while activating plugin {name}: ", exc_info=True)
@@ -142,6 +146,7 @@ class PluginManager:
                 except Exception:
                     self.logger.exception(f"Error occurred while deactivating plugin {name}: ", exc_info=True)
                 del self.active_plugins[name]
+                self.command_dispatcher.deregister_plugin(plg)
                 await self.hook_event("on_plugin_deactivated", name)
             else:
                 self.logger.warning(f"Attempted to deactivate already inactive plugin {name}.")
