@@ -29,7 +29,7 @@ class DiscordLogger(BasePlugin):
             for guild in self.client.guilds:
                 gid = str(guild.id)
                 try:
-                    logchan = self.plugins.channel_manager.get_channel(guild, "logs")
+                    logchan = self.channel_manager.get_channel(guild, "logs")
                 except ChannelNotFoundError:
                     continue
                 except AttributeError:

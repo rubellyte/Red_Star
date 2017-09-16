@@ -96,7 +96,7 @@ class CommandDispatcher(BasePlugin):
         try:
             gid = str(msg.guild.id)
             if self.plugin_config[gid].use_command_channel and not fn.run_anywhere:
-                cmd_channel = self.plugins.channel_manager.get_channel(msg.guild, "commands")
+                cmd_channel = self.channel_manager.get_channel(msg.guild, "commands")
                 if msg.channel != cmd_channel:
                     return
             await fn(msg)

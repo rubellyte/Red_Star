@@ -11,9 +11,10 @@ class PluginManager:
     Manages the loading of plugins and dispatching of event hooks.
     """
 
-    def __init__(self, client, config_manager):
+    def __init__(self, client):
         self.client = client
-        self.config_manager = config_manager
+        self.config_manager = client.config_manager
+        self.channel_manager = client.channel_manager
         self.plugins = DotDict({})
         self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
@@ -58,6 +59,7 @@ class PluginManager:
             if issubclass(obj, BasePlugin) and obj is not BasePlugin:
                 obj.client = self.client
                 obj.config_manager = self.config_manager
+                obj.channel_manager = self.channel_manager
                 obj.plugin_manager = self
                 obj.logger = logging.getLogger("red_star.plugin." + obj.name)
                 class_list.add(obj)
@@ -196,6 +198,7 @@ class BasePlugin:
     plugins = set()
     client = None
     config_manager = None
+    channel_manager = None
     plugin_manager = None
     logger = None
     storage = None

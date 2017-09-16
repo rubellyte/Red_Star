@@ -31,7 +31,7 @@ class Announcer(BasePlugin):
                     self.config_manager.save_config()
                 msg = self.plugin_config[gid].greeting_message
                 try:
-                    greet_channel = self.plugins.channel_manager.get_channel(guild, "general")
+                    greet_channel = self.channel_manager.get_channel(guild, "general")
                     if self.plugin_config[gid].greeting_enabled:
                         await greet_channel.send(msg)
                 except ChannelNotFoundError:
@@ -52,12 +52,12 @@ class Announcer(BasePlugin):
             text = self.plugin_config[gid].new_member_announce_message
             text = sub_user_data(msg, text)
             try:
-                chan = self.plugins.channel_manager.get_channel(msg.guild, "welcome")
+                chan = self.channel_manager.get_channel(msg.guild, "welcome")
                 if self.plugin_config[gid].new_member_announce_enabled:
                     await chan.send(text)
             except ChannelNotFoundError:
                 try:
-                    chan = self.plugins.channel_manager.get_channel(msg.guild, "general")
+                    chan = self.channel_manager.get_channel(msg.guild, "general")
                     await chan.send("**WARNING: No welcome channel is set.**")
                 except ChannelNotFoundError:
                     self.logger.error(f"Server {msg.guild.name} has no welcome or default channel set!")

@@ -18,17 +18,17 @@ class Levelling(BasePlugin):
 
     async def activate(self):
         for guild in self.client.guilds:
-            self.plugins.channel_manager.register_category(guild, "no_xp")
+            self.channel_manager.register_category(guild, "no_xp")
 
     async def on_message(self, msg):
-        if self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+        if self.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
             return
         gid = str(msg.guild.id)
         self._initialize(gid)
         self._give_xp(msg)
 
     async def on_message_delete(self, msg):
-        if self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+        if self.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
             return
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -115,7 +115,7 @@ class Levelling(BasePlugin):
         t_msg = await respond(msg, "**AFFIRMATIVE. Processing messages.**")
         async with msg.channel.typing():
             for channel in msg.guild.text_channels:
-                if not self.plugins.channel_manager.channel_in_category(msg.guild, "no_xp", channel):
+                if not self.channel_manager.channel_in_category(msg.guild, "no_xp", channel):
                     await t_msg.edit(content=f"**AFFIRMATIVE. Processing messages in channel {channel}.**")
                     async for message in channel.history(limit=depth):
                         self._give_xp(message)

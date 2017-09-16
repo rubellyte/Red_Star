@@ -3,6 +3,7 @@ import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from channel_manager import ChannelManager
 from config_manager import ConfigManager
 from plugin_manager import PluginManager
 from sys import exc_info
@@ -22,7 +23,8 @@ class RedStar(discord.AutoShardedClient):
         self.config_manager = ConfigManager()
         self.config_manager.load_config(path / "config" / "config.json")
         self.config = self.config_manager.config
-        self.plugin_manager = PluginManager(self, self.config_manager)
+        self.channel_manager = ChannelManager(self)
+        self.plugin_manager = PluginManager(self)
         self.plugin_manager.load_from_path(path / self.config.plugin_path)
         self.plugin_manager.final_load()
         self.logged_in = False
@@ -100,6 +102,7 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_member_update", before, after)
 
     async def on_guild_join(self, guild):
+        self.channel_manager.add_guild(guild)
         await self.plugin_manager.hook_event("on_guild_join", guild)
 
     async def on_guild_remove(self, guild):
@@ -121,6 +124,7 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_guild_emojis_update", before, after)
 
     async def on_guild_available(self, guild):
+        self.channel_manager.add_guild(guild)
         if not self.server_ready:
             self.server_ready = True
             self.logger.info("A server is now available.")

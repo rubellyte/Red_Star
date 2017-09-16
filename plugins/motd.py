@@ -60,7 +60,7 @@ class MOTD(BasePlugin):
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
             for guild in self.client.guilds:
-                chan = self.plugins.channel_manager.get_channel(guild, "general")
+                chan = self.channel_manager.get_channel(guild, "general")
                 asyncio.ensure_future(chan.send(choice(holiday_lines)))
         else:
             lines = []
@@ -71,7 +71,7 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get(day, [])
             lines += self.motds.get(month, {}).get(weekday, [])
             for guild in self.client.guilds:
-                chan = self.plugins.channel_manager.get_channel(guild, "general")
+                chan = self.channel_manager.get_channel(guild, "general")
                 asyncio.ensure_future(chan.send(choice(lines)))
 
     def _get_holiday(self, month, day, weekday):
