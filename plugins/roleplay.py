@@ -3,7 +3,7 @@ import json
 import shlex
 from random import randint
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, DotDict, find_role, is_positive
+from rs_utils import respond, DotDict, find_role, find_user, split_output
 from command_dispatcher import Command
 from plugin_manager import BasePlugin
 from discord import Embed, File
@@ -84,35 +84,23 @@ class Roleplay(BasePlugin):
     async def _racerole(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        args = msg.content.split()
+        args = shlex.split(msg.content)
         if len(args) < 2:
-            t_r = "**ANALYSIS: Currently approved race roles:**\n```\n"
-            for t_role in msg.guild.roles:
-                if t_role.id in self.plugin_config[gid]["race_roles"]:
-                    t_s = f"{t_role.name}\n"
-                    if len(t_r)+len(t_s) > 1997:
-                        await respond(msg, t_r+"```")
-                        t_r = t_s
-                    else:
-                        t_r += t_s
-            await respond(msg, t_r+"```")
+            await split_output(msg, "**ANALYSIS: Currently approved race roles:**",
+                               [x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["race_roles"]])
         else:
             if args[1].lower() == "add":
-                if msg.role_mentions:
-                    for role in msg.role_mentions:
-                        if role.id not in self.plugin_config[gid]["race_roles"]:
-                            self.plugin_config[gid]["race_roles"].append(role.id)
-                    await respond(msg, "**AFFIRMATIVE. Roles added to race list.**")
-                else:
-                    raise CommandSyntaxError("No roles mentioned.")
+                for arg in args[1:]:
+                    t_role = find_role(msg.guild, arg)
+                    if t_role and t_role.id not in self.plugin_config[gid]["race_roles"]:
+                        self.plugin_config[gid]["race_roles"].append(t_role.id)
+                await respond(msg, "**AFFIRMATIVE. Roles added to race list.**")
             elif args[1].lower() == "remove":
-                if msg.role_mentions:
-                    for role in msg.role_mentions:
-                        if role.id not in self.plugin_config[gid]["race_roles"]:
-                            self.plugin_config[gid]["race_roles"].remove(role.id)
-                    await respond(msg, "**AFFIRMATIVE. Roles removed from race list.**")
-                else:
-                    raise CommandSyntaxError("No roles mentioned.")
+                for arg in args[1:]:
+                    t_role = find_role(msg.guild, arg)
+                    if t_role and t_role.id not in self.plugin_config[gid]["race_roles"]:
+                        self.plugin_config[gid]["race_roles"].remove(t_role.id)
+                await respond(msg, "**AFFIRMATIVE. Roles removed from race list.**")
             else:
                 raise CommandSyntaxError(f"Unsupported mode {args[1].lower()}.")
 
@@ -152,17 +140,28 @@ class Roleplay(BasePlugin):
             return
         gid = str(msg.guild.id)
         self._initialize(gid)
-        t_r = "**ANALYSIS: Currently approved race roles:**\n```\n"
-        for t_role in msg.guild.roles:
-            if t_role.id in self.plugin_config[gid]["race_roles"]:
-                t_s = f"{t_role.name}\n"
-                if len(t_r)+len(t_s) > 1997:
-                    await respond(msg, t_r+"```")
-                    t_r = t_s
-                else:
-                    t_r += t_s
-        await respond(msg, t_r+"```")
+        await split_output(msg, "**ANALYSIS: Currently approved race roles:**",
+                           [x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["race_roles"]])
 
+    @Command("listbio",
+             doc="Lists all available bios in the database.",
+             syntax="[user]",
+             category="role_play")
+    async def _listbio(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        args = msg.content.split(" ", 1)
+        if len(args) > 1:
+            t_member = find_user(msg.guild, args[1])
+            if t_member:
+                t_bio_list = [v["name"] for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
+                await split_output(msg, f"**ANALYSIS: User {t_member.display_name} has following characters:**",
+                                   t_bio_list)
+            else:
+                raise CommandSyntaxError("Not a user or user not found.")
+        else:
+            await split_output(msg, "**ANALYSIS: Following character bios found:**",
+                               [v['name'] for k, v in self.bios[gid].items()])
 
     @Command("bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
