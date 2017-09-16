@@ -50,7 +50,9 @@ class CustomCommands(BasePlugin):
             "delcall": self._delcall,
             "embed": self._embed,
             "noembed": self._noembed,
-            "transcode": self._transcode
+            "transcode": self._transcode,
+            "replace": self._replace,
+            "resub": self._resub
         }
         v_tags = {
             "args": self._valid_args,
@@ -723,6 +725,25 @@ class CustomCommands(BasePlugin):
                 "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz",
                 "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm")
         return str.translate(args, rot13)
+
+    def _replace(self, args, msg):
+        args = self._split_args(args)
+        if len(args) < 3:
+            raise CustomCommandSyntaxError("<replace> tag needs three arguments: text, from, to.")
+        if len(args) > 3:
+            try:
+                t_int = max(int(args[3]), -1)
+            except ValueError:
+                raise CustomCommandSyntaxError("Fourth argument, limit, is supposed to be an integer.")
+        else:
+            t_int = -1
+        return args[0].replace(args[1], args[2], t_int)
+
+    def _resub(self, args, msg):
+        args = self._split_args(args)
+        if len(args) < 3:
+            raise CustomCommandSyntaxError("<resub> tag needs three arguments: text, pattern, replace.")
+        return re.sub(args[1], args[2], args[0])
 
     def _transcode(self, args, msg):
         def_code = "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz"
