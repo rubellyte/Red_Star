@@ -68,7 +68,6 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_resumed")
 
     async def on_message(self, msg):
-        self.logger.debug(f"Message received: {msg.id}")
         await self.command_dispatcher.command_check(msg)
         await self.plugin_manager.hook_event("on_message", msg)
 
