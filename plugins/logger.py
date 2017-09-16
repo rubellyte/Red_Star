@@ -134,6 +134,14 @@ class DiscordLogger(BasePlugin):
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING. User {uname} was modified:**\n{t_str}")
 
+    async def on_guild_channel_pins_update(self, channel, last_pin):
+        gid = str(channel.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "guild_channel_pins_update" not in self.plugin_config[gid]["log_events"]:
+            updtime = last_pin.strftime("%Y-%m-%d @ %H:%M:%S")
+            self.log_items[gid].append(f"**ANALYSIS: A message was pinned in {channel.mention} at `{updtime}`**")
+
     async def on_log_event(self, guild, string, *, log_type="log_event"):
         gid = str(guild.id)
         if gid not in self.plugin_config:

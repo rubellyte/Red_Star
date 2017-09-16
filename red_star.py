@@ -121,6 +121,9 @@ class RedStar(discord.AutoShardedClient):
     async def on_guild_role_delete(self, role):
         await self.plugin_manager.hook_event("on_guild_role_delete", role)
 
+    async def on_guild_channel_pins_update(self, channel, last_pin):
+        await self.plugin_manager.hook_event("on_guild_channel_pins_update", channel, last_pin)
+
     async def on_guild_role_update(self, before, after):
         await self.plugin_manager.hook_event("on_guild_role_update", before, after)
 
