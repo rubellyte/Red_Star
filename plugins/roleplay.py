@@ -3,7 +3,7 @@ import json
 import shlex
 from random import randint
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, DotDict, find_role, is_positive
+from rs_utils import respond, DotDict, find_role, find_user, split_output
 from command_dispatcher import Command
 from plugin_manager import BasePlugin
 from discord import Embed, File
@@ -84,35 +84,23 @@ class Roleplay(BasePlugin):
     async def _racerole(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        args = msg.content.split()
+        args = shlex.split(msg.content)
         if len(args) < 2:
-            t_r = "**ANALYSIS: Currently approved race roles:**\n```\n"
-            for t_role in msg.guild.roles:
-                if t_role.id in self.plugin_config[gid]["race_roles"]:
-                    t_s = f"{t_role.name}\n"
-                    if len(t_r)+len(t_s) > 1997:
-                        await respond(msg, t_r+"```")
-                        t_r = t_s
-                    else:
-                        t_r += t_s
-            await respond(msg, t_r+"```")
+            await split_output(msg, "**ANALYSIS: Currently approved race roles:**",
+                               [x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["race_roles"]])
         else:
             if args[1].lower() == "add":
-                if msg.role_mentions:
-                    for role in msg.role_mentions:
-                        if role.id not in self.plugin_config[gid]["race_roles"]:
-                            self.plugin_config[gid]["race_roles"].append(role.id)
-                    await respond(msg, "**AFFIRMATIVE. Roles added to race list.**")
-                else:
-                    raise CommandSyntaxError("No roles mentioned.")
+                for arg in args[1:]:
+                    t_role = find_role(msg.guild, arg)
+                    if t_role and t_role.id not in self.plugin_config[gid]["race_roles"]:
+                        self.plugin_config[gid]["race_roles"].append(t_role.id)
+                await respond(msg, "**AFFIRMATIVE. Roles added to race list.**")
             elif args[1].lower() == "remove":
-                if msg.role_mentions:
-                    for role in msg.role_mentions:
-                        if role.id not in self.plugin_config[gid]["race_roles"]:
-                            self.plugin_config[gid]["race_roles"].remove(role.id)
-                    await respond(msg, "**AFFIRMATIVE. Roles removed from race list.**")
-                else:
-                    raise CommandSyntaxError("No roles mentioned.")
+                for arg in args[1:]:
+                    t_role = find_role(msg.guild, arg)
+                    if t_role and t_role.id not in self.plugin_config[gid]["race_roles"]:
+                        self.plugin_config[gid]["race_roles"].remove(t_role.id)
+                await respond(msg, "**AFFIRMATIVE. Roles removed from race list.**")
             else:
                 raise CommandSyntaxError(f"Unsupported mode {args[1].lower()}.")
 
@@ -152,17 +140,28 @@ class Roleplay(BasePlugin):
             return
         gid = str(msg.guild.id)
         self._initialize(gid)
-        t_r = "**ANALYSIS: Currently approved race roles:**\n```\n"
-        for t_role in msg.guild.roles:
-            if t_role.id in self.plugin_config[gid]["race_roles"]:
-                t_s = f"{t_role.name}\n"
-                if len(t_r)+len(t_s) > 1997:
-                    await respond(msg, t_r+"```")
-                    t_r = t_s
-                else:
-                    t_r += t_s
-        await respond(msg, t_r+"```")
+        await split_output(msg, "**ANALYSIS: Currently approved race roles:**",
+                           [x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["race_roles"]])
 
+    @Command("listbio",
+             doc="Lists all available bios in the database.",
+             syntax="[user]",
+             category="role_play")
+    async def _listbio(self, msg):
+        gid = str(msg.guild.id)
+        self._initialize(gid)
+        args = msg.content.split(" ", 1)
+        if len(args) > 1:
+            t_member = find_user(msg.guild, args[1])
+            if t_member:
+                t_bio_list = [v["name"] for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
+                await split_output(msg, f"**ANALYSIS: User {t_member.display_name} has following characters:**",
+                                   t_bio_list)
+            else:
+                raise CommandSyntaxError("Not a user or user not found.")
+        else:
+            await split_output(msg, "**ANALYSIS: Following character bios found:**",
+                               [v['name'] for k, v in self.bios[gid].items()])
 
     @Command("bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
@@ -221,7 +220,7 @@ class Roleplay(BasePlugin):
                 self._save_bios()
             elif args[2].lower() == "dump":
                 if t_name in self.bios[gid]:
-                    t_bio = self.bios[gid][t_name]
+                    t_bio = self.bios[gid][t_name].copy()
                     del t_bio["author"]
                     t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
                     async with msg.channel.typing():
@@ -260,20 +259,21 @@ class Roleplay(BasePlugin):
                         bio[t_field] = ""
                     await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} reset.**")
                 else:
+                    t_value = " ".join(args[4:])
                     if t_field in ["race", "gender", "height", "age"]:
-                        if len(args[4]) > 64:
+                        if len(t_value) > 64:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
                                                      f"Maximum length is 64 characters.")
-                        bio[t_field] = args[4]
+                        bio[t_field] = t_value
                         await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
                     else:
-                        if len(args[4]) > 1024:
+                        if len(t_value) > 1024:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
-                                                     f"Maximum length is 64 characters.")
-                        bio[t_field] = args[4]
+                                                     f"Maximum length is 1024 characters.")
+                        bio[t_field] = t_value
                         await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
             elif t_field not in self.fields:
-                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields)}.")
+                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields[1:])}.")
             self._save_bios()
 
     @Command("uploadbio",
@@ -288,50 +288,81 @@ class Roleplay(BasePlugin):
             t_file = BytesIO()
             await msg.attachments[0].save(t_file)
             try:
-                t_data = json.loads(t_file.getvalue().decode())
+                t_string = t_file.getvalue().decode()
+                t_data = json.loads(t_string)
+            except json.decoder.JSONDecodeError as e:
+                self.logger.exception("Could not decode bios.json! ", exc_info=True)
+                raise CommandSyntaxError(f"Not a valid JSON file: {e}")
             except:
                 raise CommandSyntaxError("Not a valid JSON file.")
-
-            if "name" not in t_data:
-                raise CommandSyntaxError("Not a valid character file: No name.")
-
-            t_bio = {}
-
-            for field in self.fields:
-                t_field = t_data.get(field,"")
-                if t_field:
-                    t_len = len(t_field)
-                    if field in ["name","race", "gender", "height", "age"] and t_len > 64:
-                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
-                    elif field in ["link", "theme"] and t_len > 256:
-                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
-                    elif t_len > 1024:
-                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 1024 chars).")
-                    t_bio[field] = t_field
-
-            t_name = t_bio["name"].lower()
-            if t_name in self.bios[gid]:
-                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
-                    raise PermissionError("Character belongs to other user.")
+        else:
+            args = re.split("\w|\\r|\\n", msg.content, 1)
+            if len(args) == 1:
+                raise CommandSyntaxError("File or code block required")
+            t_search = re.search("```.*({.+}).*```", args[1], re.DOTALL)
+            if t_search:
+                try:
+                    t_data = json.loads(t_search.group(1))
+                except:
+                    raise CommandSyntaxError("Not a valid JSON string.")
             else:
-                self.bios[gid][t_name] = {
-                    "author": msg.author.id,
-                    "name": t_bio["name"],
-                    "race": "undefined",
-                    "gender": "undefined",
-                    "appearance": "undefined",
-                    "backstory": "undefined"
-                }
-                for f in self.fields:
-                    if f not in self.bios[gid][t_name]:
-                        self.bios[gid][t_name][f] = ""
-                await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
-                self._save_bios()
-            for field, value in t_bio.items():
-                self.bios[gid][t_name][field] = value
-            self._save_bios()
-            await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+                raise CommandSyntaxError("Not valid JSON code block.")
 
+        if "name" not in t_data:
+            raise CommandSyntaxError("Not a valid character file: No name.")
+
+        t_bio = {}
+
+        for field in self.fields:
+            t_field = t_data.get(field, "")
+            if t_field:
+                t_len = len(t_field)
+                if field in ["name", "race", "gender", "height", "age"] and t_len > 64:
+                    raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
+                elif field in ["link", "theme"] and t_len > 256:
+                    raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
+                elif t_len > 1024:
+                    raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 1024 chars).")
+                t_bio[field] = t_field
+
+        t_name = t_bio["name"].lower()
+        if t_name in self.bios[gid]:
+            if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                raise PermissionError("Character belongs to other user.")
+        else:
+            self.bios[gid][t_name] = {
+                "author": msg.author.id,
+                "name": t_bio["name"],
+                "race": "undefined",
+                "gender": "undefined",
+                "appearance": "undefined",
+                "backstory": "undefined"
+            }
+            for f in self.fields:
+                if f not in self.bios[gid][t_name]:
+                    self.bios[gid][t_name][f] = ""
+            await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
+            self._save_bios()
+        for field, value in t_bio.items():
+            self.bios[gid][t_name][field] = value
+        self._save_bios()
+        await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+
+    @Command("reloadbio",
+             doc="Administrative function that reloads the bios from the file.",
+             perms={"manage_messages"})
+    async def _reloadbio(self, msg):
+        try:
+            with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
+                self.bios = json.load(f)
+        except FileNotFoundError:
+            self.bios = {}
+            with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
+                f.write("{}")
+        except json.decoder.JSONDecodeError:
+            self.logger.exception("Could not decode bios.json! ", exc_info=True)
+            raise CommandSyntaxError("Bios.json is not a valid JSON file.")
+        await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
     # util commands
 
@@ -353,15 +384,23 @@ class Roleplay(BasePlugin):
             if t_role and t_role.id in self.plugin_config[gid]["race_roles"]:
                 t_embed.colour = t_role.colour
 
+            t_member = guild.get_member(bio["author"])
+            if t_member:
+                t_embed.set_footer(text=f"Character belonging to {t_member.display_name}",
+                                   icon_url=t_member.avatar_url)
+
             t_s = "```\n"
             for i in range(1, 5):
                 if bio.get(self.fields[i], ""):
                     t_s = f"{t_s}{self.fields[i].capitalize().ljust(7)}: {bio[self.fields[i]]}\n"
             t_s += "```\n"
             if bio.get("theme", ""):
-                t_s = f"{t_s} [Theme song.]({bio['theme']})\n"
+                t_s = f"{t_s}[Theme song.]({bio['theme']})\n"
             if bio.get("link", ""):
-                t_s = f"{t_s} [Extended bio.]({bio['link']})"
+                t_s = f"{t_s}[Extended bio.]({bio['link']})\n"
+
+            if t_member:
+                t_s = f"{t_s}Owner: {t_member.mention}"
 
             t_embed.description = t_s
 
@@ -372,9 +411,7 @@ class Roleplay(BasePlugin):
                 if bio.get(field, ""):
                     t_embed.add_field(name=field.capitalize(), value=bio[field])
 
-            t_member = guild.get_member(bio["author"])
 
-            t_embed.set_footer(text=f"Character belonging to {t_member.display_name}", icon_url=t_member.avatar_url)
             return t_embed
         else:
             return None

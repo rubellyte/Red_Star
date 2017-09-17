@@ -207,6 +207,30 @@ def split_message(message, splitter=None):
     return msgs
 
 
+async def split_output(message, title, items, *, header="```\n", footer="```", f=lambda x: str(x)+"\n"):
+    """
+    :type title: str
+    :type header: str
+    :type footer: str
+    :param message: a discord.Message object to respond to
+    :param title: a title string, appended before the list
+    :param items: a list of items to iterate over
+    :param header: a header string, put between title and items
+    :param footer: a footer string, capping up the lists
+    :param f: a function to run on the items. Must take one argument (the item) and return a string
+    :return:
+    """
+    t_str = title + header
+    t_l = len(footer)
+    for i in items:
+        t_s = f(i)
+        if len(t_str+t_s) > 2000-t_l:
+            await respond(message, t_str+footer)
+            t_str = header+t_s
+        else:
+            t_str += t_s
+    await respond(message, t_str+footer)
+
 def ordinal(n):
     """
     Black magic that turns numbers into ordinal representation (1 -> 1st)

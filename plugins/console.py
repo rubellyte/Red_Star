@@ -187,7 +187,7 @@ class ConsoleListener(BasePlugin):
                 else:
                     raise ConsoleCommandSyntaxError(f"Path {args[0].lower()} is invalid.")
 
-            if len(args) == 4:
+            if len(args) == 3:
                 if args[2].lower() == "float":
                     try:
                         value = float(args[2])

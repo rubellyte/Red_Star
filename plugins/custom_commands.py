@@ -8,7 +8,7 @@ import discord.utils
 from io import BytesIO
 
 from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from rs_utils import respond, DotDict, find_user, is_positive
+from rs_utils import respond, DotDict, find_user, is_positive, split_output
 from command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
@@ -50,7 +50,9 @@ class CustomCommands(BasePlugin):
             "delcall": self._delcall,
             "embed": self._embed,
             "noembed": self._noembed,
-            "transcode": self._transcode
+            "transcode": self._transcode,
+            "replace": self._replace,
+            "resub": self._resub
         }
         v_tags = {
             "args": self._valid_args,
@@ -155,10 +157,10 @@ class CustomCommands(BasePlugin):
         else:
             t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
 
-            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and\
-                    not msg.author.permissions_in(msg.channel).manage_messages and\
-                    t_count >= self.plugin_config[gid]["cc_limit"]:
-                raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid]['cc_limit']}.")
+            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
+                    not msg.author.permissions_in(msg.channel).manage_messages and \
+                    t_count >= self.plugin_config[gid].get("cc_limit", 100):
+                raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
             valid, err = self.validate_cc(content, msg)
             if not valid:
                 await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
@@ -200,7 +202,7 @@ class CustomCommands(BasePlugin):
             t_cc = json.dumps(t_cc, indent=2, ensure_ascii=False)
             async with msg.channel.typing():
                 await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                              file=File(BytesIO(bytes(t_cc, encoding="utf-8")), filename=name+".json"))
+                              file=File(BytesIO(bytes(t_cc, encoding="utf-8")), filename=name + ".json"))
         else:
             raise CommandSyntaxError("No such custom command.")
 
@@ -334,14 +336,15 @@ class CustomCommands(BasePlugin):
             elif info["author"] == user:
                 res.append(cc)
         if res:
+
             t_str = f"**ANALYSIS: The following custom commands match your search:** `{res[1]}"
             for r in res[1:]:
-                if len(t_str)+len(r) > 1999:
+                if len(t_str) + len(r) > 1999:
                     await respond(msg, f"{t_str}`")
                     t_str = f"`{r}"
                 else:
                     t_str += f", {r}"
-            await respond(msg, t_str+"`")
+            await respond(msg, t_str + "`")
         else:
             await respond(msg, "**WARNING: No results found for your search.**")
 
@@ -463,12 +466,12 @@ class CustomCommands(BasePlugin):
         t_string = f"**ANALYSIS: Currently banned members:**\n```{'Username'.ljust(32)} |  Ban  |  Mute\n"
         for k, v in t_dict.items():
             t_s = f"{msg.guild.get_member(k).display_name.ljust(32)} | {str(v[0]).ljust(5)} | {str(v[1]).ljust(5)}\n"
-            if len(t_string+t_s) < 1997:
+            if len(t_string + t_s) < 1997:
                 t_string += t_s
             else:
-                await respond(msg, t_string+"```")
-                t_string = "```"+t_s
-        await respond(msg, t_string+"```")
+                await respond(msg, t_string + "```")
+                t_string = "```" + t_s
+        await respond(msg, t_string + "```")
 
     # Custom command machinery
 
@@ -551,7 +554,7 @@ class CustomCommands(BasePlugin):
             e_pos = t_str[t_pos:].find("<") + t_pos
             # replace chunk of text with the parsed result
             t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg, validate)[::-1] \
-                    + t_str[e_pos+ 1:]
+                    + t_str[e_pos + 1:]
 
         return t_str[::-1]
 
@@ -723,6 +726,25 @@ class CustomCommands(BasePlugin):
                 "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz",
                 "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm")
         return str.translate(args, rot13)
+
+    def _replace(self, args, msg):
+        args = self._split_args(args)
+        if len(args) < 3:
+            raise CustomCommandSyntaxError("<replace> tag needs three arguments: text, from, to.")
+        if len(args) > 3:
+            try:
+                t_int = max(int(args[3]), -1)
+            except ValueError:
+                raise CustomCommandSyntaxError("Fourth argument, limit, is supposed to be an integer.")
+        else:
+            t_int = -1
+        return args[0].replace(args[1], args[2], t_int)
+
+    def _resub(self, args, msg):
+        args = self._split_args(args)
+        if len(args) < 3:
+            raise CustomCommandSyntaxError("<resub> tag needs three arguments: text, pattern, replace.")
+        return re.sub(args[1], args[2], args[0])
 
     def _transcode(self, args, msg):
         def_code = "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz"
@@ -942,7 +964,6 @@ class CustomCommands(BasePlugin):
             if total_len > 6000:
                 raise CustomCommandSyntaxError("<embed> tag total text length exceeds 6000 characters.")
         return ""
-
 
     # util functions
 
