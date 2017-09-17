@@ -384,15 +384,23 @@ class Roleplay(BasePlugin):
             if t_role and t_role.id in self.plugin_config[gid]["race_roles"]:
                 t_embed.colour = t_role.colour
 
+            t_member = guild.get_member(bio["author"])
+            if t_member:
+                t_embed.set_footer(text=f"Character belonging to {t_member.display_name}",
+                                   icon_url=t_member.avatar_url)
+
             t_s = "```\n"
             for i in range(1, 5):
                 if bio.get(self.fields[i], ""):
                     t_s = f"{t_s}{self.fields[i].capitalize().ljust(7)}: {bio[self.fields[i]]}\n"
             t_s += "```\n"
             if bio.get("theme", ""):
-                t_s = f"{t_s} [Theme song.]({bio['theme']})\n"
+                t_s = f"{t_s}[Theme song.]({bio['theme']})\n"
             if bio.get("link", ""):
-                t_s = f"{t_s} [Extended bio.]({bio['link']})"
+                t_s = f"{t_s}[Extended bio.]({bio['link']})\n"
+
+            if t_member:
+                t_s = f"{t_s}Owner: {t_member.mention}"
 
             t_embed.description = t_s
 
@@ -403,9 +411,7 @@ class Roleplay(BasePlugin):
                 if bio.get(field, ""):
                     t_embed.add_field(name=field.capitalize(), value=bio[field])
 
-            t_member = guild.get_member(bio["author"])
 
-            t_embed.set_footer(text=f"Character belonging to {t_member.display_name}", icon_url=t_member.avatar_url)
             return t_embed
         else:
             return None
