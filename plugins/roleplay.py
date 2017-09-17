@@ -220,7 +220,7 @@ class Roleplay(BasePlugin):
                 self._save_bios()
             elif args[2].lower() == "dump":
                 if t_name in self.bios[gid]:
-                    t_bio = self.bios[gid][t_name]
+                    t_bio = self.bios[gid][t_name].copy()
                     del t_bio["author"]
                     t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
                     async with msg.channel.typing():
@@ -259,20 +259,21 @@ class Roleplay(BasePlugin):
                         bio[t_field] = ""
                     await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} reset.**")
                 else:
+                    t_value = " ".join(args[4:])
                     if t_field in ["race", "gender", "height", "age"]:
-                        if len(args[4]) > 64:
+                        if len(t_value) > 64:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
                                                      f"Maximum length is 64 characters.")
-                        bio[t_field] = args[4]
+                        bio[t_field] = t_value
                         await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
                     else:
-                        if len(args[4]) > 1024:
+                        if len(t_value) > 1024:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
-                                                     f"Maximum length is 64 characters.")
-                        bio[t_field] = args[4]
+                                                     f"Maximum length is 1024 characters.")
+                        bio[t_field] = t_value
                         await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
             elif t_field not in self.fields:
-                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields)}.")
+                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields[1:])}.")
             self._save_bios()
 
     @Command("uploadbio",
@@ -290,47 +291,74 @@ class Roleplay(BasePlugin):
                 t_data = json.loads(t_file.getvalue().decode())
             except:
                 raise CommandSyntaxError("Not a valid JSON file.")
-
-            if "name" not in t_data:
-                raise CommandSyntaxError("Not a valid character file: No name.")
-
-            t_bio = {}
-
-            for field in self.fields:
-                t_field = t_data.get(field,"")
-                if t_field:
-                    t_len = len(t_field)
-                    if field in ["name","race", "gender", "height", "age"] and t_len > 64:
-                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
-                    elif field in ["link", "theme"] and t_len > 256:
-                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
-                    elif t_len > 1024:
-                        raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 1024 chars).")
-                    t_bio[field] = t_field
-
-            t_name = t_bio["name"].lower()
-            if t_name in self.bios[gid]:
-                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
-                    raise PermissionError("Character belongs to other user.")
+        else:
+            args = re.split("\w|\\r|\\n", msg.content, 1)
+            if len(args) == 1:
+                raise CommandSyntaxError("File or code block required")
+            t_search = re.search("```.*({.+}).*```", args[1], re.DOTALL)
+            if t_search:
+                try:
+                    t_data = json.loads(t_search.group(1))
+                except:
+                    raise CommandSyntaxError("Not a valid JSON string.")
             else:
-                self.bios[gid][t_name] = {
-                    "author": msg.author.id,
-                    "name": t_bio["name"],
-                    "race": "undefined",
-                    "gender": "undefined",
-                    "appearance": "undefined",
-                    "backstory": "undefined"
-                }
-                for f in self.fields:
-                    if f not in self.bios[gid][t_name]:
-                        self.bios[gid][t_name][f] = ""
-                await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
-                self._save_bios()
-            for field, value in t_bio.items():
-                self.bios[gid][t_name][field] = value
-            self._save_bios()
-            await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+                raise CommandSyntaxError("Not valid JSON code block.")
 
+        if "name" not in t_data:
+            raise CommandSyntaxError("Not a valid character file: No name.")
+
+        t_bio = {}
+
+        for field in self.fields:
+            t_field = t_data.get(field, "")
+            if t_field:
+                t_len = len(t_field)
+                if field in ["name", "race", "gender", "height", "age"] and t_len > 64:
+                    raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
+                elif field in ["link", "theme"] and t_len > 256:
+                    raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
+                elif t_len > 1024:
+                    raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 1024 chars).")
+                t_bio[field] = t_field
+
+        t_name = t_bio["name"].lower()
+        if t_name in self.bios[gid]:
+            if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                raise PermissionError("Character belongs to other user.")
+        else:
+            self.bios[gid][t_name] = {
+                "author": msg.author.id,
+                "name": t_bio["name"],
+                "race": "undefined",
+                "gender": "undefined",
+                "appearance": "undefined",
+                "backstory": "undefined"
+            }
+            for f in self.fields:
+                if f not in self.bios[gid][t_name]:
+                    self.bios[gid][t_name][f] = ""
+            await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
+            self._save_bios()
+        for field, value in t_bio.items():
+            self.bios[gid][t_name][field] = value
+        self._save_bios()
+        await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+
+    @Command("reloadbio",
+             doc="Administrative function that reloads the bios from the file.",
+             perms={"manage_messages"})
+    async def _reloadbio(self, msg):
+        try:
+            with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
+                self.bios = json.load(f)
+        except FileNotFoundError:
+            self.bios = {}
+            with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
+                f.write("{}")
+        except json.decoder.JSONDecodeError:
+            self.logger.exception("Could not decode bios.json! ", exc_info=True)
+            raise CommandSyntaxError("Bios.json is not a valid JSON file.")
+        await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
     # util commands
 
