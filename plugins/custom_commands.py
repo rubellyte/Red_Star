@@ -159,7 +159,7 @@ class CustomCommands(BasePlugin):
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
                     not msg.author.permissions_in(msg.channel).manage_messages and \
-                    t_count >= self.plugin_config[gid]["cc_limit"]:
+                    t_count >= self.plugin_config[gid].get("cc_limit", 100):
                 raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
             valid, err = self.validate_cc(content, msg)
             if not valid:

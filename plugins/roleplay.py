@@ -288,7 +288,11 @@ class Roleplay(BasePlugin):
             t_file = BytesIO()
             await msg.attachments[0].save(t_file)
             try:
-                t_data = json.loads(t_file.getvalue().decode())
+                t_string = t_file.getvalue().decode()
+                t_data = json.loads(t_string)
+            except json.decoder.JSONDecodeError as e:
+                self.logger.exception("Could not decode ccs.json! ", exc_info=True)
+                raise CommandSyntaxError(f"Not a valid JSON file: {e}")
             except:
                 raise CommandSyntaxError("Not a valid JSON file.")
         else:
