@@ -291,7 +291,7 @@ class Roleplay(BasePlugin):
                 t_string = t_file.getvalue().decode()
                 t_data = json.loads(t_string)
             except json.decoder.JSONDecodeError as e:
-                self.logger.exception("Could not decode ccs.json! ", exc_info=True)
+                self.logger.exception("Could not decode bios.json! ", exc_info=True)
                 raise CommandSyntaxError(f"Not a valid JSON file: {e}")
             except:
                 raise CommandSyntaxError("Not a valid JSON file.")
