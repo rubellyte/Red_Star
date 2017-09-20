@@ -78,7 +78,6 @@ class MOTD(BasePlugin):
                 except ChannelNotFoundError as e:
                     self.logger.warning(f"No channel set as {e} in {str(guild)}.")
 
-
     def _get_holiday(self, month, day, weekday):
         holidays = self.motds["holidays"]
         if f"{month}/{day}" in holidays:

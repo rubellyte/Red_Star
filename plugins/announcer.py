@@ -35,7 +35,7 @@ class Announcer(BasePlugin):
                     if self.plugin_config[gid].greeting_enabled:
                         await greet_channel.send(msg)
                 except ChannelNotFoundError:
-                    self.logger.error(f"Server {guild.name} has no default channel set!")
+                    self.logger.error(f"Server {guild.name} has no {e} channel set!")
 
     # Event hooks
 
