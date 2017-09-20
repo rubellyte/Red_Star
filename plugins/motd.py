@@ -4,7 +4,7 @@ import json
 import schedule
 from random import choice
 from plugin_manager import BasePlugin
-from rs_errors import CommandSyntaxError
+from rs_errors import CommandSyntaxError, ChannelNotFoundError
 from rs_utils import respond
 from command_dispatcher import Command
 
@@ -72,8 +72,12 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get(day, [])
             lines += self.motds.get(month, {}).get(weekday, [])
             for guild in self.client.guilds:
-                chan = self.channel_manager.get_channel(guild, "general")
-                asyncio.ensure_future(chan.send(choice(lines)))
+                try:
+                    chan = self.channel_manager.get_channel(guild, "general")
+                    asyncio.ensure_future(chan.send(choice(lines)))
+                except ChannelNotFoundError as e:
+                    self.logger.warning(f"No channel set as {e} in {str(guild)}.")
+
 
     def _get_holiday(self, month, day, weekday):
         holidays = self.motds["holidays"]
