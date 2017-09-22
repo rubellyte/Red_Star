@@ -157,6 +157,10 @@ class CustomCommands(BasePlugin):
         else:
             t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
 
+            # TODO figure this out, t_count is None for people who have CCs
+            if not t_count:
+                t_count = 0
+
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
                     not msg.author.permissions_in(msg.channel).manage_messages and \
                     t_count >= self.plugin_config[gid].get("cc_limit", 100):
