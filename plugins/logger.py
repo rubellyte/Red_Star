@@ -216,14 +216,16 @@ class DiscordLogger(BasePlugin):
             else:
                 t_aud = "Unknown"
 
+            # TODO mentionable is **always** set to different from one in "after" through this method. Why?
+
             if before == after:
                 if audit:
                     t_b = audit[0].changes.before.__dict__
-                    before.name = t_b.get("name", before.name)
-                    before.colour = t_b.get("colour", before.colour)
-                    before.hoist = t_b.get("hoist", before.colour)
-                    before.mentionable = t_b.get("mentionable", before.mentionable)
-                    before.permissions = t_b.get("permissions", before.permissions)
+                    before.name = t_b.get("name", after.name)
+                    before.colour = t_b.get("colour", after.colour)
+                    before.hoist = t_b.get("hoist", after.colour)
+                    before.mentionable = t_b.get("mentionable", after.mentionable)
+                    before.permissions = t_b.get("permissions", after.permissions)
                 else:
                     self.logger.warning(f"Role {after} was changed on server {after.guild} "
                                         f"by {t_aud} but the data was lost.")
