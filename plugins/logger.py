@@ -200,7 +200,6 @@ class DiscordLogger(BasePlugin):
                                            f"User id: `{member.id}`**")
 
     async def on_guild_role_update(self, before, after):
-        # TODO see if we can figure out how to avoid the before == after shit
         gid = str(before.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
@@ -208,20 +207,29 @@ class DiscordLogger(BasePlugin):
             if gid not in self.log_items:
                 self.log_items[gid] = []
             diff = []
-            audit = [f"{l.user}" async for l in
+            audit = [l async for l in
                      after.guild.audit_logs(action=AuditLogAction.role_update) if l.target.id == after.id and
                      (datetime.utcnow() - l.created_at < timedelta(seconds=5))]
 
             if audit:
-                t_aud = audit[0]
+                t_aud = str(audit[0].user)
             else:
                 t_aud = "Unknown"
 
             if before == after:
-                self.logger.warning(f"Role {after} was changed on server {after.guild} "
-                                    f"by {t_aud} but the data was lost.")
-                self.log_items[gid].append(f"**ANALYSIS: Role {after} was changed by {t_aud}.\nWARNING: Data lost.**")
-                return
+                if audit:
+                    t_b = audit[0].changes.before.__dict__
+                    before.name = t_b.get("name", before.name)
+                    before.colour = t_b.get("colour", before.colour)
+                    before.hoist = t_b.get("hoist", before.colour)
+                    before.mentionable = t_b.get("mentionable", before.mentionable)
+                    before.permissions = t_b.get("permissions", before.permissions)
+                else:
+                    self.logger.warning(f"Role {after} was changed on server {after.guild} "
+                                        f"by {t_aud} but the data was lost.")
+                    self.log_items[gid].append(f"**ANALYSIS: Role {after} was changed by {t_aud}.\n"
+                                               f"WARNING: Data lost.**")
+                    return
 
             if before.name != after.name:
                 diff.append(f"Name changed from {before.name} to {after.name}")
@@ -233,8 +241,6 @@ class DiscordLogger(BasePlugin):
                 diff.append("Is now displayed separately." if after.hoist else "Is no longer displayed separately.")
             if before.mentionable != after.mentionable:
                 diff.append("Can now be mentioned." if after.mentionable else "Can no longer be mentioned.")
-            if before.managed != after.managed:
-                diff.append("Is now managed." if after.managed else "Is no longer managed.")
             if before.permissions != after.permissions:
                 # comparing both sets of permissions, PITA
                 d_before = {x: y for x, y in before.permissions}
