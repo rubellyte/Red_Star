@@ -83,28 +83,6 @@ class DiscordLogger(BasePlugin):
                                        f"{after.channel.mention}. ANALYSIS:**\n"
                                        f"**Old contents:** {old_contents}\n**New contents:** {contents}")
 
-    async def on_member_join(self, member):
-        gid = str(member.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_join" not in self.plugin_config[gid].log_events:
-            uname = str(member)
-            self.logger.debug(f"User {uname} joined {member.guild.name}.")
-            if gid not in self.log_items:
-                self.log_items[gid] = []
-            self.log_items[gid].append(f"**NEW USER DETECTED: {uname}.**")
-
-    async def on_member_remove(self, member):
-        gid = str(member.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_remove" not in self.plugin_config[gid].log_events:
-            uname = str(member)
-            self.logger.debug(f"User {uname} left {member.guild.name}.")
-            if gid not in self.log_items:
-                self.log_items[gid] = []
-            self.log_items[gid].append(f"**WARNING: User {uname} has left the server.**")
-
     async def on_member_update(self, before, after):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
