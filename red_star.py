@@ -90,9 +90,13 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_message_edit", before, after)
 
     async def on_reaction_add(self, reaction, user):
+        if self.channel_manager.channel_in_category(reaction.message.guild, "noread", reaction.message.channel):
+            return
         await self.plugin_manager.hook_event("on_reaction_add", reaction, user)
 
     async def on_reaction_remove(self, reaction, user):
+        if self.channel_manager.channel_in_category(reaction.message.guild, "noread", reaction.message.channel):
+            return
         await self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
 
     async def on_reaction_clear(self, message, reactions):
