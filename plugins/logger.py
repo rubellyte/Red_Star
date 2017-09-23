@@ -3,6 +3,8 @@ from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError, CommandSyntaxError
 from rs_utils import split_message, respond
 from command_dispatcher import Command
+import discord
+from datetime import datetime, timedelta
 
 
 class DiscordLogger(BasePlugin):
@@ -141,6 +143,46 @@ class DiscordLogger(BasePlugin):
         if "guild_channel_pins_update" not in self.plugin_config[gid]["log_events"]:
             updtime = last_pin.strftime("%Y-%m-%d @ %H:%M:%S")
             self.log_items[gid].append(f"**ANALYSIS: A message was pinned in {channel.mention} at `{updtime}`**")
+
+    async def on_member_ban(self, guild, member):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_ban" not in self.plugin_config[gid]["log_events"]:
+            self.log_items[gid].append(f"**ANALYSIS: User {str(member)} was banned.**")
+
+    async def on_member_unban(self, guild, member):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_unban" not in self.plugin_config[gid]["log_events"]:
+            self.log_items[gid].append(f"**ANALYSIS: Ban was lifted from user {str(member)}.**")
+
+    async def on_member_join(self, member):
+        gid = str(member.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_join" not in self.plugin_config[gid]["log_events"]:
+            self.log_items[gid].append(f"**ANALYSIS: User {str(member)} has joined the server. "
+                                       f"User id: `{member.id}`**")
+
+    async def on_member_remove(self, member):
+        gid = str(member.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_remove" not in self.plugin_config[gid]["log_events"]:
+            t_time = datetime.utcnow()
+            # find audit log entries for kicking of member with our ID, created in last five seconds.
+            # Hopefully five seconds is enough
+            audit = [f"{str(l.user)} for reasons: {l.reason or 'None'}" async for l in member.guild.audit_logs(
+                    action=discord.AuditLogAction.kick)
+                    if l.target.id == member.id and (t_time - l.created_at < timedelta(seconds=5))]
+            if audit:
+                self.log_items[gid].append(f"**ANALYSIS: User {str(member)} was kicked from the server by {audit[0]}. "
+                                           f"User id: `{member.id}`**")
+            else:
+                self.log_items[gid].append(f"**ANALYSIS: User {str(member)} has left the server. "
+                                           f"User id: `{member.id}`**")
 
     async def on_log_event(self, guild, string, *, log_type="log_event"):
         gid = str(guild.id)
