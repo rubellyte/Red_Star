@@ -69,16 +69,24 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_resumed")
 
     async def on_typing(self, channel, user, when):
+        if self.channel_manager.channel_in_category(channel.guild, "noread", channel):
+            return
         await self.plugin_manager.hook_event("on_typing", channel, user, when)
 
     async def on_message(self, msg):
+        if self.channel_manager.channel_in_category(msg.guild, "noread", msg.channel):
+            return
         await self.command_dispatcher.command_check(msg)
         await self.plugin_manager.hook_event("on_message", msg)
 
     async def on_message_delete(self, msg):
+        if self.channel_manager.channel_in_category(msg.guild, "noread", msg.channel):
+            return
         await self.plugin_manager.hook_event("on_message_delete", msg)
 
     async def on_message_edit(self, before, after):
+        if self.channel_manager.channel_in_category(after.guild, "noread", after.channel):
+            return
         await self.plugin_manager.hook_event("on_message_edit", before, after)
 
     async def on_reaction_add(self, reaction, user):
@@ -88,6 +96,8 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
 
     async def on_reaction_clear(self, message, reactions):
+        if self.channel_manager.channel_in_category(message.guild, "noread", message.channel):
+            return
         await self.plugin_manager.hook_event("on_reaction_clear", message, reactions)
 
     async def on_private_channel_create(self, channel):
@@ -112,6 +122,8 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_guild_channel_update", before, after)
 
     async def on_guild_channel_pins_update(self, channel, last_pin):
+        if self.channel_manager.channel_in_category(channel.guild, "noread", channel):
+            return
         await self.plugin_manager.hook_event("on_guild_channel_pins_update", channel, last_pin)
 
     async def on_member_join(self, member):
