@@ -54,6 +54,7 @@ class ChannelManager:
         self.add_guild(guild)
         if category not in self.conf[gid].categories:
             self.conf[gid]["categories"][category] = []
+        self.config_manager.save_config()
 
     def channel_in_category(self, guild, category, channel):
         gid = str(guild.id)
@@ -71,9 +72,11 @@ class ChannelManager:
         self.add_guild(guild)
         if category not in self.conf[gid].categories:
             self.conf[gid].categories[category] = [channel.id]
+            self.config_manager.save_config()
             return True
         elif channel.id not in self.conf[gid].categories[category]:
             self.conf[gid].categories[category].append(channel.id)
+            self.config_manager.save_config()
             return True
         else:
             return False
@@ -88,4 +91,5 @@ class ChannelManager:
             return False
         else:
             self.conf[gid].categories[category].remove(channel.id)
+            self.config_manager.save_config()
             return True
