@@ -182,7 +182,7 @@ class Levelling(BasePlugin):
                 elif args[1].lower() == "xp_min":
                     self.plugin_config[gid]["xp_min"] = val
                 elif args[1].lower() == "xp_max":
-                    self.plugin_config[gid]["xp_min"] = val
+                    self.plugin_config[gid]["xp_max"] = val
                 else:
                     raise CommandSyntaxError(f"No option {args[1].lower()}")
 
