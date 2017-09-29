@@ -1,10 +1,12 @@
 import urllib
+import re
+import asyncio
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, UserPermissionError
 from rs_utils import respond, is_positive
 from command_dispatcher import Command
 from discord import InvalidArgument
-from traceback import format_exception
+from traceback import format_exception, format_exc
 
 
 class BotManagement(BasePlugin):
@@ -282,3 +284,31 @@ class BotManagement(BasePlugin):
             await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{excstr}\n```")
         else:
             await respond(msg, f"**ANALYSIS: No error in context {args}.**")
+
+    @Command("Execute", "Exec", "Eval",
+             doc="Executes the given Python code. Be careful, you can really break things with this!\n"
+                 "Provided variables are `aef` (shorthand for asyncio.ensure_future) and `self.result` "
+                 "(printed by the bot after execution).",
+             syntax="(code in code block)",
+             category="debug",
+             perms={"manage_guild"},
+             bot_maintainers_only=True)
+    async def _execute(self, msg):
+        try:
+            arg = msg.content.split(" ", 1)[1]
+            code = re.match(r"```.*?\n(.*)```", arg, re.S).group(1)
+        except IndexError:
+            raise CommandSyntaxError("No code provided.")
+        except AttributeError:
+            raise CommandSyntaxError("Code is not in valid code block.")
+        # Convenience variables for printing results and ensure_future
+        aef = asyncio.ensure_future
+        self.res = None
+        try:
+            exec(code, globals(), locals())
+        except:
+            await respond(msg, f"**WARNING: Error occurred while executing code. Traceback:**\n"
+                               f"```Py\n{format_exc()}\n```")
+        if self.res is not None:
+            await respond(msg, f"**ANALYSIS: Result: {self.res}**")
+            self.res = None
