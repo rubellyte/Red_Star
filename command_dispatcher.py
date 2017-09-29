@@ -26,12 +26,12 @@ class CommandDispatcher:
     def register_plugin(self, plugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
-                self.register(mth, mth.name)
+                self.register(mth, mth.name.lower())
 
     def deregister_plugin(self, plugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
-                self.deregister(mth, mth.name)
+                self.deregister(mth, mth.name.lower())
 
     def register(self, fn, name, is_alias=False):
         """
@@ -59,7 +59,7 @@ class CommandDispatcher:
 
         if hasattr(fn, "aliases") and not is_alias:
             for alias in fn.aliases:
-                self.register(fn, alias, is_alias=True)
+                self.register(fn, alias.lower(), is_alias=True)
 
     def deregister(self, fn, name, is_alias=False):
         """
@@ -105,7 +105,7 @@ class CommandDispatcher:
             err = e if e else "Invalid syntax."
             if fn.syntax:
                 deco = self.conf[gid].command_prefix
-                await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{command} {fn.syntax}.**")
+                await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{fn.name} {fn.syntax}.**")
             else:
                 await respond(msg, f"**WARNING: {err}.**")
         except UserPermissionError as e:

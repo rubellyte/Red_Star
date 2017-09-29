@@ -151,7 +151,7 @@ class DiscordLogger(BasePlugin):
                 self.log_items[gid] = []
             self.log_items[gid].append(string)
 
-    @Command("logevent",
+    @Command("LogEvent",
              doc="Adds or removes the events to be logged.",
              syntax="(add/remove) (type)",
              category="bot_management",

@@ -11,7 +11,7 @@ import time
 class DumpChannel(BasePlugin):
     name = "dump_channel"
 
-    @Command("dump",
+    @Command("Dump",
              doc="Dumps the messages between two specified messages into a text file, inclusively.",
              syntax="(latest message ID) (earliest message ID) [filename]",
              perms={"manage_messages"},

@@ -93,7 +93,7 @@ class MOTD(BasePlugin):
         else:
             return
 
-    @Command("addmotd",
+    @Command("AddMotD",
              doc="Adds a MotD message.",
              perms={"manage_guild"},
              category="bot_management",
@@ -119,7 +119,7 @@ class MOTD(BasePlugin):
         except KeyError:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
 
-    @Command("addholiday",
+    @Command("AddHoliday",
              doc="Adds a holiday. Holidays do not draw from the \"any-day\" MotD pools.",
              perms={"manage_guild"},
              category="bot_management",
@@ -142,7 +142,7 @@ class MOTD(BasePlugin):
         else:
             await respond(msg, f"**ANALYSIS: {holidaystr} is already a holiday.**")
 
-    @Command("testmotds",
+    @Command("TestMotDs",
              doc="Used for testing MOTD lines.",
              perms={"manage_guild"},
              category="debug",

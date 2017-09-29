@@ -483,7 +483,7 @@ class MusicPlayer(BasePlugin):
 
     # Command functions
 
-    @Command("joinvc", "joinvoice",
+    @Command("JoinVC", "JoinVoice",
              category="music",
              doc="Joins same voice channel as user.")
     async def _joinvc(self, data):
@@ -501,7 +501,7 @@ class MusicPlayer(BasePlugin):
             await respond(data, choice(self.plugin_config["no_permission_lines"]).format(
                     data.channel.name))
 
-    @Command("play",
+    @Command("Play", "PlaySong",
              category="music",
              syntax="(URL or search query)",
              doc="Plays presented youtube video or searches for one.")
@@ -531,7 +531,7 @@ class MusicPlayer(BasePlugin):
         else:
             raise CommandSyntaxError("Expected URL or search query.")
 
-    @Command("skipsong",
+    @Command("SkipSong",
              category="music",
              doc="Votes to skip the current song.\n Forces skip if the current song is stuck.")
     async def _skipvc(self, data):
@@ -545,7 +545,7 @@ class MusicPlayer(BasePlugin):
             raise UserPermissionError("Must be in voicechat.")
         await t_play.skip_song(data)
 
-    @Command("volume",
+    @Command("Volume",
              category="music",
              syntax="[volume from 0 to 200]",
              doc="Adjusts volume, from 0 to 200%.",
@@ -577,7 +577,7 @@ class MusicPlayer(BasePlugin):
         else:
             await respond(data, f"**ANALYSIS: Current volume: {t_play.volume}%.**", delete_after=5)
 
-    @Command("stopsong",
+    @Command("StopSong",
              category="music",
              doc="Stops the music and empties the queue."
                  "\nRequires mute_members permission in the voice channel.",
@@ -599,7 +599,7 @@ class MusicPlayer(BasePlugin):
                         self.logger.exception("Error pruning song cache. ", exc_info=True)
         await respond(data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
 
-    @Command("queue",
+    @Command("Queue",
              category="music",
              doc="Writes out the current queue.",
              delcall=True)
@@ -636,7 +636,7 @@ class MusicPlayer(BasePlugin):
         t_m, t_s = divmod(ceil(t_play.queue_length(t_play.queue)), 60)
         await respond(data, f"**ANALYSIS: Current duration: {t_m}:{t_s:02d}**", delete_after=30)
 
-    @Command("nowplaying",
+    @Command("NowPlaying",
              category="music",
              doc="Writes out the current song information.",
              delcall=True)
@@ -664,7 +664,7 @@ class MusicPlayer(BasePlugin):
             await respond(data, "**ANALYSIS: Playing nothing.\nANALYSIS: If a song is stuck, use !skipsong.**",
                           delete_after=30)
 
-    @Command("pausesong",
+    @Command("PauseSong",
              category="music",
              doc="Pauses currently playing music stream.")
     async def _pausevc(self, data):
@@ -684,7 +684,7 @@ class MusicPlayer(BasePlugin):
         else:
             await respond(data, f"**NEGATIVE. Invalid pause request.**")
 
-    @Command("resumesong",
+    @Command("ResumeSong",
              category="music",
              doc="Resumes currently paused music stream.")
     async def _resumevc(self, data):
@@ -698,7 +698,7 @@ class MusicPlayer(BasePlugin):
         else:
             await respond(data, "**NEGATIVE. No song to resume.**")
 
-    @Command("delsong",
+    @Command("DeleteSong", "DelSong", "RMSong",
              category="music",
              syntax="[queue index]",
              doc="Deletes a song from the queue by it's position number, starting from 1."
@@ -717,7 +717,7 @@ class MusicPlayer(BasePlugin):
         t_p = t_play.pop_song(pos)
         await respond(data, f"**AFFIRMATIVE. Removed song \"{t_p.title}\" from position {pos}.**")
 
-    @Command("musicban",
+    @Command("MusicBan",
              category="music",
              doc="Bans members from using the music module."
                  "\nRequires mute_members permission in the voice channel.",
@@ -748,7 +748,7 @@ class MusicPlayer(BasePlugin):
         else:
             raise SyntaxWarning("No valid arguments")
 
-    @Command("musicunban",
+    @Command("MusicUnban",
              category="music",
              doc="Unbans members from using the music module."
                  "\nRequires mute_members permission in the voice channel.",
@@ -779,7 +779,7 @@ class MusicPlayer(BasePlugin):
         else:
             raise SyntaxWarning("No valid arguments")
 
-    @Command("dumpqueue",
+    @Command("DumpQueue",
              category="music",
              doc="Serializes and dumps the currently playing queue.\nRequires mute_members permission in the "
                  "voice channel")
@@ -799,7 +799,7 @@ class MusicPlayer(BasePlugin):
             for s in split_message(t_string, splitter="\n"):
                 await respond(data, f"```{s}```")
 
-    @Command("appendqueue",
+    @Command("AppendQueue",
              category="music",
              doc="Appends a number of songs to the queue, takes output from dumpqueue."
                  "\nRequires mute_members permission in the voice channel.",
@@ -843,7 +843,7 @@ class MusicPlayer(BasePlugin):
         else:
             raise CommandSyntaxError("Expected arguments!")
 
-    @Command("leavevc", "leavevoice",
+    @Command("LeaveVC", "LeaveVoice",
              category="music",
              doc="Leaves voicechat.\nRequires mute_members permission in the voice channel to exit while playing.")
     async def _leavevc(self, data):
@@ -862,7 +862,7 @@ class MusicPlayer(BasePlugin):
         else:
             await respond(data, "**NEGATIVE.**")
 
-    @Command("togglevc", "songmode",
+    @Command("SongMode", "ToggleVC",
              category="music",
              doc="Toggles playback options.\n"
                  "cycle = none/all/one\n"

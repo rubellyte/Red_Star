@@ -37,7 +37,7 @@ class Levelling(BasePlugin):
 
     # Commands
 
-    @Command("listxp",
+    @Command("ListXP", "XPLeaderboard",
              doc="Lists all registered users from highest XP to lowest, up to amount specified or 10.",
              syntax="[number]",
              category="levelling")
@@ -71,7 +71,7 @@ class Levelling(BasePlugin):
                 break
         await respond(msg, t_str+"```")
 
-    @Command("xp",
+    @Command("XP", "ShowXP",
              doc="Shows your xp or xp of specified user.",
              syntax="[user]",
              category="levelling")
@@ -95,7 +95,7 @@ class Levelling(BasePlugin):
             else:
                 await respond(msg, "**ANALYSIS: You have no XP record.**")  # I don't think this is possible
 
-    @Command("evalxp",
+    @Command("EvalXP",
              doc="Processes all message history and grants members xp.\nAccepts one argument to determine "
                  "how far into the history to search.\nWARNING - VERY SLOW.\nUSE ONLY AFTER "
                  "CLEANING XP TABLE.",
@@ -122,7 +122,7 @@ class Levelling(BasePlugin):
                         self._give_xp(message)
         await t_msg.delete()
 
-    @Command("nukexp",
+    @Command("NukeXP",
              doc="Permanently erases XP records, setting given user or EVERYONE to 0.",
              syntax="[user]",
              perms={"manage_guild"},
@@ -153,7 +153,7 @@ class Levelling(BasePlugin):
             self.storage[gid] = {}
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
 
-    @Command("xpconfig", "xpsettings",
+    @Command("XPConfig", "XPSettings",
              doc="Edit the xp module settings, or see the current settings."
                  "\nIt is advised to do !nukexp !evalxp after adjusting settings.",
              syntax="[option] [value]",

@@ -34,7 +34,7 @@ class Roleplay(BasePlugin):
         except json.decoder.JSONDecodeError:
             self.logger.exception("Could not decode bios.json! ", exc_info=True)
 
-    @Command("roll",
+    @Command("Roll",
              doc="Rolls a specified amount of specified dice with specified bonus and advantage/disadvantage",
              syntax="[number]D(die)[+/-bonus][A/D]",
              category="role_play",
@@ -76,7 +76,7 @@ class Roleplay(BasePlugin):
                           f"{num_dice}D{die_sides} roll{modif_str}, getting {rolled_sum}.**\n"
                           f"**ANALYSIS: Rolled dice:** `{dicestr}`")
 
-    @Command("racerole",
+    @Command("RaceRole",
              doc="Adds or removes roles from the list of race roles that are searched by the bio command.",
              syntax="add/remove (role mentions)",
              perms={"manage_messages"},
@@ -104,7 +104,7 @@ class Roleplay(BasePlugin):
             else:
                 raise CommandSyntaxError(f"Unsupported mode {args[1].lower()}.")
 
-    @Command("getracerole",
+    @Command("GetRaceRole",
              doc="Allows the user to request one of the approved race roles for themselves.",
              syntax="(role)",
              category="role_play")
@@ -132,7 +132,7 @@ class Roleplay(BasePlugin):
             else:
                 raise CommandSyntaxError("Not a role or role not found.")
 
-    @Command("listraceroles",
+    @Command("ListRaceRoles",
              doc="Lists all approved race roles.",
              category="role_play")
     async def _listraceroles(self, msg):
@@ -143,7 +143,7 @@ class Roleplay(BasePlugin):
         await split_output(msg, "**ANALYSIS: Currently approved race roles:**",
                            [x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["race_roles"]])
 
-    @Command("listbio",
+    @Command("ListBios",
              doc="Lists all available bios in the database.",
              syntax="[user]",
              category="role_play")
@@ -163,7 +163,7 @@ class Roleplay(BasePlugin):
             await split_output(msg, "**ANALYSIS: Following character bios found:**",
                                [v['name'] for k, v in self.bios[gid].items()])
 
-    @Command("bio",
+    @Command("Bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
                  "Each character name must be unique.\n"
                  "Fields: race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
@@ -276,7 +276,7 @@ class Roleplay(BasePlugin):
                 raise CommandSyntaxError(f"Available fields: {', '.join(self.fields[1:])}.")
             self._save_bios()
 
-    @Command("uploadbio",
+    @Command("UploadBio",
              doc="Parses a json file to update/create character bios.\n"
                  "See output of !bio (charname) dump for more details on file formatting.",
              syntax="(attach the file to the message, no arguments required)",
@@ -348,7 +348,7 @@ class Roleplay(BasePlugin):
         self._save_bios()
         await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
 
-    @Command("reloadbio",
+    @Command("ReloadBio",
              doc="Administrative function that reloads the bios from the file.",
              perms={"manage_messages"},
              category="role_play")

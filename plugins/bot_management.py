@@ -10,7 +10,7 @@ from traceback import format_exception
 class BotManagement(BasePlugin):
     name = "bot_management"
 
-    @Command("shutdown",
+    @Command("Shutdown",
              doc="Shuts down the bot.",
              syntax="N/A",
              category="bot_management",
@@ -19,7 +19,7 @@ class BotManagement(BasePlugin):
         await respond(msg, "**AFFIRMATIVE. SHUTTING DOWN.**")
         await self.client.stop_bot()
 
-    @Command("save",
+    @Command("Save",
              doc="Saves plugin storage data.",
              category="bot_management",
              perms={"manage_guild"})
@@ -28,7 +28,7 @@ class BotManagement(BasePlugin):
         self.logger.debug("Writing to shelve...")
         await respond(msg, "**AFFIRMATIVE. Storage saved to disk.**")
 
-    @Command("update_avatar",
+    @Command("UpdateAvatar",
              doc="Updates the bot's avatar.",
              syntax="(URL)",
              category="bot_management",
@@ -51,7 +51,7 @@ class BotManagement(BasePlugin):
         else:
             raise CommandSyntaxError("No URL provided.")
 
-    @Command("update_name",
+    @Command("UpdateName",
              doc="Updates the bot's (nick)name.",
              syntax="[change username?] (name)",
              category="bot_management",
@@ -78,7 +78,7 @@ class BotManagement(BasePlugin):
             await msg.guild.me.edit(nick=newname)
             await respond(msg, f"**ANALYSIS: Nickname changed to {newname} successfully.**")
 
-    @Command("activate",
+    @Command("Activate",
              doc="Activates an inactive plugin.",
              syntax="(plugin) [permanent]",
              category="bot_management",
@@ -106,7 +106,7 @@ class BotManagement(BasePlugin):
         else:
             await respond(msg, f"**WARNING: Could not find plugin {plgname}.**")
 
-    @Command("deactivate",
+    @Command("Deactivate",
              doc="Deactivates an active plugin.",
              syntax="(plugin) [permanent]",
              category="bot_management",
@@ -132,7 +132,7 @@ class BotManagement(BasePlugin):
         else:
             await respond(msg, f"**ANALYSIS: Plugin {plgname} is not active.**")
 
-    @Command("list_plugins",
+    @Command("ListPlugins",
              doc="Lists all plugins and their activation status.",
              syntax="(plugin)",
              category="bot_management",
@@ -152,7 +152,7 @@ class BotManagement(BasePlugin):
         await respond(msg, f"**ANALYSIS: Plugins are as follows:**```\nActive: {active_plgs}\n"
                            f"Inactive: {inactive_plgs}\n```")
 
-    @Command("get_config",
+    @Command("GetConfig",
              doc="Gets the config value at the specified path. Use <server> to fill in the server ID.",
              syntax="(path/to/value)",
              category="bot_management",
@@ -188,7 +188,7 @@ class BotManagement(BasePlugin):
                 raise CommandSyntaxError(f"Path {args[0]} is invalid.")
         await respond(msg, f"**ANALYSIS: Value of {args[0]}:** `{val}`")
 
-    @Command("set_config",
+    @Command("SetConfig",
              doc="Edits the config key at the specified path. Use <server> to fill in the server ID.",
              syntax="(path/to/edit) (value)",
              category="bot_management",
@@ -259,7 +259,7 @@ class BotManagement(BasePlugin):
         self.config_manager.save_config()
         await respond(msg, f"**ANALYSIS: Config value {args[0]} edited to** `{value}` **successfully.**")
 
-    @Command("last_error",
+    @Command("LastError",
              doc="Gets the last error to occur in the specified context.",
              syntax="(command/event/unhandled)",
              category="debug",

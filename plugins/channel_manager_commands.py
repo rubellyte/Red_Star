@@ -13,7 +13,7 @@ class ChannelManagerCommands(BasePlugin):
     async def activate(self):
         self.chan_conf = self.config_manager.config.channel_manager
 
-    @Command("get_channel",
+    @Command("GetChannel",
              doc="Gets information on the specified channel type (or all channel types if none specified) in this "
                  "server.",
              syntax="[channel type]",
@@ -33,7 +33,7 @@ class ChannelManagerCommands(BasePlugin):
                                    for x, y in self.chan_conf[gid].channels.items() if y is not None])
             await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
-    @Command("set_channel",
+    @Command("SetChannel",
              doc="Sets the specified channel type to the specified channel for this server or disables it.\n"
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel types must be prefixed by \"Voice\".",
@@ -72,7 +72,7 @@ class ChannelManagerCommands(BasePlugin):
         else:
             await respond(msg, f"ANALYSIS: The {chantype} channel for this server has been disabled.")
 
-    @Command("get_category",
+    @Command("GetCategory",
              doc="Gets the members of the specified channel category on this server.",
              syntax="[category]",
              category="channel_management",
@@ -92,7 +92,7 @@ class ChannelManagerCommands(BasePlugin):
             catestr = "\n".join(self.chan_conf[gid].categories.keys())
             await respond(msg, f"**ANALYSIS: Available categories:**\n```\n{catestr}```")
 
-    @Command("add_to_category",
+    @Command("AddToCategory",
              doc="Adds the given channel to the specified category for this server.\n"
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel categories must be prefixed by \"voice\".",
@@ -128,7 +128,7 @@ class ChannelManagerCommands(BasePlugin):
         else:
             raise CommandSyntaxError("No channel provided.")
 
-    @Command("rm_from_category",
+    @Command("RMFromCategory",
              doc="Removes the given channel from the specified category from the server.\n"
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel categories must be prefixed by \"voice\".",

@@ -186,7 +186,7 @@ class AntiSpam(BasePlugin):
 
     # Commands
 
-    @Command("spam_emoji",
+    @Command("SpamEmoji",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Sets the emoji to react to early spam with, or turns that off.",
@@ -214,8 +214,9 @@ class AntiSpam(BasePlugin):
             self.plugin_config[str(msg.guild.id)]["spam_reaction"] = False
             await respond(msg, f"**AFFIRMATIVE. Spam reaction disabled.**")
 
-    @Command("spam_delete",
+    @Command("SpamDelete",
              category="anti_spam",
+             perms={"manage_guild"},
              doc="Enables or disables deletion of detected spam.",
              syntax="(enable/on/disable/off)")
     async def _spamdelete(self, msg):
@@ -229,7 +230,7 @@ class AntiSpam(BasePlugin):
         else:
             raise CommandSyntaxError("Expected arguments.")
 
-    @Command("spam_role",
+    @Command("SpamRole",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Sets the role to apply on sufficient infractions and duration, or disables it.",
@@ -272,7 +273,7 @@ class AntiSpam(BasePlugin):
             else:
                 await respond(msg, f"**ANALYSIS: Spam role disabled or not found.**")
 
-    @Command("spam_ban",
+    @Command("SpamBan",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Enables or disables banning for excessive spamming.",
@@ -288,8 +289,9 @@ class AntiSpam(BasePlugin):
         else:
             raise CommandSyntaxError("Expected arguments.")
 
-    @Command("spam_list",
+    @Command("SpamList",
              category="anti_spam",
+             perms={"manage_messages"},
              doc="Prints a list of all people with non-zero infractions currently.")
     async def _spamlist(self, msg):
         t_string = ""
@@ -302,7 +304,7 @@ class AntiSpam(BasePlugin):
                     t_string = "NONE"
         await respond(msg, f"**ANALYSIS: Members in spam list:**\n```{t_string}```")
 
-    @Command("spam_infractions", "spam_infs",
+    @Command("SpamInfractions", "SpamInfs",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Sets infraction thresholds.\n"
@@ -413,7 +415,7 @@ class AntiSpam(BasePlugin):
                        f"behaviour."
             await respond(msg, f"**ANALYSIS: Current infraction settings:**\n```{t_string}```")
 
-    @Command("spam_setting",
+    @Command("SpamSettings" "SpamConfig",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Sets spam thresholds and timeout.\n"

@@ -10,7 +10,7 @@ import shlex
 class RoleCommands(BasePlugin):
     name = "role_commands"
 
-    @Command("editrole",
+    @Command("EditRole",
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool][position=integer].\n"
@@ -70,7 +70,7 @@ class RoleCommands(BasePlugin):
         else:
             raise CommandSyntaxError
 
-    @Command("createrole",
+    @Command("CreateRole",
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
@@ -143,7 +143,7 @@ class RoleCommands(BasePlugin):
         else:
             raise CommandSyntaxError
 
-    @Command("deleterole",
+    @Command("DeleteRole",
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) [position].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
@@ -174,7 +174,7 @@ class RoleCommands(BasePlugin):
         else:
             raise CommandSyntaxError("Expected role name.")
 
-    @Command("roleinfo", "inforole",
+    @Command("RoleInfo", "InfoRole",
              category="roles",
              syntax="(role name).\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Returns all the info about the given role.")
@@ -214,7 +214,7 @@ class RoleCommands(BasePlugin):
         else:
             raise CommandSyntaxError
 
-    @Command("listroles", "listrole",
+    @Command("ListRoles", "ListRole",
              category="roles",
              perms={"manage_roles"},
              doc="Lists all roles.")

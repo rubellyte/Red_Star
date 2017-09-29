@@ -120,7 +120,7 @@ class CustomCommands(BasePlugin):
 
     # Commands
 
-    @Command("createcc", "newcc",
+    @Command("CreateCC", "NewCC",
              doc="Creates a custom command.\n"
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
@@ -179,7 +179,7 @@ class CustomCommands(BasePlugin):
             self._save_ccs()
             await respond(msg, f"**ANALYSIS: Custom command {name} created successfully.**")
 
-    @Command("dumpcc",
+    @Command("DumpCC",
              doc="Uploads the contents of the specified custom command as a text file.",
              syntax="(name)",
              category="custom_commands")
@@ -206,7 +206,7 @@ class CustomCommands(BasePlugin):
         else:
             raise CommandSyntaxError("No such custom command.")
 
-    @Command("editcc",
+    @Command("EditCC",
              doc="Edits a custom command you created.",
              syntax="(name) (content)",
              category="custom_commands")
@@ -254,7 +254,7 @@ class CustomCommands(BasePlugin):
         else:
             await respond(msg, f"**WARNING: No such custom command {name}**")
 
-    @Command("delcc",
+    @Command("DeleteCC", "DelCC", "RMCC",
              doc="Deletes a custom command.",
              syntax="(name)",
              category="custom_commands")
@@ -280,7 +280,7 @@ class CustomCommands(BasePlugin):
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
-    @Command("ccinfo",
+    @Command("CCInfo",
              doc="Displays information about a custom command.",
              syntax="(name)",
              category="custom_commands")
@@ -308,7 +308,7 @@ class CustomCommands(BasePlugin):
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
-    @Command("searchccs",
+    @Command("SearchCCs",
              doc="Searches CCs by name or author.",
              syntax="(name or author)",
              category="custom_commands")
@@ -348,7 +348,7 @@ class CustomCommands(BasePlugin):
         else:
             await respond(msg, "**WARNING: No results found for your search.**")
 
-    @Command("lockcc",
+    @Command("LockCC",
              doc="Toggles lock on a custom command, preventing it from being used.",
              syntax="(name)",
              category="custom_commands",
@@ -368,7 +368,7 @@ class CustomCommands(BasePlugin):
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
-    @Command("restrictcc",
+    @Command("RestrictCC",
              doc="Restricts specified custom command to a specified category of channels, or removes said "
                  "restriction.",
              syntax="(name) (category)",
@@ -398,7 +398,7 @@ class CustomCommands(BasePlugin):
         else:
             raise CommandSyntaxError(f"No custom command by name of {t_name}.")
 
-    @Command("ccmute", "mutecc",
+    @Command("CCMute", "MuteCC",
              doc="Toggles users ability to use custom commands.",
              syntax="(user)",
              category="custom_commands",
@@ -421,7 +421,7 @@ class CustomCommands(BasePlugin):
             self.storage[gid]["cc_use_ban"].append(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from using custom commands.**")
 
-    @Command("ccban", "bancc",
+    @Command("CCBan", "BanCC",
              doc="Toggles users ability to create and alter custom commands.",
              syntax="(user)",
              category="custom_commands",
@@ -444,7 +444,7 @@ class CustomCommands(BasePlugin):
             self.storage[gid]["cc_create_ban"].append(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from creating custom commands.**")
 
-    @Command("listccban",
+    @Command("ListCCbans",
              doc="Lists users banned from using or creating CCs",
              syntax="(user)",
              category="custom_commands",

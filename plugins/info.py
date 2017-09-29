@@ -29,18 +29,18 @@ class Info(BasePlugin):
     async def build_help(self):
         self.commands = self.client.command_dispatcher.commands
         self.categories = {}
-        for name, command in self.commands.items():
+        for command in self.commands.values():
+            name = command.name
             cate = command.category.lower()
             if cate not in self.categories:
                 self.categories[cate] = {}
             self.categories[cate][name] = command
 
-    @Command("help",
+    @Command("Help",
              doc="Displays information on commands.",
              syntax="[category/command]",
              category="info")
     async def _help(self, msg):
-        self.logger.debug("Help called")
         if not self.categories:
             await self.build_help()
         try:
@@ -51,14 +51,14 @@ class Info(BasePlugin):
             return
         if search in [x.lower() for x in self.commands.keys()]:
             cmd = self.commands[search]
-            name = capwords(search, "_")
+            name = cmd.name
             syn = cmd.syntax
             if not syn:
                 syn = "N/A"
             doc = cmd.__doc__
             perms = cmd.perms
             cate = capwords(cmd.category, "_")
-            aliases = f"(Aliases: {', '.join([capwords(x, '_') for x in cmd.aliases])})" if cmd.aliases else ""
+            aliases = f"(Aliases: {', '.join(cmd.aliases)})" if cmd.aliases else ""
             if not {x for x, y in msg.author.guild_permissions if y} >= perms:
                 raise UserPermissionError
             text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {cate}) {aliases}\n\n{doc}\n\n" \
@@ -67,8 +67,8 @@ class Info(BasePlugin):
         elif search in self.categories.keys():
             name = capwords(search, "_")
             userperms = {x for x, y in msg.author.guild_permissions if y}
-            cmds = [capwords(x.name, "_") for x in self.categories[search].values() if userperms >= x.perms]
-            cmds = sorted(list(set(cmds)))
+            cmds = {x.name for x in self.categories[search].values() if userperms >= x.perms}
+            cmds = sorted(list(cmds))
             if cmds:
                 text = "\n".join(cmds)
                 await respond(msg, f"**ANALYSIS: Category {name}:**```\n{text}\n```")
@@ -77,7 +77,7 @@ class Info(BasePlugin):
         else:
             await respond(msg, f"**WARNING: No such category or command {search}**")
 
-    @Command("about",
+    @Command("About",
              doc="Displays information about the bot.",
              category="info")
     async def _about(self, msg):
