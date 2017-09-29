@@ -120,7 +120,24 @@ class CustomCommands(BasePlugin):
 
     # Commands
 
-    @Command("CreateCC", "NewCC",
+    @Command("reloadccs",
+             doc="Reloads custom commands from file.",
+             category="custom_commands",
+             bot_maintainers_only=True)
+    async def _reloadccs(self, msg):
+        try:
+            with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
+                self.ccs = json.load(f)
+        except FileNotFoundError:
+            self.ccs = {}
+            with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
+                f.write("{}")
+        except json.decoder.JSONDecodeError:
+            self.logger.exception("Could not decode ccs.json! ", exc_info=True)
+            raise CommandSyntaxError("Could not decode ccs.json.")
+        await respond(msg, "**AFFIRMATIVE. CCS reloaded.**")
+
+    @Command("createcc", "newcc",
              doc="Creates a custom command.\n"
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
@@ -156,10 +173,6 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**WARNING: Custom command {name} already exists.**")
         else:
             t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
-
-            # TODO figure this out, t_count is None for people who have CCs
-            if not t_count:
-                t_count = 0
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
                     not msg.author.permissions_in(msg.channel).manage_messages and \

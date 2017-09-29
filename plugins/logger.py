@@ -223,9 +223,10 @@ class DiscordLogger(BasePlugin):
                 # comparing both sets of permissions, PITA
                 d_before = {x: y for x, y in before.permissions}
                 d_after = {x: y for x, y in after.permissions}
-                t_str = "Added permissions: " + ", ".join([x for x, y in after.permissions if y and not d_before[x]])
+                t_str = "Added permissions: " + ", ".join([x.upper() for x, y in after.permissions if y and not
+                                                          d_before[x]])
                 t_str = t_str + "\nRemoved permissions: " \
-                    + ", ".join([x for x, y in before.permissions if y and not d_after[x]])
+                    + ", ".join([x.upper() for x, y in before.permissions if y and not d_after[x]])
                 diff.append(t_str)
             t_res = f"**ANALYSIS: Role {before.name} was changed by {t_aud}:**\n```\n" + "\n".join(diff) + "```"
             self.logger.info(f"Role {before.name} of {str(before.guild)} was changed by {t_aud}:\n"+"\n".join(diff))
