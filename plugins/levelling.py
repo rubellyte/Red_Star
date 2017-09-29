@@ -40,7 +40,7 @@ class Levelling(BasePlugin):
     @Command("listxp",
              doc="Lists all registered users from highest XP to lowest, up to amount specified or 10.",
              syntax="[number]",
-             category="XP")
+             category="levelling")
     async def _listxp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -74,7 +74,7 @@ class Levelling(BasePlugin):
     @Command("xp",
              doc="Shows your xp or xp of specified user.",
              syntax="[user]",
-             category="XP")
+             category="levelling")
     async def _xp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -101,7 +101,7 @@ class Levelling(BasePlugin):
                  "CLEANING XP TABLE.",
              syntax="[depth]",
              perms={"manage_guild"},
-             category="XP")
+             category="levelling")
     async def _evalxp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -126,7 +126,7 @@ class Levelling(BasePlugin):
              doc="Permanently erases XP records, setting given user or EVERYONE to 0.",
              syntax="[user]",
              perms={"manage_guild"},
-             category="XP")
+             category="levelling")
     async def _nukexp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -158,7 +158,7 @@ class Levelling(BasePlugin):
                  "\nIt is advised to do !nukexp !evalxp after adjusting settings.",
              syntax="[option] [value]",
              perms={"manage_guild"},
-             category="XP")
+             category="levelling")
     async def _setxp(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
