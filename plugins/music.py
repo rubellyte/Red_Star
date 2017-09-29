@@ -99,9 +99,8 @@ class MusicPlayer(BasePlugin):
             :return: True if connected, False if something went wrong
             """
             try:
-                m_channel = self.parent.plugins.channel_manager.get_channel(self.guild, "voice_music")
+                m_channel = self.parent.channel_manager.get_channel(self.guild, "voice_music")
             except ChannelNotFoundError:
-                self.parent.logger.error("Failed to get music channel.")
                 m_channel = None
             except AttributeError:
                 self.parent.logger.error("Failed to get channel.")

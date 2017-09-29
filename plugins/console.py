@@ -3,6 +3,7 @@ import shlex
 import re
 import json
 import logging
+import discord
 from plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
 from rs_errors import ConsoleCommandSyntaxError
@@ -16,7 +17,6 @@ class ConsoleListener(BasePlugin):
         "allow_stdout_logging": False,
         "allow_stdout_errors": True
     }
-
 
     async def activate(self):
         self.log_items = {}
@@ -49,6 +49,7 @@ class ConsoleListener(BasePlugin):
         self.read_task = None
 
     async def deactivate(self):
+        print("Please press enter to kill the readline loop.")
         self.run_loop = False
         try:
             self.task.cancel()

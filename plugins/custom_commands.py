@@ -120,7 +120,24 @@ class CustomCommands(BasePlugin):
 
     # Commands
 
-    @Command("CreateCC", "NewCC",
+    @Command("reloadccs",
+             doc="Reloads custom commands from file.",
+             category="custom_commands",
+             bot_maintainers_only=True)
+    async def _reloadccs(self, msg):
+        try:
+            with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
+                self.ccs = json.load(f)
+        except FileNotFoundError:
+            self.ccs = {}
+            with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
+                f.write("{}")
+        except json.decoder.JSONDecodeError:
+            self.logger.exception("Could not decode ccs.json! ", exc_info=True)
+            raise CommandSyntaxError("Could not decode ccs.json.")
+        await respond(msg, "**AFFIRMATIVE. CCS reloaded.**")
+
+    @Command("createcc", "newcc",
              doc="Creates a custom command.\n"
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
@@ -772,7 +789,7 @@ class CustomCommands(BasePlugin):
             "superscript": "ᴬᴮᶜᴰᴱᶠᴳᴴᴵᴶᴷᴸᴹᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᴺᴼᴾQᴿˢᵀᵁⱽᵂˣʸᶻⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻ",
             "inverted": "ɐqɔpǝɟƃɥıɾʞןɯɐqɔpǝɟƃɥıɾʞןɯuodbɹsʇn𐌡ʍxʎzuodbɹsʇnʌʍxʎz",
             "reversed": "AdↃbƎꟻGHIJK⅃MAdↄbɘꟻgHijklmᴎOꟼpᴙꙄTUVWXYZᴎoqpᴙꙅTUvwxYz",
-            "smallcaps": "ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴩQʀꜱᴛᴜᴠᴡxYᴢɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ",
+            "smallcaps": "ABCDEFGHIJKLMᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍNOPQRSTUVWXYZɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ",
             "weird1": "ልጌርዕቿቻኗዘጎጋጕረጠልጌርዕቿቻኗዘጎጋጕረጠክዐየዒዪነፕሁሀሠሸሃጊክዐየዒዪነፕሁሀሠሸሃጊ",
             "weird2": "ДБҀↁЄFБНІЈЌLМаъсↁэfБЂіјкlмИФРQЯЅГЦVЩЖЧZиорqѓѕтцvшхЎz",
             "weird3": "ค๒ƈɗﻉिﻭɦٱﻝᛕɭ๓ค๒ƈɗﻉिﻭɦٱﻝᛕɭ๓กѻρ۹ɼรՇપ۷ฝซץչกѻρ۹ɼรՇપ۷ฝซץչ",

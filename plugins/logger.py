@@ -3,6 +3,8 @@ from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError, CommandSyntaxError
 from rs_utils import split_message, respond
 from command_dispatcher import Command
+from discord import AuditLogAction
+from datetime import datetime, timedelta
 
 
 class DiscordLogger(BasePlugin):
@@ -81,28 +83,6 @@ class DiscordLogger(BasePlugin):
                                        f"{after.channel.mention}. ANALYSIS:**\n"
                                        f"**Old contents:** {old_contents}\n**New contents:** {contents}")
 
-    async def on_member_join(self, member):
-        gid = str(member.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_join" not in self.plugin_config[gid].log_events:
-            uname = str(member)
-            self.logger.debug(f"User {uname} joined {member.guild.name}.")
-            if gid not in self.log_items:
-                self.log_items[gid] = []
-            self.log_items[gid].append(f"**NEW USER DETECTED: {uname}.**")
-
-    async def on_member_remove(self, member):
-        gid = str(member.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_remove" not in self.plugin_config[gid].log_events:
-            uname = str(member)
-            self.logger.debug(f"User {uname} left {member.guild.name}.")
-            if gid not in self.log_items:
-                self.log_items[gid] = []
-            self.log_items[gid].append(f"**WARNING: User {uname} has left the server.**")
-
     async def on_member_update(self, before, after):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
@@ -140,7 +120,117 @@ class DiscordLogger(BasePlugin):
             self.plugin_config[gid] = self.plugin_config["default"]
         if "guild_channel_pins_update" not in self.plugin_config[gid]["log_events"]:
             updtime = last_pin.strftime("%Y-%m-%d @ %H:%M:%S")
+            if gid not in self.log_items:
+                self.log_items[gid] = []
             self.log_items[gid].append(f"**ANALYSIS: A message was pinned in {channel.mention} at `{updtime}`**")
+
+    async def on_member_ban(self, guild, member):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_ban" not in self.plugin_config[gid]["log_events"]:
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            self.logger.info(f"User {str(member)} was banned on server {str(member.guild)}")
+            self.log_items[gid].append(f"**ANALYSIS: User {str(member)} was banned.**")
+
+    async def on_member_unban(self, guild, member):
+        gid = str(guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_unban" not in self.plugin_config[gid]["log_events"]:
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            self.logger.info(f"User {str(member)} was unbanned on server {str(member.guild)}")
+            self.log_items[gid].append(f"**ANALYSIS: Ban was lifted from user {str(member)}.**")
+
+    async def on_member_join(self, member):
+        gid = str(member.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_join" not in self.plugin_config[gid]["log_events"]:
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            self.logger.info(f"User {member} has joined server {str(member.guild)}")
+            self.log_items[gid].append(f"**ANALYSIS: User {str(member)} has joined the server. "
+                                       f"User id: `{member.id}`**")
+
+    async def on_member_remove(self, member):
+        gid = str(member.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_member_remove" not in self.plugin_config[gid]["log_events"]:
+            t_time = datetime.utcnow()
+            # find audit log entries for kicking of member with our ID, created in last five seconds.
+            # Hopefully five seconds is enough
+            audit = [f"{str(l.user)} for reasons: {l.reason or 'None'}" async for l in member.guild.audit_logs(
+                    action=AuditLogAction.kick)
+                     if l.target.id == member.id and (t_time - l.created_at < timedelta(seconds=5))]
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            if audit:
+                self.logger.info(f"User {member} ({member.id}) was kicked by {audit[0]} from {str(member.guild)}.")
+                self.log_items[gid].append(f"**ANALYSIS: User {str(member)} was kicked from the server by {audit[0]}. "
+                                           f"User id: `{member.id}`**")
+            else:
+                self.logger.info(f"User {member} ({member.id}) left {str(member.guild)}.")
+                self.log_items[gid].append(f"**ANALYSIS: User {str(member)} has left the server. "
+                                           f"User id: `{member.id}`**")
+
+    async def on_guild_role_update(self, before, after):
+        gid = str(before.guild.id)
+        if gid not in self.plugin_config:
+            self.plugin_config[gid] = self.plugin_config["default"]
+        if "on_guild_role_update" not in self.plugin_config[gid]["log_events"]:
+            if gid not in self.log_items:
+                self.log_items[gid] = []
+            diff = []
+            audit = [l async for l in
+                     after.guild.audit_logs(action=AuditLogAction.role_update) if l.target.id == after.id and
+                     (datetime.utcnow() - l.created_at < timedelta(seconds=5))]
+
+            if audit:
+                t_aud = str(audit[0].user)
+            else:
+                t_aud = "Unknown"
+
+            if before == after:
+                if audit:
+                    t_b = audit[0].changes.before.__dict__
+                    before.name = t_b.get("name", after.name)
+                    before.colour = t_b.get("colour", after.colour)
+                    before.hoist = t_b.get("hoist", after.hoist)
+                    before.mentionable = t_b.get("mentionable", after.mentionable)
+                    before.permissions = t_b.get("permissions", after.permissions)
+                else:
+                    self.logger.warning(f"Role {after} was changed on server {after.guild} "
+                                        f"by {t_aud} but the data was lost.")
+                    self.log_items[gid].append(f"**ANALYSIS: Role {after} was changed by {t_aud}.\n"
+                                               f"WARNING: Data lost.**")
+                    return
+
+            if before.name != after.name:
+                diff.append(f"Name changed from {before.name} to {after.name}")
+            if before.position != after.position:
+                diff.append(f"Position changed from {before.position} to {after.position}")
+            if before.colour != after.colour:
+                diff.append(f"Colour changed from {before.colour} to {after.colour}")
+            if before.hoist != after.hoist:
+                diff.append("Is now displayed separately." if after.hoist else "Is no longer displayed separately.")
+            if before.mentionable != after.mentionable:
+                diff.append("Can now be mentioned." if after.mentionable else "Can no longer be mentioned.")
+            if before.permissions != after.permissions:
+                # comparing both sets of permissions, PITA
+                d_before = {x: y for x, y in before.permissions}
+                d_after = {x: y for x, y in after.permissions}
+                t_str = "Added permissions: " + ", ".join([x.upper() for x, y in after.permissions if y and not
+                                                          d_before[x]])
+                t_str = t_str + "\nRemoved permissions: " \
+                    + ", ".join([x.upper() for x, y in before.permissions if y and not d_after[x]])
+                diff.append(t_str)
+            t_res = f"**ANALYSIS: Role {before.name} was changed by {t_aud}:**\n```\n" + "\n".join(diff) + "```"
+            self.logger.info(f"Role {before.name} of {str(before.guild)} was changed by {t_aud}:\n"+"\n".join(diff))
+            self.log_items[gid].append(t_res)
 
     async def on_log_event(self, guild, string, *, log_type="log_event"):
         gid = str(guild.id)

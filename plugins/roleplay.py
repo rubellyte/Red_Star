@@ -170,10 +170,12 @@ class Roleplay(BasePlugin):
                  "appearance/equipment/skills/personality/backstory/interests: limit 1024 characters.\n"
                  "Setting 'race' to the same name as a registered character role will fetch the colour.\n"
                  "Be aware that the total length of the bio must not exceed 6000 characters.",
-             syntax="\nediting/creating: (name) set (field) [value]\n"
-                    "printing: (name)\n"
-                    "dumping: (name) dump\n"
-                    "deleting: (name) delete",
+             syntax="\n"
+                    "`creating:` (name) create\n"
+                    "`editing :` (name) set (field) [value]\n"
+                    "`printing:` (name)\n"
+                    "`dumping :` (name) dump\n"
+                    "`deleting:` (name) delete",
              category="role_play",
              run_anywhere=True)
     async def _bio(self, msg):
@@ -204,7 +206,7 @@ class Roleplay(BasePlugin):
             if t_name in self.bios[gid]:
                 await respond(msg, None, embed=self._print_bio(msg.guild, t_name))
             else:
-                raise CommandSyntaxError(f"No such character {args[1]}.")
+                raise CommandSyntaxError(f"No such character: {args[1]}.")
         elif len(args) == 3:
             if args[2].lower() == "delete":
                 if t_name in self.bios[gid]:
@@ -216,7 +218,7 @@ class Roleplay(BasePlugin):
                     else:
                         raise UserPermissionError("Character belongs to other user.")
                 else:
-                    raise CommandSyntaxError(f"No such character {args[1]}.")
+                    raise CommandSyntaxError(f"No such character: {args[1]}.")
                 self._save_bios()
             elif args[2].lower() == "dump":
                 if t_name in self.bios[gid]:
@@ -227,28 +229,32 @@ class Roleplay(BasePlugin):
                         await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
                                       file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name+".json"))
                 else:
-                    raise CommandSyntaxError(f"No such character {args[1]}.")
-
+                    raise CommandSyntaxError(f"No such character: {args[1]}.")
+            elif args[2].lower() == "create":
+                if t_name in self.bios[gid]:
+                    raise CommandSyntaxError("Character already exists.")
+                else:
+                    if len(t_name) > 64:
+                        raise CommandSyntaxError("Character name too long. Maximum length is 64 characters.")
+                    self.bios[gid][t_name] = {
+                        "author": msg.author.id,
+                        "name": args[1],
+                        "race": "undefined",
+                        "gender": "undefined",
+                        "appearance": "undefined",
+                        "backstory": "undefined"
+                    }
+                    for f in self.fields:
+                        if f not in self.bios[gid][t_name]:
+                            self.bios[gid][t_name][f] = ""
+                    await respond(msg, f"**ANALYSIS: created character {args[1]}.**")
+                    self._save_bios()
         elif len(args) >= 4 and args[2].lower() == "set":
             if t_name in self.bios[gid]:
                 if self.bios[gid][t_name].get("author", 0) != msg.author.id:
                     raise UserPermissionError("Character belongs to other user.")
             else:
-                if len(t_name) > 64:
-                    raise CommandSyntaxError("Character name too long. Maximum length is 64 characters.")
-                self.bios[gid][t_name] = {
-                    "author": msg.author.id,
-                    "name": args[1],
-                    "race": "undefined",
-                    "gender": "undefined",
-                    "appearance": "undefined",
-                    "backstory": "undefined"
-                }
-                for f in self.fields:
-                    if f not in self.bios[gid][t_name]:
-                        self.bios[gid][t_name][f] = ""
-                await respond(msg, f"**ANALYSIS: created character {args[1]}.**")
-                self._save_bios()
+                raise CommandSyntaxError(f"No such character: {t_name}.")
             t_field = args[3].lower()
             if t_field in self.fields and t_field != "name":
                 bio = self.bios[gid][t_name]
