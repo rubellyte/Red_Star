@@ -7,7 +7,7 @@ from plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
 from rs_errors import ConsoleCommandSyntaxError
 from discord import NotFound, Forbidden
-from traceback import format_tb
+from traceback import format_exception
 
 
 class ConsoleListener(BasePlugin):
@@ -425,7 +425,7 @@ class ConsoleListener(BasePlugin):
         else:
             raise ConsoleCommandSyntaxError("Invalid error context.")
         if e:
-            excstr = "\n".join(format_tb(e[2]))
+            excstr = "\n".join(format_exception(*e))
             print(f"Last error in context {args}:\n{excstr}")
         else:
             print(f"No error in context {args}.")

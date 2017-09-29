@@ -63,10 +63,13 @@ class RedStar(discord.AutoShardedClient):
     async def on_error(self, event_method, *args, **kwargs):
         exc = exc_info()
         self.last_error = exc
-        self.logger.exception(f"Unhandled {exc.type} occurred in {event_method}: ", exc_info=True)
+        self.logger.exception(f"Unhandled {exc[0].__name__} occurred in {event_method}: ", exc_info=True)
 
     async def on_resumed(self):
         await self.plugin_manager.hook_event("on_resumed")
+
+    async def on_typing(self, channel, user, when):
+        await self.plugin_manager.hook_event("on_typing", channel, user, when)
 
     async def on_message(self, msg):
         await self.command_dispatcher.command_check(msg)
@@ -87,14 +90,29 @@ class RedStar(discord.AutoShardedClient):
     async def on_reaction_clear(self, message, reactions):
         await self.plugin_manager.hook_event("on_reaction_clear", message, reactions)
 
-    async def on_channel_create(self, channel):
-        await self.plugin_manager.hook_event("on_channel_create", channel)
+    async def on_private_channel_create(self, channel):
+        await self.plugin_manager.hook_event("on_private_channel_create", channel)
 
-    async def on_channel_delete(self, channel):
-        await self.plugin_manager.hook_event("on_channel_delete", channel)
+    async def on_private_channel_delete(self, channel):
+        await self.plugin_manager.hook_event("on_private_channel_delete", channel)
 
-    async def on_channel_update(self, before, after):
-        await self.plugin_manager.hook_event("on_channel_update", before, after)
+    async def on_private_channel_update(self, before, after):
+        await self.plugin_manager.hook_event("on_private_channel_update", before, after)
+
+    async def on_private_channel_pins_update(self, channel, last_pin):
+        await self.plugin_manager.hook_event("on_private_channel_pins_update", channel, last_pin)
+
+    async def on_guild_channel_create(self, channel):
+        await self.plugin_manager.hook_event("on_guild_channel_create", channel)
+
+    async def on_guild_channel_delete(self, channel):
+        await self.plugin_manager.hook_event("on_guild_channel_delete", channel)
+
+    async def on_guild_channel_update(self, before, after):
+        await self.plugin_manager.hook_event("on_guild_channel_update", before, after)
+
+    async def on_guild_channel_pins_update(self, channel, last_pin):
+        await self.plugin_manager.hook_event("on_guild_channel_pins_update", channel, last_pin)
 
     async def on_member_join(self, member):
         await self.plugin_manager.hook_event("on_member_join", member)
@@ -121,14 +139,11 @@ class RedStar(discord.AutoShardedClient):
     async def on_guild_role_delete(self, role):
         await self.plugin_manager.hook_event("on_guild_role_delete", role)
 
-    async def on_guild_channel_pins_update(self, channel, last_pin):
-        await self.plugin_manager.hook_event("on_guild_channel_pins_update", channel, last_pin)
-
     async def on_guild_role_update(self, before, after):
         await self.plugin_manager.hook_event("on_guild_role_update", before, after)
 
-    async def on_guild_emojis_update(self, before, after):
-        await self.plugin_manager.hook_event("on_guild_emojis_update", before, after)
+    async def on_guild_emojis_update(self, guild, before, after):
+        await self.plugin_manager.hook_event("on_guild_emojis_update", guild, before, after)
 
     async def on_guild_available(self, guild):
         self.channel_manager.add_guild(guild)
@@ -152,9 +167,11 @@ class RedStar(discord.AutoShardedClient):
     async def on_member_unban(self, guild, member):
         await self.plugin_manager.hook_event("on_member_unban", guild, member)
 
-    async def on_typing(self, channel, user, when):
-        await self.plugin_manager.hook_event("on_typing", channel, user, when)
+    async def on_group_join(self, channel, user):
+        await self.plugin_manager.hook_event("on_group_join", channel, user)
 
+    async def on_group_remove(self, channel, user):
+        await self.plugin_manager.hook_event("on_group_remove", channel, user)
 
 if __name__ == "__main__":
     path = Path(__file__).parent

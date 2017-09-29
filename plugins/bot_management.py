@@ -4,7 +4,7 @@ from rs_errors import CommandSyntaxError, UserPermissionError
 from rs_utils import respond, is_positive
 from command_dispatcher import Command
 from discord import InvalidArgument
-from traceback import format_tb
+from traceback import format_exception
 
 
 class BotManagement(BasePlugin):
@@ -278,11 +278,7 @@ class BotManagement(BasePlugin):
         else:
             raise CommandSyntaxError("Invalid error context.")
         if e:
-            excstr = "\n".join(format_tb(e[2]))
+            excstr = "\n".join(format_exception(*e))
             await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{excstr}\n```")
         else:
             await respond(msg, f"**ANALYSIS: No error in context {args}.**")
-
-    @Command("test")
-    async def _test(self, msg):
-        raise RuntimeError
