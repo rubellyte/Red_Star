@@ -8,7 +8,6 @@ from command_dispatcher import CommandDispatcher
 from config_manager import ConfigManager
 from plugin_manager import PluginManager
 from sys import exc_info
-from os import _exit
 
 
 class RedStar(discord.AutoShardedClient):
@@ -55,9 +54,11 @@ class RedStar(discord.AutoShardedClient):
         self.plugin_manager.shelve.close()
         self.config_manager.save_config()
         self.logger.info("Logging out.")
-        await self.logout()
-        self.logger.info("Quitting now.")
-        _exit(0)
+        try:
+            await self.logout()
+        except discord.errors.ConnectionClosed:
+            pass
+        raise SystemExit
 
     async def on_error(self, event_method, *args, **kwargs):
         exc = exc_info()
@@ -177,15 +178,16 @@ if __name__ == "__main__":
     logger.addHandler(fl)
     bot = RedStar()
     loop = asyncio.get_event_loop()
-    main_logger = logging.getLogger("MAIN")
     task = loop.create_task(bot.start(bot.config.token))
     try:
         loop.run_until_complete(task)
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Interrupt caught, shutting down...")
+    except KeyboardInterrupt:
+        bot.logger.info("Interrupt caught, shutting down...")
+    except SystemExit:
+        pass
     finally:
         pending = asyncio.Task.all_tasks()
-        tasks = asyncio.gather(*pending, return_exceptions=True)
-        loop.run_until_complete(tasks)
-        logger.info("Exiting...")
+        for task in pending:
+            task.cancel()
+        bot.logger.info("Exiting...")
         loop.close()

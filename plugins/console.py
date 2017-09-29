@@ -46,17 +46,21 @@ class ConsoleListener(BasePlugin):
         else:
             self.logger.info("Starting console...")
         self.task = asyncio.ensure_future(self._listen())
+        self.read_task = None
 
     async def deactivate(self):
         self.run_loop = False
         try:
             self.task.cancel()
+            if self.read_task:
+                self.read_task.cancel()
         except CancelledError:
             pass
 
     async def _readline(self):
         loop = asyncio.get_event_loop()
-        data = await loop.run_in_executor(None, input, ">> ")
+        self.read_task = loop.run_in_executor(None, input, ">> ")
+        data = await self.read_task
         if not isinstance(data, str):
             data = data.decode(encoding="utf-8")
         self.eof = not data
@@ -97,7 +101,7 @@ class ConsoleListener(BasePlugin):
         """
         self.logger.info("Shutdown called from console.")
         self.run_loop = False
-        await self.client.stop_bot()
+        asyncio.ensure_future(self.client.stop_bot())
 
     async def _get_config_cmd(self, args):
         """
