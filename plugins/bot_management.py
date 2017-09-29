@@ -262,7 +262,7 @@ class BotManagement(BasePlugin):
     @Command("last_error",
              doc="Gets the last error to occur in the specified context.",
              syntax="(command/event/unhandled)",
-             category="bot_management",
+             category="debug",
              perms={"manage_guild"})
     async def _last_error(self, msg):
         try:

@@ -17,7 +17,7 @@ class ChannelManagerCommands(BasePlugin):
              doc="Gets information on the specified channel type (or all channel types if none specified) in this "
                  "server.",
              syntax="[channel type]",
-             category="bot_management",
+             category="channel_management",
              perms={"manage_guild"})
     async def _get_channel_cmd(self, msg):
         gid = str(msg.guild.id)
@@ -38,7 +38,7 @@ class ChannelManagerCommands(BasePlugin):
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel types must be prefixed by \"Voice\".",
              syntax="(chantype) [channel]",
-             category="bot_management",
+             category="channel_management",
              perms={"manage_guild"},
              run_anywhere=True)
     async def _set_channel_cmd(self, msg):
@@ -75,7 +75,7 @@ class ChannelManagerCommands(BasePlugin):
     @Command("get_category",
              doc="Gets the members of the specified channel category on this server.",
              syntax="[category]",
-             category="bot_management",
+             category="channel_management",
              perms={"manage_guild"})
     async def _get_category(self, msg):
         gid = str(msg.guild.id)
@@ -97,7 +97,7 @@ class ChannelManagerCommands(BasePlugin):
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel categories must be prefixed by \"voice\".",
              syntax="(category) (channel)",
-             category="bot_management",
+             category="channel_management",
              perms={"manage_guild"})
     async def _add_to_category(self, msg):
         args = shlex.split(msg.content)
@@ -133,7 +133,7 @@ class ChannelManagerCommands(BasePlugin):
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel categories must be prefixed by \"voice\".",
              syntax="(category) (channel)",
-             category="bot_management",
+             category="channel_management",
              perms={"manage_guild"})
     async def _rm_from_category(self, msg):
         args = shlex.split(msg.content)
