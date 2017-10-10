@@ -302,7 +302,7 @@ class Roleplay(BasePlugin):
             except:
                 raise CommandSyntaxError("Not a valid JSON file.")
         else:
-            args = re.split("\w|\\r|\\n", msg.content, 1)
+            args = re.split(r"\s+", msg.content, 1)
             if len(args) == 1:
                 raise CommandSyntaxError("File or code block required")
             t_search = re.search("```.*({.+}).*```", args[1], re.DOTALL)
