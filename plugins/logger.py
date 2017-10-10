@@ -203,10 +203,6 @@ class DiscordLogger(BasePlugin):
                     before.mentionable = t_b.get("mentionable", after.mentionable)
                     before.permissions = t_b.get("permissions", after.permissions)
                 else:
-                    self.logger.warning(f"Role {after} was changed on server {after.guild} "
-                                        f"by {t_aud} but the data was lost.")
-                    self.log_items[gid].append(f"**ANALYSIS: Role {after} was changed by {t_aud}.\n"
-                                               f"WARNING: Data lost.**")
                     return
 
             if before.name != after.name:
