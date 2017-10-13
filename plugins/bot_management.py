@@ -295,8 +295,9 @@ class BotManagement(BasePlugin):
              bot_maintainers_only=True)
     async def _execute(self, msg):
         try:
-            arg = msg.content.split(" ", 1)[1]
-            code = re.match(r"```.*?\n(.*)```", arg, re.S).group(1)
+            arg = re.split(r"\s+", msg.content, 1)[1]
+            t_match = re.match(r"`([^\n\r`]+)`|```.*?\s+(.*)```", arg, re.DOTALL)
+            code = t_match.group(1) or t_match.group(2)
         except IndexError:
             raise CommandSyntaxError("No code provided.")
         except AttributeError:

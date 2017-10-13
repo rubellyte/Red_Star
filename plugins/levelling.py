@@ -1,5 +1,5 @@
 from plugin_manager import BasePlugin
-from rs_utils import respond, DotDict, find_user
+from rs_utils import respond, DotDict, find_user, is_positive
 from command_dispatcher import Command
 from rs_errors import CommandSyntaxError
 
@@ -12,9 +12,10 @@ class Levelling(BasePlugin):
             "xp_min": 1,
             "xp_max": 10,
             "xp_decay": 10,
-            "poll_every": 3600,
-            "xp_decay_every": 86400
-        }
+            "xp_decay_every": 86400,
+            "skip_missing": False
+        },
+        "poll_every": 3600
     }
 
     async def activate(self):
@@ -59,7 +60,10 @@ class Levelling(BasePlugin):
             if t_m:
                 t_m = t_m.display_name.ljust(32)
             else:
-                t_m = str(t_id).ljust(32)
+                if self.plugin_config[gid].get("skip_missing", False):
+                    continue
+                else:
+                    t_m = str(t_id).ljust(32)
             t_s = f"{t_int:03d}|{t_m}|{self.storage[gid][t_id]}\n"
             t_int += 1
             if len(t_str)+len(t_s) > 1997:
@@ -168,23 +172,27 @@ class Levelling(BasePlugin):
                 await respond(msg, "**ANALYSIS: Current XP settings:**```\n"
                                    f"low_cutoff: {self.plugin_config[gid]['low_cutoff']}\n"
                                    f"xp_min    : {self.plugin_config[gid]['xp_min']}\n"
-                                   f"xp_max    : {self.plugin_config[gid]['xp_max']}```")
+                                   f"xp_max    : {self.plugin_config[gid]['xp_max']}\n"
+                                   f"missing   : {'skipping missing members' if self.plugin_config[gid].get('skip_missing', False) else 'displaying missing members'}```")
             else:
                 raise CommandSyntaxError("Two arguments required.")
         else:
-            try:
-                val = int(args[2])
-            except ValueError:
-                raise CommandSyntaxError("Second argument must be an integer.")
+            if args[1].lower() == "missing":
+                self.plugin_config[gid]["skip_missing"] = is_positive(args[2])
             else:
-                if args[1].lower() == "low_cutoff":
-                    self.plugin_config[gid]["low_cutoff"] = val
-                elif args[1].lower() == "xp_min":
-                    self.plugin_config[gid]["xp_min"] = val
-                elif args[1].lower() == "xp_max":
-                    self.plugin_config[gid]["xp_max"] = val
+                try:
+                    val = int(args[2])
+                except ValueError:
+                    raise CommandSyntaxError("Second argument must be an integer.")
                 else:
-                    raise CommandSyntaxError(f"No option {args[1].lower()}")
+                    if args[1].lower() == "low_cutoff":
+                        self.plugin_config[gid]["low_cutoff"] = val
+                    elif args[1].lower() == "xp_min":
+                        self.plugin_config[gid]["xp_min"] = val
+                    elif args[1].lower() == "xp_max":
+                        self.plugin_config[gid]["xp_max"] = val
+                    else:
+                        raise CommandSyntaxError(f"No option {args[1].lower()}")
 
 
     # Utilities

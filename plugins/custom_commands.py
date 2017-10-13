@@ -120,7 +120,7 @@ class CustomCommands(BasePlugin):
 
     # Commands
 
-    @Command("reloadccs",
+    @Command("ReloadCCs",
              doc="Reloads custom commands from file.",
              category="custom_commands",
              bot_maintainers_only=True)
@@ -137,7 +137,7 @@ class CustomCommands(BasePlugin):
             raise CommandSyntaxError("Could not decode ccs.json.")
         await respond(msg, "**AFFIRMATIVE. CCS reloaded.**")
 
-    @Command("createcc", "newcc",
+    @Command("CreateCC", "NewCC",
              doc="Creates a custom command.\n"
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",

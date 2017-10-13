@@ -109,6 +109,7 @@ class MusicPlayer(BasePlugin):
                 m_channel = data.author.voice.channel
             elif not m_channel:
                 raise UserPermissionError("Must be in voice chat.")
+            self.vc = data.guild.voice_client
             if self.vc:
                 await self.vc.move_to(m_channel)
                 return m_channel
@@ -1101,6 +1102,7 @@ class MusicPlayer(BasePlugin):
         Updates client status every ten seconds based on music status.
         Also runs the every-few-second stuff
         """
+
         playing = True
         while self.run_timer:
             await asyncio.sleep(10)
