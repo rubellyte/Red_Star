@@ -159,12 +159,12 @@ class CustomCommands(BasePlugin):
             content = jsdata["content"]
         else:
             try:
-                args = msg.clean_content.split(" ")[1:]
+                args = msg.clean_content.split(None, 2)[1:]
                 name = args[0].lower()
             except IndexError:
                 raise CommandSyntaxError("No name provided.")
             try:
-                content = " ".join(args[1:])
+                content = args[1]
             except IndexError:
                 raise CommandSyntaxError("No content provided.")
         if gid not in self.ccs:
