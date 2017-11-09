@@ -325,7 +325,7 @@ class CustomCommands(BasePlugin):
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
-    @Command("SearchCCs",
+    @Command("SearchCCs", "SearchCC", "ListCCs", "ListCC",
              doc="Searches CCs by name or author.",
              syntax="(name or author)",
              category="custom_commands")
@@ -353,8 +353,7 @@ class CustomCommands(BasePlugin):
             elif info["author"] == user:
                 res.append(cc)
         if res:
-
-            t_str = f"**ANALYSIS: The following custom commands match your search:** `{res[1]}"
+            t_str = f"**ANALYSIS: The following custom commands match your search:** `{res[0]}"
             for r in res[1:]:
                 if len(t_str) + len(r) > 1999:
                     await respond(msg, f"{t_str}`")
