@@ -45,6 +45,7 @@ class CustomCommands(BasePlugin):
             "upper": self._upper,
             "lower": self._lower,
             "random": self._random,
+            "wrandom": self._wrandom,
             "randint": self._randint,
             "rot13": self._rot13,
             "delcall": self._delcall,
@@ -718,6 +719,31 @@ class CustomCommands(BasePlugin):
 
     def _random(self, args, msg):
         return random.choice(self._split_args(args))
+
+    def _wrandom(self, args, msg):
+        """
+        Weighted random .choice implementation.
+        """
+        args = self._split_args(args)
+        choices = []
+        for arg in args:
+            t_arg = list(map(lambda x: x.replace("\uffff", "="), arg.replace("\\=", "\uffff").split("=")))
+            if len(t_arg) > 1:
+                try:
+                    choices.append((t_arg[0], int(t_arg[1])))
+                except ValueError:
+                    raise CustomCommandSyntaxError(f"<wrandom> weight of item {t_arg[0]} not an integer.")
+            else:
+                raise CustomCommandSyntaxError("<wrandom> invalid item=weight pair.")
+        total = sum(w for c, w in choices)
+        r = random.uniform(0, total)
+        for c, w in choices:
+            if r <= w:
+                return c
+            else:
+                r -= w
+        else:
+            raise CustomCommandSyntaxError("<wrandom> something went horribly wrong")
 
     def _randint(self, args, msg):
         args = self._split_args(args)
