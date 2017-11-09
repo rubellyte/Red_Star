@@ -161,7 +161,7 @@ class Roleplay(BasePlugin):
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
             await split_output(msg, "**ANALYSIS: Following character bios found:**",
-                               [v['name'] for k, v in self.bios[gid].items()])
+                               [f"{k.ljust(16)} : {v['name'].ljust(24)}" for k, v in self.bios[gid].items()])
 
     @Command("Bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
@@ -173,6 +173,7 @@ class Roleplay(BasePlugin):
              syntax="\n"
                     "`creating:` (name) create\n"
                     "`editing :` (name) set (field) [value]\n"
+                    "`renaming:` (name) rename (new name)\n"
                     "`printing:` (name)\n"
                     "`dumping :` (name) dump\n"
                     "`deleting:` (name) delete",
@@ -224,6 +225,8 @@ class Roleplay(BasePlugin):
                 if t_name in self.bios[gid]:
                     t_bio = self.bios[gid][t_name].copy()
                     del t_bio["author"]
+                    t_bio["fullname"] = t_bio["name"]
+                    t_bio["name"] = t_name
                     t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
                     async with msg.channel.typing():
                         await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
@@ -249,6 +252,17 @@ class Roleplay(BasePlugin):
                             self.bios[gid][t_name][f] = ""
                     await respond(msg, f"**ANALYSIS: created character {args[1]}.**")
                     self._save_bios()
+        elif len(args) == 4 and args[2].lower() == "rename":
+            if t_name in self.bios[gid]:
+                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                    raise UserPermissionError("Character belongs to other user.")
+            else:
+                raise CommandSyntaxError(f"No such character: {t_name}.")
+            if args[3].lower() in self.bios[gid]:
+                raise CommandSyntaxError("Character ID already taken.")
+            self.bios[gid][args[3].lower()] = self.bios[gid][t_name]
+            del self.bios[gid][t_name]
+            await respond(msg, f"**AFFIRMATIVE. Character bio {t_name} can now be accessed as {args[3].lower()}.**")
         elif len(args) >= 4 and args[2].lower() == "set":
             if t_name in self.bios[gid]:
                 if self.bios[gid][t_name].get("author", 0) != msg.author.id:
@@ -256,7 +270,7 @@ class Roleplay(BasePlugin):
             else:
                 raise CommandSyntaxError(f"No such character: {t_name}.")
             t_field = args[3].lower()
-            if t_field in self.fields and t_field != "name":
+            if t_field in self.fields:
                 bio = self.bios[gid][t_name]
                 if len(args) < 5:
                     if t_field in self.mandatory_fields:
@@ -266,7 +280,7 @@ class Roleplay(BasePlugin):
                     await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} reset.**")
                 else:
                     t_value = " ".join(args[4:])
-                    if t_field in ["race", "gender", "height", "age"]:
+                    if t_field in ["race", "gender", "height", "age", "name"]:
                         if len(t_value) > 64:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
                                                      f"Maximum length is 64 characters.")
@@ -319,11 +333,11 @@ class Roleplay(BasePlugin):
 
         t_bio = {}
 
-        for field in self.fields:
+        for field in [*self.fields, "fullname"]:  # don't want "fullname" to come up in the list of all possible fields
             t_field = t_data.get(field, "")
             if t_field:
                 t_len = len(t_field)
-                if field in ["name", "race", "gender", "height", "age"] and t_len > 64:
+                if field in ["name", "fullname", "race", "gender", "height", "age"] and t_len > 64:
                     raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
                 elif field in ["link", "theme"] and t_len > 256:
                     raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
@@ -332,6 +346,11 @@ class Roleplay(BasePlugin):
                 t_bio[field] = t_field
 
         t_name = t_bio["name"].lower()
+        t_name_storage = t_bio["name"]
+        if "fullname" in t_bio:
+            print(f"{t_bio['name']} - {t_bio['fullname']}")
+            t_bio["name"] = t_bio["fullname"]
+            del t_bio["fullname"]
         if t_name in self.bios[gid]:
             if self.bios[gid][t_name].get("author", 0) != msg.author.id:
                 raise PermissionError("Character belongs to other user.")
@@ -347,12 +366,12 @@ class Roleplay(BasePlugin):
             for f in self.fields:
                 if f not in self.bios[gid][t_name]:
                     self.bios[gid][t_name][f] = ""
-            await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
+            await respond(msg, f"**ANALYSIS: created character {t_name_storage}.**")
             self._save_bios()
         for field, value in t_bio.items():
             self.bios[gid][t_name][field] = value
         self._save_bios()
-        await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+        await respond(msg, f"**AFFIRMATIVE. Character {t_name_storage} updated.**")
 
     @Command("ReloadBio",
              doc="Administrative function that reloads the bios from the file.",
