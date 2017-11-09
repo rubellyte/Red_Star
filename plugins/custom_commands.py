@@ -732,9 +732,9 @@ class CustomCommands(BasePlugin):
                 try:
                     choices.append((t_arg[0], int(t_arg[1])))
                 except ValueError:
-                    raise CustomCommandSyntaxError(f"<wrandom> weight of item {t_arg[0]} not an integer.")
+                    raise CustomCommandSyntaxError(f"<wrandom> weight of item \"{t_arg[0]}\" not an integer.")
             else:
-                raise CustomCommandSyntaxError("<wrandom> invalid item=weight pair.")
+                raise CustomCommandSyntaxError(f"<wrandom> invalid item=weight pair \"{arg}\".")
         total = sum(w for c, w in choices)
         r = random.uniform(0, total)
         for c, w in choices:
