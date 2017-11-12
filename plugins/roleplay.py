@@ -166,7 +166,7 @@ class Roleplay(BasePlugin):
     @Command("Bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
                  "Each character name must be unique.\n"
-                 "Fields: race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
+                 "Fields: name/race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
                  "appearance/equipment/skills/personality/backstory/interests: limit 1024 characters.\n"
                  "Setting 'race' to the same name as a registered character role will fetch the colour.\n"
                  "Be aware that the total length of the bio must not exceed 6000 characters.",
@@ -193,7 +193,7 @@ class Roleplay(BasePlugin):
         gid = str(msg.guild.id)
         self._initialize(gid)
         try:
-            args = shlex.split(msg.content)
+            args = shlex.split(msg.clean_content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
             raise CommandSyntaxError(e)
@@ -201,7 +201,7 @@ class Roleplay(BasePlugin):
         if len(args) < 2:
             raise CommandSyntaxError("At least one argument required.")
 
-        t_name = args[1].lower()
+        t_name = self._sanitise_name(args[1].lower())
 
         if len(args) == 2:
             if t_name in self.bios[gid]:
@@ -241,7 +241,7 @@ class Roleplay(BasePlugin):
                         raise CommandSyntaxError("Character name too long. Maximum length is 64 characters.")
                     self.bios[gid][t_name] = {
                         "author": msg.author.id,
-                        "name": args[1],
+                        "name": self._sanitise_name(args[1]),
                         "race": "undefined",
                         "gender": "undefined",
                         "appearance": "undefined",
@@ -250,7 +250,7 @@ class Roleplay(BasePlugin):
                     for f in self.fields:
                         if f not in self.bios[gid][t_name]:
                             self.bios[gid][t_name][f] = ""
-                    await respond(msg, f"**ANALYSIS: created character {args[1]}.**")
+                    await respond(msg, f"**ANALYSIS: created character {self._sanitise_name(args[1])}.**")
                     self._save_bios()
         elif len(args) == 4 and args[2].lower() == "rename":
             if t_name in self.bios[gid]:
@@ -281,6 +281,8 @@ class Roleplay(BasePlugin):
                 else:
                     t_value = " ".join(args[4:])
                     if t_field in ["race", "gender", "height", "age", "name"]:
+                        if t_field == "name":
+                            t_value = self._sanitise_name(t_value)
                         if len(t_value) > 64:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
                                                      f"Maximum length is 64 characters.")
@@ -331,6 +333,8 @@ class Roleplay(BasePlugin):
         if "name" not in t_data:
             raise CommandSyntaxError("Not a valid character file: No name.")
 
+        t_data["name"] = self._sanitise_name(t_data["name"])
+
         t_bio = {}
 
         for field in [*self.fields, "fullname"]:  # don't want "fullname" to come up in the list of all possible fields
@@ -348,8 +352,7 @@ class Roleplay(BasePlugin):
         t_name = t_bio["name"].lower()
         t_name_storage = t_bio["name"]
         if "fullname" in t_bio:
-            print(f"{t_bio['name']} - {t_bio['fullname']}")
-            t_bio["name"] = t_bio["fullname"]
+            t_bio["name"] = self._sanitise_name(t_bio["fullname"])
             del t_bio["fullname"]
         if t_name in self.bios[gid]:
             if self.bios[gid][t_name].get("author", 0) != msg.author.id:
@@ -445,3 +448,13 @@ class Roleplay(BasePlugin):
     def _save_bios(self):
         with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
             json.dump(self.bios, f, indent=2, ensure_ascii=False)
+
+    def _sanitise_name(self, name):
+        # remove leading/trailing whitespace, inner whitespace limited to one character, no newlines
+        # SPECIALISED FUNCTION, meant to handle the empty names
+        name = re.sub(r"^\s+|\s+$|\n|\r", "", name)
+        name = re.sub(r"\s{2,}", " ", name)
+        if name:
+            return name
+        else:
+            raise CommandSyntaxError("Empty name provided.")
