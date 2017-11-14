@@ -378,8 +378,8 @@ class Roleplay(BasePlugin):
 
     @Command("ReloadBio",
              doc="Administrative function that reloads the bios from the file.",
-             perms={"manage_messages"},
-             category="role_play")
+             category="role_play",
+             bot_maintainers_only=True)
     async def _reloadbio(self, msg):
         try:
             with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
