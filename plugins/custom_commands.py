@@ -56,7 +56,8 @@ class CustomCommands(BasePlugin):
             "replace": self._replace,
             "resub": self._resub,
             "rpn": self._rpn,
-            "assert": self._assert
+            "assert": self._assert,
+            "time": self._time
         }
         v_tags = {
             "args": self._valid_args,
@@ -498,7 +499,7 @@ class CustomCommands(BasePlugin):
                  "Binary operators: +, -, *, /, ^ (power), % (modulo), // (integer division), atan2, swap (swaps "
                  "two numbers in stack).\n"
                  "Unary operators: sin, cos, tan, log, pop (remove number from stack), int, dup (duplicate number in "
-                 "stack), drop.\n"
+                 "stack), drop, modf.\n"
                  "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches).",
              run_anywhere=True)
     async def _rpncmd(self, msg):
@@ -946,6 +947,40 @@ class CustomCommands(BasePlugin):
         else:
             raise CustomCommandSyntaxError(f"<assert> unsupported type {args[0]}.")
 
+    def _time(self, args, msg):
+        args = self._split_args(args)
+        print(args)
+        time = datetime.datetime.utcnow()
+
+        if args[0].lower() in ["h", "hour"]:
+            if len(args) > 1:
+                try:
+                    delta = int(args[1])
+                except ValueError:
+                    raise CustomCommandSyntaxError(f"<time> invalid hour offset {args[1]}.")
+                else:
+                    time = time + datetime.timedelta(hours=delta)
+            return str(time.hour)
+        elif args[0].lower() in ["m", "min", "minute"]:
+            if len(args) > 1:
+                try:
+                    delta = int(args[1])
+                except ValueError:
+                    raise CustomCommandSyntaxError(f"<time> invalid minute offset {args[1]}.")
+                else:
+                    time = time + datetime.timedelta(minutes=delta)
+            return str(time.minute)
+        elif args[0].lower() in ["s", "sec", "second"]:
+            if len(args) > 1:
+                try:
+                    delta = int(args[1])
+                except ValueError:
+                    raise CustomCommandSyntaxError(f"<time> invalid second offset {args[1]}.")
+                else:
+                    time = time + datetime.timedelta(seconds=delta)
+            return str(time.second)
+        else:
+            return time.strftime("%Y-%m-%d @ %H:%M:%S")
 
     # CC validator tag functions
 
@@ -1097,6 +1132,11 @@ class CustomCommands(BasePlugin):
             stack.append(y)
             stack.append(x)
 
+        def _modf(x):
+            v, v1 = math.modf(x)
+            stack.append(v)
+            stack.append(v1)
+
         b_ops = {
             "+": lambda x, y: stack.append(x + y),
             "-": lambda x, y: stack.append(y - x),
@@ -1116,7 +1156,8 @@ class CustomCommands(BasePlugin):
             "pop": lambda x: out.append(x),
             "int": lambda x: stack.append(int(x)),
             "dup": _dup,
-            "drop": lambda x: x
+            "drop": lambda x: x,
+            "modf": _modf
         }
         c_ops = {
             "e": lambda: stack.append(math.e),
