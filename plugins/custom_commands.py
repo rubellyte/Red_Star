@@ -2,6 +2,7 @@ import re
 import random
 import json
 import datetime
+import math
 from asyncio import ensure_future, sleep
 from plugin_manager import BasePlugin
 import discord.utils
@@ -53,7 +54,9 @@ class CustomCommands(BasePlugin):
             "noembed": self._noembed,
             "transcode": self._transcode,
             "replace": self._replace,
-            "resub": self._resub
+            "resub": self._resub,
+            "rpn": self._rpn,
+            "assert": self._assert
         }
         v_tags = {
             "args": self._valid_args,
@@ -490,6 +493,18 @@ class CustomCommands(BasePlugin):
                 t_string = "```" + t_s
         await respond(msg, t_string + "```")
 
+    @Command("rpn",
+             doc="Calculates an expression in extended reverse polish notation.\n"
+                 "Binary operators: +, -, *, /, ^ (power), % (modulo), // (integer division), atan2, swap (swaps "
+                 "two numbers in stack).\n"
+                 "Unary operators: sin, cos, tan, log, pop (remove number from stack), int, dup (duplicate number in "
+                 "stack), drop.\n"
+                 "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches).",
+             run_anywhere=True)
+    async def _rpncmd(self, msg):
+        t_str = " | ".join([str(x) for x in self._parse_rpn(msg.content)])
+        await respond(msg, "**Result : [ "+t_str+" ]**")
+
     # Custom command machinery
 
     def validate_cc(self, cc, msg):
@@ -888,6 +903,50 @@ class CustomCommands(BasePlugin):
     def _noembed(self, args, msg):
         return f"<{args}>"
 
+    def _rpn(self, args, msg):
+        t_str = " ".join([str(x) for x in self._parse_rpn(args)])
+        return t_str
+
+    def _assert(self, args, msg):
+        args = self._split_args(args)
+        if len(args) < 2:
+            raise CustomCommandSyntaxError("<assert> requires at least two arguments - type and input.")
+
+        default = None if len(args) < 3 else args[2]
+
+        args[0] = args[0].lower()
+
+        if args[0] == "int":
+            try:
+                int(args[1])
+            except ValueError:
+                if default:
+                    return default
+                else:
+                    raise CustomCommandSyntaxError(f"<assert> {args[1]} not a valid int.")
+            else:
+                return args[1]
+        elif args[0] == "float":
+            try:
+                float(args[1])
+            except ValueError:
+                if default:
+                    return default
+                else:
+                    raise CustomCommandSyntaxError(f"<assert> {args[1]} not a valid float.")
+            else:
+                return args[1]
+        elif args[0] == "tag":
+            if args[1].lower() in self.tags:
+                return args[1].lower()
+            elif default:
+                return default
+            else:
+                raise CustomCommandSyntaxError(f"<assert> {args[1]} not a valid tag.")
+        else:
+            raise CustomCommandSyntaxError(f"<assert> unsupported type {args[0]}.")
+
+
     # CC validator tag functions
 
     def _valid_args(self, args, msg):
@@ -1022,3 +1081,65 @@ class CustomCommands(BasePlugin):
                 "cc_create_ban": [],
                 "cc_use_ban": []
             }
+
+    def _parse_rpn(self, args):
+        t_args = args.lower().split()
+        if len(t_args) == 0:
+            raise CustomCommandSyntaxError("<rpn> tag requires arguments")
+        stack = []
+        out = []
+
+        def _dup(x):
+            stack.append(x)
+            stack.append(x)
+
+        def _swap(x, y):
+            stack.append(y)
+            stack.append(x)
+
+        b_ops = {
+            "+": lambda x, y: stack.append(x + y),
+            "-": lambda x, y: stack.append(y - x),
+            "*": lambda x, y: stack.append(x * y),
+            "/": lambda x, y: stack.append(y / x),
+            "^": lambda x, y: stack.append(y ** x),
+            "%": lambda x, y: stack.append(y % x),
+            "//": lambda x, y: stack.append(y // x),
+            "atan2": lambda x, y: stack.append(math.atan2(y, x)),
+            "swap": _swap
+        }
+        u_ops = {
+            "sin": lambda x: stack.append(math.sin(x)),
+            "cos": lambda x: stack.append(math.cos(x)),
+            "tan": lambda x: stack.append(math.tan(x)),
+            "log": lambda x: stack.append(math.log(x)),
+            "pop": lambda x: out.append(x),
+            "int": lambda x: stack.append(int(x)),
+            "dup": _dup,
+            "drop": lambda x: x
+        }
+        c_ops = {
+            "e": lambda: stack.append(math.e),
+            "pi": lambda: stack.append(math.pi),
+            "tau": lambda: stack.append(math.tau),
+            "m2f": lambda: stack.append(3.280839895),
+            "m2i": lambda: stack.append(39.37007874)
+        }
+        for arg in t_args:
+            try:
+                a = int(arg)
+            except ValueError:
+                try:
+                    a = float(arg)
+                except ValueError:
+                    if arg in b_ops and len(stack) > 1:
+                        b_ops[arg](stack.pop(), stack.pop())
+                    elif arg in u_ops and len(stack) >= 1:
+                        u_ops[arg](stack.pop())
+                    elif arg in c_ops:
+                        c_ops[arg]()
+                else:
+                    stack.append(a)
+            else:
+                stack.append(a)
+        return [*out, *stack]
