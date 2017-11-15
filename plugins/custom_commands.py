@@ -499,7 +499,7 @@ class CustomCommands(BasePlugin):
                  "Binary operators: +, -, *, /, ^ (power), % (modulo), // (integer division), atan2, swap (swaps "
                  "two numbers in stack).\n"
                  "Unary operators: sin, cos, tan, log, pop (remove number from stack), int, dup (duplicate number in "
-                 "stack), drop, modf.\n"
+                 "stack), drop, modf, round.\n"
                  "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches).",
              run_anywhere=True)
     async def _rpncmd(self, msg):
@@ -1157,7 +1157,8 @@ class CustomCommands(BasePlugin):
             "int": lambda x: stack.append(int(x)),
             "dup": _dup,
             "drop": lambda x: x,
-            "modf": _modf
+            "modf": _modf,
+            "round": lambda x: stack.append(round(x))
         }
         c_ops = {
             "e": lambda: stack.append(math.e),
