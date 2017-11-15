@@ -161,18 +161,19 @@ class Roleplay(BasePlugin):
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
             await split_output(msg, "**ANALYSIS: Following character bios found:**",
-                               [v['name'] for k, v in self.bios[gid].items()])
+                               [f"{k.ljust(16)} : {v['name'].ljust(24)}" for k, v in self.bios[gid].items()])
 
     @Command("Bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
                  "Each character name must be unique.\n"
-                 "Fields: race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
+                 "Fields: name/race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
                  "appearance/equipment/skills/personality/backstory/interests: limit 1024 characters.\n"
                  "Setting 'race' to the same name as a registered character role will fetch the colour.\n"
                  "Be aware that the total length of the bio must not exceed 6000 characters.",
              syntax="\n"
                     "`creating:` (name) create\n"
                     "`editing :` (name) set (field) [value]\n"
+                    "`renaming:` (name) rename (new name)\n"
                     "`printing:` (name)\n"
                     "`dumping :` (name) dump\n"
                     "`deleting:` (name) delete",
@@ -192,7 +193,7 @@ class Roleplay(BasePlugin):
         gid = str(msg.guild.id)
         self._initialize(gid)
         try:
-            args = shlex.split(msg.content)
+            args = shlex.split(msg.clean_content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
             raise CommandSyntaxError(e)
@@ -200,7 +201,7 @@ class Roleplay(BasePlugin):
         if len(args) < 2:
             raise CommandSyntaxError("At least one argument required.")
 
-        t_name = args[1].lower()
+        t_name = self._sanitise_name(args[1].lower())
 
         if len(args) == 2:
             if t_name in self.bios[gid]:
@@ -224,6 +225,8 @@ class Roleplay(BasePlugin):
                 if t_name in self.bios[gid]:
                     t_bio = self.bios[gid][t_name].copy()
                     del t_bio["author"]
+                    t_bio["fullname"] = t_bio["name"]
+                    t_bio["name"] = t_name
                     t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
                     async with msg.channel.typing():
                         await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
@@ -238,7 +241,7 @@ class Roleplay(BasePlugin):
                         raise CommandSyntaxError("Character name too long. Maximum length is 64 characters.")
                     self.bios[gid][t_name] = {
                         "author": msg.author.id,
-                        "name": args[1],
+                        "name": self._sanitise_name(args[1]),
                         "race": "undefined",
                         "gender": "undefined",
                         "appearance": "undefined",
@@ -247,8 +250,19 @@ class Roleplay(BasePlugin):
                     for f in self.fields:
                         if f not in self.bios[gid][t_name]:
                             self.bios[gid][t_name][f] = ""
-                    await respond(msg, f"**ANALYSIS: created character {args[1]}.**")
+                    await respond(msg, f"**ANALYSIS: created character {self._sanitise_name(args[1])}.**")
                     self._save_bios()
+        elif len(args) == 4 and args[2].lower() == "rename":
+            if t_name in self.bios[gid]:
+                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                    raise UserPermissionError("Character belongs to other user.")
+            else:
+                raise CommandSyntaxError(f"No such character: {t_name}.")
+            if args[3].lower() in self.bios[gid]:
+                raise CommandSyntaxError("Character ID already taken.")
+            self.bios[gid][args[3].lower()] = self.bios[gid][t_name]
+            del self.bios[gid][t_name]
+            await respond(msg, f"**AFFIRMATIVE. Character bio {t_name} can now be accessed as {args[3].lower()}.**")
         elif len(args) >= 4 and args[2].lower() == "set":
             if t_name in self.bios[gid]:
                 if self.bios[gid][t_name].get("author", 0) != msg.author.id:
@@ -256,7 +270,7 @@ class Roleplay(BasePlugin):
             else:
                 raise CommandSyntaxError(f"No such character: {t_name}.")
             t_field = args[3].lower()
-            if t_field in self.fields and t_field != "name":
+            if t_field in self.fields:
                 bio = self.bios[gid][t_name]
                 if len(args) < 5:
                     if t_field in self.mandatory_fields:
@@ -266,7 +280,9 @@ class Roleplay(BasePlugin):
                     await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} reset.**")
                 else:
                     t_value = " ".join(args[4:])
-                    if t_field in ["race", "gender", "height", "age"]:
+                    if t_field in ["race", "gender", "height", "age", "name"]:
+                        if t_field == "name":
+                            t_value = self._sanitise_name(t_value)
                         if len(t_value) > 64:
                             raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
                                                      f"Maximum length is 64 characters.")
@@ -288,19 +304,32 @@ class Roleplay(BasePlugin):
              syntax="(attach the file to the message, no arguments required)",
              category="role_play")
     async def _uploadbio(self, msg):
+        """
+        Takes a file or a code block and parses it as json, checking the field limits.
+        """
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.attachments:
             t_file = BytesIO()
             await msg.attachments[0].save(t_file)
+            t_bytes = t_file.getvalue()
             try:
-                t_string = t_file.getvalue().decode()
+                try:
+                    t_string = t_bytes.decode()
+                except UnicodeDecodeError:
+                    try:
+                        t_string = t_bytes.decode(encoding="windows=1252")
+                    except UnicodeDecodeError:
+                        raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
+                else:
+                    if t_string[0] != "{":
+                        t_string = t_bytes.decode(encoding="utf-8-sig")
                 t_data = json.loads(t_string)
             except json.decoder.JSONDecodeError as e:
                 self.logger.exception("Could not decode bios.json! ", exc_info=True)
                 raise CommandSyntaxError(f"Not a valid JSON file: {e}")
-            except:
-                raise CommandSyntaxError("Not a valid JSON file.")
+            except Exception as e:
+                raise CommandSyntaxError(f"Not a valid JSON file: {e}")
         else:
             args = re.split(r"\s+", msg.content, 1)
             if len(args) == 1:
@@ -317,13 +346,15 @@ class Roleplay(BasePlugin):
         if "name" not in t_data:
             raise CommandSyntaxError("Not a valid character file: No name.")
 
+        t_data["name"] = self._sanitise_name(t_data["name"])
+
         t_bio = {}
 
-        for field in self.fields:
+        for field in [*self.fields, "fullname"]:  # don't want "fullname" to come up in the list of all possible fields
             t_field = t_data.get(field, "")
             if t_field:
                 t_len = len(t_field)
-                if field in ["name", "race", "gender", "height", "age"] and t_len > 64:
+                if field in ["name", "fullname", "race", "gender", "height", "age"] and t_len > 64:
                     raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 64 chars).")
                 elif field in ["link", "theme"] and t_len > 256:
                     raise CommandSyntaxError(f"Not a valid character file: field {field} too long (max 256 chars).")
@@ -332,6 +363,10 @@ class Roleplay(BasePlugin):
                 t_bio[field] = t_field
 
         t_name = t_bio["name"].lower()
+        t_name_storage = t_bio["name"]
+        if "fullname" in t_bio:
+            t_bio["name"] = self._sanitise_name(t_bio["fullname"])
+            del t_bio["fullname"]
         if t_name in self.bios[gid]:
             if self.bios[gid][t_name].get("author", 0) != msg.author.id:
                 raise PermissionError("Character belongs to other user.")
@@ -347,17 +382,17 @@ class Roleplay(BasePlugin):
             for f in self.fields:
                 if f not in self.bios[gid][t_name]:
                     self.bios[gid][t_name][f] = ""
-            await respond(msg, f"**ANALYSIS: created character {t_bio['name']}.**")
+            await respond(msg, f"**ANALYSIS: created character {t_name_storage}.**")
             self._save_bios()
         for field, value in t_bio.items():
             self.bios[gid][t_name][field] = value
         self._save_bios()
-        await respond(msg, f"**AFFIRMATIVE. Character {t_bio['name']} updated.**")
+        await respond(msg, f"**AFFIRMATIVE. Character {t_name_storage} updated.**")
 
     @Command("ReloadBio",
              doc="Administrative function that reloads the bios from the file.",
-             perms={"manage_messages"},
-             category="role_play")
+             category="role_play",
+             bot_maintainers_only=True)
     async def _reloadbio(self, msg):
         try:
             with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
@@ -426,3 +461,13 @@ class Roleplay(BasePlugin):
     def _save_bios(self):
         with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
             json.dump(self.bios, f, indent=2, ensure_ascii=False)
+
+    def _sanitise_name(self, name):
+        # remove leading/trailing whitespace, inner whitespace limited to one character, no newlines
+        # SPECIALISED FUNCTION, meant to handle the empty names
+        name = re.sub(r"^\s+|\s+$|\n|\r", "", name)
+        name = re.sub(r"\s{2,}", " ", name)
+        if name:
+            return name
+        else:
+            raise CommandSyntaxError("Empty name provided.")
