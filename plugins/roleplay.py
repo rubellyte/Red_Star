@@ -304,19 +304,32 @@ class Roleplay(BasePlugin):
              syntax="(attach the file to the message, no arguments required)",
              category="role_play")
     async def _uploadbio(self, msg):
+        """
+        Takes a file or a code block and parses it as json, checking the field limits.
+        """
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.attachments:
             t_file = BytesIO()
             await msg.attachments[0].save(t_file)
+            t_bytes = t_file.getvalue()
             try:
-                t_string = t_file.getvalue().decode()
+                try:
+                    t_string = t_bytes.decode()
+                except UnicodeDecodeError:
+                    try:
+                        t_string = t_bytes.decode(encoding="windows=1252")
+                    except UnicodeDecodeError:
+                        raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
+                else:
+                    if t_string[0] != "{":
+                        t_string = t_bytes.decode(encoding="utf-8-sig")
                 t_data = json.loads(t_string)
             except json.decoder.JSONDecodeError as e:
                 self.logger.exception("Could not decode bios.json! ", exc_info=True)
                 raise CommandSyntaxError(f"Not a valid JSON file: {e}")
-            except:
-                raise CommandSyntaxError("Not a valid JSON file.")
+            except Exception as e:
+                raise CommandSyntaxError(f"Not a valid JSON file: {e}")
         else:
             args = re.split(r"\s+", msg.content, 1)
             if len(args) == 1:
