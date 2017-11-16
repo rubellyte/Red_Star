@@ -169,7 +169,7 @@ class AntiSpam(BasePlugin):
                     else:
                         t_member.update_time = time.time()
                     if t_member.infractions >= self.s_thresholds[msg.guild.id][1] and t_config["spam_delete"]:
-                        await msg.delete(reason="Spam filtering.")
+                        await msg.delete()
                     elif t_member.infractions >= self.s_thresholds[msg.guild.id][0] and t_config["spam_reaction"]:
                         if len(t_config["spam_reaction"]) == 1:
                             try:
@@ -415,7 +415,7 @@ class AntiSpam(BasePlugin):
                        f"behaviour."
             await respond(msg, f"**ANALYSIS: Current infraction settings:**\n```{t_string}```")
 
-    @Command("SpamSettings" "SpamConfig",
+    @Command("SpamSettings", "SpamConfig",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Sets spam thresholds and timeout.\n"
