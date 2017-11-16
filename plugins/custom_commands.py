@@ -949,7 +949,6 @@ class CustomCommands(BasePlugin):
 
     def _time(self, args, msg):
         args = self._split_args(args)
-        print(args)
         time = datetime.datetime.utcnow()
 
         if args[0].lower() in ["h", "hour"]:
