@@ -119,6 +119,8 @@ class AntiSpam(BasePlugin):
     async def activate(self):
         self.run_timer = True
         self.s_thresholds = {}
+        if "muted_members" not in self.storage:
+            self.storage["muted_members"] = {}
         if "members" not in self.storage:
             self.storage["members"] = {}
         for guild in self.client.guilds:
