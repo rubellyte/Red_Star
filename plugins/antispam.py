@@ -133,6 +133,10 @@ class AntiSpam(BasePlugin):
                 self.plugin_config[str(guild.id)] = self.plugin_config["default"]
             self.calc_thresholds(guild)
 
+        for k in self.storage["members"]:
+            if not self.client.get_guild(k):
+                del self.storage["members"][k]
+
         loop = asyncio.new_event_loop()
         t_loop = asyncio.get_event_loop()
         self.timer = threading.Thread(target=self.start_timer, args=[loop, t_loop])
@@ -511,6 +515,8 @@ class AntiSpam(BasePlugin):
             for k, t_guild in self.storage["members"].items():
                 t_lst = []
                 for k1, t_member in t_guild.items():
+                    if t_member.needs_reinit:
+                        t_member.reinit(self)
                     if t_member.member and t_member.guild.get_member(t_member.member.id):
                         t_future = asyncio.run_coroutine_threadsafe(t_member.update(self), loop=loop)
                         try:
