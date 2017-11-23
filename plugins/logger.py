@@ -57,7 +57,8 @@ class DiscordLogger(BasePlugin):
             if msg.attachments:
                 links = ", ".join([x.url for x in msg.attachments])
                 attaches = f"\n**Attachments:** `{links}`"
-            self.logger.debug(f"User {uname}'s message at {msgtime} in {msg.channel.name} was deleted.\n"
+            self.logger.debug(f"User {uname}'s message at {msgtime} in {msg.channel.name} of {msg.guild.name} was "
+                              f"deleted.\n"
                               f"Contents: {contents}\nAttachments: {links}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
@@ -75,7 +76,8 @@ class DiscordLogger(BasePlugin):
             msgtime = after.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             if old_contents == contents:
                 return
-            self.logger.debug(f"User {uname} edited their message at {msgtime} in {after.channel.name}. \n"
+            self.logger.debug(f"User {uname} edited their message at {msgtime} in {after.channel.name} of "
+                              f"{after.guild.name}. \n"
                               f"Old contents: {old_contents}\nNew contents: {contents}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
