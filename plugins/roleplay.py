@@ -154,14 +154,14 @@ class Roleplay(BasePlugin):
         if len(args) > 1:
             t_member = find_user(msg.guild, args[1])
             if t_member:
-                t_bio_list = [v["name"] for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
+                t_bio_list = [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
                 await split_output(msg, f"**ANALYSIS: User {t_member.display_name} has following characters:**",
                                    t_bio_list)
             else:
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
             await split_output(msg, "**ANALYSIS: Following character bios found:**",
-                               [f"{k.ljust(16)} : {v['name'].ljust(24)}" for k, v in self.bios[gid].items()])
+                               [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items()])
 
     @Command("Bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
