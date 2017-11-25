@@ -147,7 +147,7 @@ class MusicPlayer(BasePlugin):
             if self.vc:
                 t_me = self.guild.me
                 for t_member in self.vc.channel.members:
-                    if t_member != t_me:
+                    if t_member.id != t_me.id:
                         self.idle_count = 0
                         break
                 else:
