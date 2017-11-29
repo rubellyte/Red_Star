@@ -104,6 +104,7 @@ ENV/
 /config/config.json
 /config/ccs.json
 /config/motds.json
+/config/bios.json
 *.sublime-project
 *.sublime-workspace
 /.idea
