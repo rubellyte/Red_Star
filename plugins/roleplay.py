@@ -318,9 +318,12 @@ class Roleplay(BasePlugin):
                     t_string = t_bytes.decode()
                 except UnicodeDecodeError:
                     try:
-                        t_string = t_bytes.decode(encoding="windows=1252")
+                        t_string = t_bytes.decode(encoding="windows-1252")
                     except UnicodeDecodeError:
-                        raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
+                        try:
+                            t_string = t_bytes.decode(encoding="windows-1250")
+                        except UnicodeDecodeError:
+                            raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
                 else:
                     if t_string[0] != "{":
                         t_string = t_bytes.decode(encoding="utf-8-sig")
