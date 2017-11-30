@@ -292,7 +292,8 @@ class BotManagement(BasePlugin):
              syntax="(code in code block)",
              category="debug",
              perms={"manage_guild"},
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             run_anywhere=True)
     async def _execute(self, msg):
         try:
             arg = re.split(r"\s+", msg.content, 1)[1]
