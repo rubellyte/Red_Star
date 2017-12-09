@@ -3,6 +3,7 @@ import collections
 import dbm
 import re
 import shelve
+import json
 from io import BytesIO
 from pickle import Pickler, Unpickler
 
@@ -240,6 +241,27 @@ def ordinal(n):
     :return: string with ordinal number
     """
     return "%d%s" % (n, "tsnrhtdd"[((n//10) % 10 != 1)*(n % 10 < 4)*n % 10::4])
+
+
+def decode_json(t_bytes):
+    try:
+        try:
+            t_string = t_bytes.decode()
+        except UnicodeDecodeError:
+            try:
+                t_string = t_bytes.decode(encoding="windows-1252")
+            except UnicodeDecodeError:
+                try:
+                    t_string = t_bytes.decode(encoding="windows-1250")
+                except UnicodeDecodeError:
+                    raise ValueError("Unable to parse file encoding. Please use UTF-8")
+        else:
+            if t_string[0] != "{":
+                t_string = t_bytes.decode(encoding="utf-8-sig")
+        t_data = json.loads(t_string)
+    except json.decoder.JSONDecodeError as e:
+        raise ValueError(f"Not a valid JSON file: {e}")
+    return t_data
 
 
 def p_time(seconds):
