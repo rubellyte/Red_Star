@@ -499,8 +499,8 @@ class CustomCommands(BasePlugin):
                  "Binary operators: +, -, *, /, ^ (power), % (modulo), // (integer division), atan2, swap (swaps "
                  "two numbers in stack), log.\n"
                  "Unary operators: sin, cos, tan, ln, pop (remove number from stack), int, dup (duplicate number in "
-                 "stack), drop, modf, round.\n"
-                 "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches).",
+                 "stack), drop, modf, round, rndint.\n"
+                 "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches), rnd.",
              run_anywhere=True)
     async def _rpncmd(self, msg):
         t_str = " | ".join([str(x) for x in self._parse_rpn(msg.content)])
@@ -1128,8 +1128,8 @@ class CustomCommands(BasePlugin):
             stack.append(x)
 
         def _swap(x, y):
-            stack.append(y)
             stack.append(x)
+            stack.append(y)
 
         def _modf(x):
             v, v1 = math.modf(x)
@@ -1158,18 +1158,20 @@ class CustomCommands(BasePlugin):
             "dup": _dup,
             "drop": lambda x: x,
             "modf": _modf,
-            "round": lambda x: stack.append(round(x))
+            "round": lambda x: stack.append(round(x)),
+            "rndint": lambda x: stack.append(random.randint(0, x))
         }
         c_ops = {
             "e": lambda: stack.append(math.e),
             "pi": lambda: stack.append(math.pi),
             "tau": lambda: stack.append(math.tau),
             "m2f": lambda: stack.append(3.280839895),
-            "m2i": lambda: stack.append(39.37007874)
+            "m2i": lambda: stack.append(39.37007874),
+            "rnd": lambda: stack.append(random.random())
         }
         for arg in t_args:
             try:
-                a = int(arg)
+                a = int(arg, 0)
             except ValueError:
                 try:
                     a = float(arg)
