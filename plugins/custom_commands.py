@@ -497,9 +497,9 @@ class CustomCommands(BasePlugin):
     @Command("rpn",
              doc="Calculates an expression in extended reverse polish notation.\n"
                  "Binary operators: +, -, *, /, ^ (power), % (modulo), // (integer division), atan2, swap (swaps "
-                 "two numbers in stack).\n"
-                 "Unary operators: sin, cos, tan, log, pop (remove number from stack), int, dup (duplicate number in "
-                 "stack), drop, modf.\n"
+                 "two numbers in stack), log.\n"
+                 "Unary operators: sin, cos, tan, ln, pop (remove number from stack), int, dup (duplicate number in "
+                 "stack), drop, modf, round.\n"
                  "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches).",
              run_anywhere=True)
     async def _rpncmd(self, msg):
@@ -949,7 +949,6 @@ class CustomCommands(BasePlugin):
 
     def _time(self, args, msg):
         args = self._split_args(args)
-        print(args)
         time = datetime.datetime.utcnow()
 
         if args[0].lower() in ["h", "hour"]:
@@ -1145,6 +1144,7 @@ class CustomCommands(BasePlugin):
             "^": lambda x, y: stack.append(y ** x),
             "%": lambda x, y: stack.append(y % x),
             "//": lambda x, y: stack.append(y // x),
+            "log": lambda x, y: stack.append(math.log(y, x)),
             "atan2": lambda x, y: stack.append(math.atan2(y, x)),
             "swap": _swap
         }
@@ -1152,12 +1152,13 @@ class CustomCommands(BasePlugin):
             "sin": lambda x: stack.append(math.sin(x)),
             "cos": lambda x: stack.append(math.cos(x)),
             "tan": lambda x: stack.append(math.tan(x)),
-            "log": lambda x: stack.append(math.log(x)),
+            "ln": lambda x: stack.append(math.log(x)),
             "pop": lambda x: out.append(x),
             "int": lambda x: stack.append(int(x)),
             "dup": _dup,
             "drop": lambda x: x,
-            "modf": _modf
+            "modf": _modf,
+            "round": lambda x: stack.append(round(x))
         }
         c_ops = {
             "e": lambda: stack.append(math.e),

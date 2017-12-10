@@ -154,14 +154,14 @@ class Roleplay(BasePlugin):
         if len(args) > 1:
             t_member = find_user(msg.guild, args[1])
             if t_member:
-                t_bio_list = [v["name"] for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
+                t_bio_list = [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
                 await split_output(msg, f"**ANALYSIS: User {t_member.display_name} has following characters:**",
                                    t_bio_list)
             else:
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
             await split_output(msg, "**ANALYSIS: Following character bios found:**",
-                               [f"{k.ljust(16)} : {v['name'].ljust(24)}" for k, v in self.bios[gid].items()])
+                               [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items()])
 
     @Command("Bio",
              doc="Adds, edits, prints, dumps or deletes character bios.\n"
@@ -318,9 +318,12 @@ class Roleplay(BasePlugin):
                     t_string = t_bytes.decode()
                 except UnicodeDecodeError:
                     try:
-                        t_string = t_bytes.decode(encoding="windows=1252")
+                        t_string = t_bytes.decode(encoding="windows-1252")
                     except UnicodeDecodeError:
-                        raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
+                        try:
+                            t_string = t_bytes.decode(encoding="windows-1250")
+                        except UnicodeDecodeError:
+                            raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
                 else:
                     if t_string[0] != "{":
                         t_string = t_bytes.decode(encoding="utf-8-sig")

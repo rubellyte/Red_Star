@@ -119,6 +119,8 @@ class AntiSpam(BasePlugin):
     async def activate(self):
         self.run_timer = True
         self.s_thresholds = {}
+        if "muted_members" not in self.storage:
+            self.storage["muted_members"] = {}
         if "members" not in self.storage:
             self.storage["members"] = {}
         for guild in self.client.guilds:
@@ -130,6 +132,10 @@ class AntiSpam(BasePlugin):
             if str(guild.id) not in self.plugin_config:
                 self.plugin_config[str(guild.id)] = self.plugin_config["default"]
             self.calc_thresholds(guild)
+
+        for k in self.storage["members"]:
+            if not self.client.get_guild(k):
+                del self.storage["members"][k]
 
         loop = asyncio.new_event_loop()
         t_loop = asyncio.get_event_loop()
@@ -169,7 +175,7 @@ class AntiSpam(BasePlugin):
                     else:
                         t_member.update_time = time.time()
                     if t_member.infractions >= self.s_thresholds[msg.guild.id][1] and t_config["spam_delete"]:
-                        await msg.delete(reason="Spam filtering.")
+                        await msg.delete()
                     elif t_member.infractions >= self.s_thresholds[msg.guild.id][0] and t_config["spam_reaction"]:
                         if len(t_config["spam_reaction"]) == 1:
                             try:
@@ -415,7 +421,7 @@ class AntiSpam(BasePlugin):
                        f"behaviour."
             await respond(msg, f"**ANALYSIS: Current infraction settings:**\n```{t_string}```")
 
-    @Command("SpamSettings" "SpamConfig",
+    @Command("SpamSettings", "SpamConfig",
              category="anti_spam",
              perms={"manage_guild"},
              doc="Sets spam thresholds and timeout.\n"
@@ -509,6 +515,8 @@ class AntiSpam(BasePlugin):
             for k, t_guild in self.storage["members"].items():
                 t_lst = []
                 for k1, t_member in t_guild.items():
+                    if t_member.needs_reinit:
+                        t_member.reinit(self)
                     if t_member.member and t_member.guild.get_member(t_member.member.id):
                         t_future = asyncio.run_coroutine_threadsafe(t_member.update(self), loop=loop)
                         try:
