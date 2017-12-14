@@ -838,7 +838,7 @@ class MusicPlayer(BasePlugin):
                 await respond(data, f"**ANALYSIS: Current queue:**")
                 for s in split_message(t_play.build_queue(), "\n"):
                     await respond(data, f"```{s}```")
-                if not t_play.vc.source:
+                if not t_play.vc.source or not t_play.vc.is_playing():
                     await t_play.play_next(data, None)
         else:
             raise CommandSyntaxError("Expected arguments!")
