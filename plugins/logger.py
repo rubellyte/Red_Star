@@ -50,7 +50,7 @@ class DiscordLogger(BasePlugin):
             self.plugin_config[gid] = self.plugin_config["default"]
         if "message_delete" not in self.plugin_config[gid].log_events and msg.author != self.client.user:
             uname = str(msg.author)
-            contents = msg.clean_content
+            contents = msg.clean_content if msg.clean_content else msg.system_content
             msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             attaches = ""
             links = ""
@@ -94,21 +94,21 @@ class DiscordLogger(BasePlugin):
             t_str = ""
             t_log = ""
             if before.name != after.name or before.discriminator != after.discriminator:
-                t_str = f"{t_str}`Old username : `{str(before)}\n`New username : `{uname}\n"
-                t_log = f"{t_str}Old username : {str(before)} New username : {uname}\n"
+                t_str = f"{t_str}`Old username: `{str(before)}\n`New username: `{uname}\n"
+                t_log = f"{t_str}Old username: {str(before)} New username: {uname}\n"
             if before.avatar != after.avatar:
-                t_str = f"{t_str}`New avatar : `{after.avatar_url}\n"
-                t_log = f"{t_str}New avatar : {after.avatar_url}\n"
+                t_str = f"{t_str}`New avatar: `{after.avatar_url}\n"
+                t_log = f"{t_str}New avatar: {after.avatar_url}\n"
             if before.nick != after.nick:
-                t_str = f"{t_str}`Old nick: `{before.nick}\n`New nick : `{after.nick}\n"
-                t_log = f"{t_str}Old nick: {before.nick} New nick : {after.nick}\n"
+                t_str = f"{t_str}`Old nick: `{before.nick}\n`New nick: `{after.nick}\n"
+                t_log = f"{t_str}Old nick: {before.nick} New nick: {after.nick}\n"
             if before.roles != after.roles:
                 o_role = ", ".join([str(x) for x in before.roles])
                 n_role = ", ".join([str(x) for x in after.roles])
-                t_str = f"{t_str}**Old roles :**```[ {o_role.replace('@','')} ]```\n" \
-                        f"**New roles :**```[ {n_role.replace('@','')} ]```\n"
-                t_log = f"{t_str}Old roles : [ {o_role.replace('@','')} ]\n" \
-                        f"New roles :[ {n_role.replace('@','')} ]\n"
+                t_str = f"{t_str}**Old roles:**```[ {o_role.replace('@','')} ]```\n" \
+                        f"**New roles:**```[ {n_role.replace('@','')} ]```\n"
+                t_log = f"{t_str}Old roles: [ {o_role.replace('@','')} ]\n" \
+                        f"New roles:[ {n_role.replace('@','')} ]\n"
             if t_str == "":
                 return
             self.logger.debug(f"User {uname} was modified:\n{t_log}")
@@ -121,10 +121,17 @@ class DiscordLogger(BasePlugin):
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
         if "guild_channel_pins_update" not in self.plugin_config[gid]["log_events"]:
-            updtime = last_pin.strftime("%Y-%m-%d @ %H:%M:%S")
+            try:
+                new_pin = (datetime.utcnow() - last_pin < timedelta(seconds=5))
+            except TypeError: # last_pin can be None if the last pin in a channel was unpinned
+                new_pin = False
+            if new_pin: # Get the pinned message if it's a new pin; can't get the unpinned messages sadly
+                msg = (await channel.pins())[0]
+                pin_contents = f"\n**Message: {str(msg.author)}:** {msg.clean_content}"
             if gid not in self.log_items:
                 self.log_items[gid] = []
-            self.log_items[gid].append(f"**ANALYSIS: A message was pinned in {channel.mention} at `{updtime}`**")
+            self.log_items[gid].append(f"**ANALYSIS: A message was {'' if new_pin else 'un'}pinned in "
+                                       f"{channel.mention}.**{pin_contents if new_pin else ''}")
 
     async def on_member_ban(self, guild, member):
         gid = str(guild.id)
