@@ -31,11 +31,6 @@ class RedStar(discord.AutoShardedClient):
         self.logged_in = False
         self.server_ready = False
         self.last_error = None
-        asyncio.ensure_future(self.start_bot())
-
-    async def start_bot(self):
-        self.logger.info("Logging in...")
-        await self.start(self.config["token"])
 
     async def on_ready(self):
         if not self.logged_in:
