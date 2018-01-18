@@ -327,8 +327,8 @@ class Roleplay(BasePlugin):
             if t_search:
                 try:
                     t_data = json.loads(t_search.group(1))
-                except:
-                    raise CommandSyntaxError("Not a valid JSON string.")
+                except ValueError as e:
+                    raise CommandSyntaxError(f"Not a valid JSON string. {e}")
             else:
                 raise CommandSyntaxError("Not valid JSON code block.")
 
