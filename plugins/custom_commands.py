@@ -604,8 +604,8 @@ class CustomCommands(BasePlugin):
             raise CustomCommandSyntaxError(f"No such tag {tag}!")
 
     def _split_args(self, argstr):
-        args = re.split(r"(?<!\\);", argstr)
-        return [x.replace("\\;", ";") for x in args]
+        args = re.split(r"(?<!\\);", argstr.replace('\\\\', '\uff0f'))
+        return [x.replace("\\;", ";").replace('\uff0f', '\\') for x in args]
 
     # CC argument tag functions
 
@@ -788,7 +788,8 @@ class CustomCommands(BasePlugin):
     def _replace(self, args, msg):
         args = self._split_args(args)
         if len(args) < 3:
-            raise CustomCommandSyntaxError("<replace> tag needs three arguments: text, from, to.")
+            raise CustomCommandSyntaxError(f"<replace> tag needs three arguments: text, from, to. Current arguments: "
+                                           f"{args}")
         if len(args) > 3:
             try:
                 t_int = max(int(args[3]), -1)
