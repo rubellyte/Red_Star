@@ -184,6 +184,7 @@ class RedStar(discord.AutoShardedClient):
     async def on_group_remove(self, channel, user):
         await self.plugin_manager.hook_event("on_group_remove", channel, user)
 
+
 if __name__ == "__main__":
     path = Path(__file__).parent
     DEBUG = True

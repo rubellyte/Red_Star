@@ -21,6 +21,7 @@ class PluginManager:
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.shelve_path = self.config_manager.config.shelve_path
         self.shelve = None
+        self.shutting_down = False
         self.last_error = None
         asyncio.ensure_future(self._write_to_shelve())
 
@@ -118,6 +119,7 @@ class PluginManager:
                     self.logger.exception(f"Error occurred while deactivating plugin {plugin.name}: ", exc_info=True)
                 del self.active_plugins[n]
                 self.command_dispatcher.deregister_plugin(plugin)
+        self.shutting_down = True
 
     async def activate(self, name):
         try:
@@ -180,13 +182,13 @@ class PluginManager:
             time = self.config_manager.config.shelve_save_interval
         except AttributeError:
             time = 60
-        await asyncio.sleep(time)
-        self.logger.debug("Writing to shelve...")
-        try:
-            self.shelve.sync()
-        except Exception:
-            self.logger.exception("Error writing to shelve. ", exc_info=True)
-        await self._write_to_shelve()
+        while not self.shutting_down:
+            self.logger.debug("Writing to shelve...")
+            try:
+                self.shelve.sync()
+            except Exception:
+                self.logger.exception("Error writing to shelve. ", exc_info=True)
+            await asyncio.sleep(time)
 
 
 class BasePlugin:
