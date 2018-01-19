@@ -159,7 +159,7 @@ def find_role(guild, search, return_all=False):
     if return_all:
         return final
 
-async def respond(msg, response, **kwargs):
+async def respond(msg, response, allow_mention_everyone=False, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.
@@ -170,6 +170,8 @@ async def respond(msg, response, **kwargs):
     text = None
     if response:
         text = sub_user_data(msg.author, response)
+        if not allow_mention_everyone: # Filter these out just in case we miss it somehow
+            text = text.replace("@everyone", "@\u200beveryone").replace("@here", "@\u200bhere")
         if len(text) > 2000:
             # shoulda split it first
             # this is just a last-ditch error check
