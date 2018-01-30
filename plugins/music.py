@@ -89,6 +89,11 @@ class MusicPlayer(BasePlugin):
             self.config = config
             self.volume = self.config["default_volume"]
 
+
+
+            self.queue = []  # queue of source objects
+            self.vote_set = set()
+
         # Connection functions
 
         async def connect(self, data):
