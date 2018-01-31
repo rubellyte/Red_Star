@@ -47,7 +47,10 @@ class Cupboard(shelve.Shelf):
         with dbm.open(self.db, self.flag) as db:
             for k in db.keys():
                 v = BytesIO(db[k])
-                self.dict[k] = Unpickler(v).load()
+                try:
+                    self.dict[k] = Unpickler(v).load()
+                except ModuleNotFoundError: # Just throw it away if it won't load.
+                    del db[k]
         shelve.Shelf.__init__(self, self.dict, protocol, False, keyencoding)
 
     def __getitem__(self, key):

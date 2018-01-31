@@ -70,7 +70,7 @@ class ChannelManagerCommands(BasePlugin):
             await respond(msg, f"**ANALYSIS: The {chantype} channel for this server has been set to "
                                f"{channel.mention}.**")
         else:
-            await respond(msg, f"ANALYSIS: The {chantype} channel for this server has been disabled.")
+            await respond(msg, f"**ANALYSIS: The {chantype} channel for this server has been disabled.**")
 
     @Command("GetCategory",
              doc="Gets the members of the specified channel category on this server.",

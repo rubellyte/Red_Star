@@ -7,11 +7,7 @@ class Announcer(BasePlugin):
     name = "announcer"
     default_config = {
         "default": {
-            "greeting_enabled": True,
-            # UFP distributed command AI ONLINE. DESIGNATION: Red Star. MINE SHALL BE THE FINAL WORD.
             "greeting_message": "Sample message to be broadcasted on bot load.",
-            "new_member_announce_enabled": True,
-            # GREETINGS, <usermention>. Welcome to Ivaldi RP.
             "new_member_announce_message": "Message for new players. Replaces <username> with their name and "
                                            "<usermention> with a mention."
         }
@@ -31,11 +27,10 @@ class Announcer(BasePlugin):
                     self.config_manager.save_config()
                 msg = self.plugin_config[gid].greeting_message
                 try:
-                    greet_channel = self.channel_manager.get_channel(guild, "general")
-                    if self.plugin_config[gid].greeting_enabled:
-                        await greet_channel.send(msg)
-                except ChannelNotFoundError as e:
-                    self.logger.error(f"Server {guild.name} has no {e} channel set!")
+                    greet_channel = self.channel_manager.get_channel(guild, "startup")
+                    await greet_channel.send(msg)
+                except ChannelNotFoundError:
+                    continue
 
     # Event hooks
 
@@ -53,11 +48,6 @@ class Announcer(BasePlugin):
             text = sub_user_data(msg, text)
             try:
                 chan = self.channel_manager.get_channel(msg.guild, "welcome")
-                if self.plugin_config[gid].new_member_announce_enabled:
-                    await chan.send(text)
+                await chan.send(text)
             except ChannelNotFoundError:
-                try:
-                    chan = self.channel_manager.get_channel(msg.guild, "general")
-                    await chan.send("**WARNING: No welcome channel is set.**")
-                except ChannelNotFoundError:
-                    self.logger.error(f"Server {msg.guild.name} has no welcome or default channel set!")
+                pass
