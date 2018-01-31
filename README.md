@@ -1,16 +1,19 @@
 # Red Star Bot
 ![PyPI](https://img.shields.io/badge/Python-3.6-blue.svg)
 
-A Discord administration bot, intended to replace a variety of bots on a server I participate in.
+A general-purpose Discord bot with administration and entertainment functions. Now with added **shouting.**
 
-Features:
-- Purging
-- Event logging (Message edit and delete, server join and leave)
+# Features
+- Event logging, including message edits, deletions, and pins, user joins/leaves, and more
 - Role administration by commands
 - Message of the Day with configurable holidays and messages based on day, weekday, or month
+- Bios for RP servers
+- Levelling system with configurable XP by post length
 - New member announcer
 - Music playing
 - Custom commands
+- Dumping messages from channels into a text file
+- Message purging by content (regex supported) and author
 
 # Installation
 - Install [Python 3.6+](https://www.python.org/)
