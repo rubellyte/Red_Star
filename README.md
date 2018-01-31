@@ -21,7 +21,6 @@ A general-purpose Discord bot with administration and entertainment functions. N
 - For music playing:
   - Install discord.py\[voice]
   - Install [ffmpeg](http://ffmpeg.zeranoe.com/builds/) and add it to your PATH
-  - Install [PyNaCl](https://github.com/pyca/pynacl)
   - Install [youtube-dl](https://github.com/rg3/youtube-dl)
 - For MotD:
   - Install [schedule](https://github.com/dbader/schedule)
