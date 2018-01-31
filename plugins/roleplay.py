@@ -3,7 +3,7 @@ import json
 import shlex
 from random import randint
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, DotDict, find_role, find_user, split_output
+from rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json
 from command_dispatcher import Command
 from plugin_manager import BasePlugin
 from discord import Embed, File
@@ -312,25 +312,11 @@ class Roleplay(BasePlugin):
         if msg.attachments:
             t_file = BytesIO()
             await msg.attachments[0].save(t_file)
-            t_bytes = t_file.getvalue()
             try:
-                try:
-                    t_string = t_bytes.decode()
-                except UnicodeDecodeError:
-                    try:
-                        t_string = t_bytes.decode(encoding="windows-1252")
-                    except UnicodeDecodeError:
-                        try:
-                            t_string = t_bytes.decode(encoding="windows-1250")
-                        except UnicodeDecodeError:
-                            raise CommandSyntaxError("Unable to parse file encoding. Please use UTF-8")
-                else:
-                    if t_string[0] != "{":
-                        t_string = t_bytes.decode(encoding="utf-8-sig")
-                t_data = json.loads(t_string)
-            except json.decoder.JSONDecodeError as e:
+                t_data = decode_json(t_file.getvalue())
+            except ValueError as e:
                 self.logger.exception("Could not decode bios.json! ", exc_info=True)
-                raise CommandSyntaxError(f"Not a valid JSON file: {e}")
+                raise CommandSyntaxError(e)
             except Exception as e:
                 raise CommandSyntaxError(f"Not a valid JSON file: {e}")
         else:
@@ -341,8 +327,8 @@ class Roleplay(BasePlugin):
             if t_search:
                 try:
                     t_data = json.loads(t_search.group(1))
-                except:
-                    raise CommandSyntaxError("Not a valid JSON string.")
+                except ValueError as e:
+                    raise CommandSyntaxError(f"Not a valid JSON string. {e}")
             else:
                 raise CommandSyntaxError("Not valid JSON code block.")
 

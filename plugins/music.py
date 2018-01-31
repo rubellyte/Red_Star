@@ -89,6 +89,9 @@ class MusicPlayer(BasePlugin):
             self.config = config
             self.volume = self.config["default_volume"]
 
+            self.queue = []  # queue of source objects
+            self.vote_set = set()
+
         # Connection functions
 
         async def connect(self, data):
@@ -373,7 +376,8 @@ class MusicPlayer(BasePlugin):
 
         def check_perm(self, data):
             return (self.check_in(data) and self.vc.channel.permissions_for(data.author).mute_members) or \
-                   data.author.guild_permissions.mute_members
+                   data.author.guild_permissions.mute_members or data.author.id in \
+                   self.parent.config_manager.config.get("bot_maintainers", [])
 
         def play_length(self):
             """
@@ -838,7 +842,7 @@ class MusicPlayer(BasePlugin):
                 await respond(data, f"**ANALYSIS: Current queue:**")
                 for s in split_message(t_play.build_queue(), "\n"):
                     await respond(data, f"```{s}```")
-                if not t_play.vc.source:
+                if not t_play.vc.source or not t_play.vc.is_playing():
                     await t_play.play_next(data, None)
         else:
             raise CommandSyntaxError("Expected arguments!")
