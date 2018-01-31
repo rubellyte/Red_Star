@@ -48,7 +48,6 @@ class CustomCommands(BasePlugin):
             "random": self._random,
             "wrandom": self._wrandom,
             "randint": self._randint,
-            "rot13": self._rot13,
             "delcall": self._delcall,
             "embed": self._embed,
             "noembed": self._noembed,
@@ -778,12 +777,6 @@ class CustomCommands(BasePlugin):
         if a > b:
             a, b = b, a
         return str(random.randint(a, b))
-
-    def _rot13(self, args, msg):
-        rot13 = str.maketrans(
-                "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz",
-                "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm")
-        return str.translate(args, rot13)
 
     def _replace(self, args, msg):
         args = self._split_args(args)
