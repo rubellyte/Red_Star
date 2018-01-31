@@ -1,5 +1,4 @@
 {
-  "client_id": "INSERT CLIENT ID HERE!",
   "token": "INSERT TOKEN HERE!",
   "bot_maintainers": [
     "BOT OWNER IDS HERE",
@@ -8,6 +7,9 @@
   "plugin_path": "./plugins",
   "shelve_path": "config/storage",
   "shelve_save_interval": 600,
+  "disabled_plugins": [],
+  "channel_manager": {},
+  "command_dispatcher": {},
   "plugins": {
     "announcer": {
       "default": {
@@ -17,45 +19,32 @@
         "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention."
       }
     },
-    "anti_spam": {
-      "default": {
-        "infraction_timeout": 300,
-        "message_count": 5,
-        "spam_ban": false,
-        "spam_delete": false,
-        "spam_reaction": false,
-        "spam_role": false,
-        "spam_role_timeout": 60,
-        "thresholds": [
-          1,
-          1,
-          2,
-          2
-        ],
-        "timeout": 10
-      },
-      "poll_every": 5
-    }
-    "command_dispatcher": {
-      "default": {
-        "command_prefix": "!",
-        "use_command_channel": true
-      }
+    "console": {
+      "allow_stdout_errors": true,
+      "allow_stdout_logging": false
     },
     "custom_commands": {
       "cc_file": "config/ccs.json",
       "default": {
-        "cc_prefix": "!!"
+        "cc_prefix": "!!",
+        "cc_limit": 25
       }
+    },
+    "levelling": {
+      "default": {
+        "low_cutoff": 75,
+        "poll_every": 3600,
+        "skip_missing": false,
+        "xp_decay": 10,
+        "xp_decay_every": 86400,
+        "xp_max": 10,
+        "xp_min": 1
+      },
+      "poll_every": 3600
     },
     "logger": {
       "default": {
-        "log_events": [
-          "message_delete",
-          "message_edit",
-          "member_join",
-          "member_remove"
-        ]
+        "log_events": []
       }
     },
     "motd": {
@@ -80,6 +69,7 @@
         "**NEGATIVE. Insufficient permissions for wanting to rock in channel: {}.**",
         "**NEGATIVE. Insufficient permissions for dropping the beat in channel: {}.**"
       ],
+      "twitch_stream": false,
       "ytdl_options": {
         "audioformat": "mp3",
         "default_search": "auto",
@@ -94,6 +84,13 @@
         "quiet": true,
         "restrictfilenames": true,
         "source_address": "0.0.0.0"
+      }
+    },
+    "roleplay": {
+      "allow_race_requesting": false,
+      "bio_file": "config/bios.json",
+      "default": {
+        "race_roles": []
       }
     }
   }
