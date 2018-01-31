@@ -89,8 +89,6 @@ class MusicPlayer(BasePlugin):
             self.config = config
             self.volume = self.config["default_volume"]
 
-
-
             self.queue = []  # queue of source objects
             self.vote_set = set()
 
@@ -378,7 +376,8 @@ class MusicPlayer(BasePlugin):
 
         def check_perm(self, data):
             return (self.check_in(data) and self.vc.channel.permissions_for(data.author).mute_members) or \
-                   data.author.guild_permissions.mute_members
+                   data.author.guild_permissions.mute_members or data.author.id in \
+                   self.parent.config_manager.config.get("bot_maintainers", [])
 
         def play_length(self):
             """
