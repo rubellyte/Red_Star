@@ -50,7 +50,7 @@ class Cupboard(shelve.Shelf):
                 v = BytesIO(db[k])
                 try:
                     self.dict[k] = Unpickler(v).load()
-                except ModuleNotFoundError: # Just throw it away if it won't load.
+                except ModuleNotFoundError:  # Just throw it away if it won't load.
                     del db[k]
         shelve.Shelf.__init__(self, self.dict, protocol, False, keyencoding)
 
@@ -78,7 +78,7 @@ class Cupboard(shelve.Shelf):
         finally:
             try:
                 self.dict = shelve._ClosedDict()
-            except:
+            except Exception:
                 self.dict = None
 
 
@@ -163,21 +163,23 @@ def find_role(guild, search, return_all=False):
     if return_all:
         return final
 
+
 async def respond(msg, response, allow_mention_everyone=False, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.
     :param msg: The message to respond to.
     :param response: The text to respond with.
+    :param allow_mention_everyone: If True, disables the automatic @everyone and @here filtering. Defaults to False.
     :return discord.Message: The Message sent.
     """
     text = None
     if response:
         text = sub_user_data(msg.author, response)
-        if not allow_mention_everyone: # Filter these out just in case we miss it somehow
+        if not allow_mention_everyone:  # Filter these out just in case we miss it somehow
             text = text.replace("@everyone", "@\u200beveryone").replace("@here", "@\u200bhere")
         if len(text) > 2000:
-            # shoulda split it first
+            # should've split it first
             # this is just a last-ditch error check
             text = text[:2000]
     elif not kwargs:
@@ -236,6 +238,7 @@ async def split_output(message, title, items, *, header="```\n", footer="```", f
         else:
             t_str += t_s
     await respond(message, t_str+footer)
+
 
 def ordinal(n):
     """

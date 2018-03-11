@@ -308,7 +308,7 @@ class BotManagement(BasePlugin):
         self.res = None
         try:
             exec(code, globals(), locals())
-        except:
+        except Exception:
             await respond(msg, f"**WARNING: Error occurred while executing code. Traceback:**\n"
                                f"```Py\n{format_exc()}\n```")
         if self.res is not None:

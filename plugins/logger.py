@@ -123,9 +123,9 @@ class DiscordLogger(BasePlugin):
         if "guild_channel_pins_update" not in self.plugin_config[gid]["log_events"]:
             try:
                 new_pin = (datetime.utcnow() - last_pin < timedelta(seconds=5))
-            except TypeError: # last_pin can be None if the last pin in a channel was unpinned
+            except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
                 new_pin = False
-            if new_pin: # Get the pinned message if it's a new pin; can't get the unpinned messages sadly
+            if new_pin:  # Get the pinned message if it's a new pin; can't get the unpinned messages sadly
                 msg = (await channel.pins())[0]
                 pin_contents = f"\n**Message: {str(msg.author)}:** {msg.clean_content}"
             if gid not in self.log_items:

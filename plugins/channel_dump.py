@@ -47,8 +47,8 @@ class DumpChannel(BasePlugin):
 
         t_list = [f"{str(m_end.author)} @ {str(m_end.created_at.strftime(s))}\n{m_end.clean_content}\n\n"]
 
-        async for message in msg.channel.history(before=m_start, after=m_end, reverse=True, limit=None):
-            t_list.append(f"{str(message.author)} @ {str(message.created_at.strftime(s))}\n{message.clean_content}\n\n")
+        async for msg in msg.channel.history(before=m_start, after=m_end, reverse=True, limit=None):
+            t_list.append(f"{str(msg.author)} @ {str(msg.created_at.strftime(s))}\n{msg.clean_content}\n\n")
 
         t_list.append(f"{str(m_start.author)} @ {str(m_start.created_at.strftime(s))}\n{m_start.clean_content}")
 

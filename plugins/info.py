@@ -18,11 +18,11 @@ class Info(BasePlugin):
         await asyncio.sleep(1)
         await self.build_help()
 
-    async def on_plugin_activated(self, plgname):
+    async def on_plugin_activated(self, _):
         await asyncio.sleep(1)
         await self.build_help()
 
-    async def on_plugin_deactivated(self, plgname):
+    async def on_plugin_deactivated(self, _):
         await asyncio.sleep(1)
         await self.build_help()
 

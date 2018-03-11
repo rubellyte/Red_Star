@@ -9,7 +9,7 @@ import discord.utils
 from io import BytesIO
 
 from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from rs_utils import respond, DotDict, find_user, is_positive, split_output
+from rs_utils import respond, DotDict, find_user, is_positive
 from command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
@@ -585,8 +585,8 @@ class CustomCommands(BasePlugin):
             # find closest opening bracket
             e_pos = t_str[t_pos:].find("<") + t_pos
             # replace chunk of text with the parsed result
-            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg, validate)[::-1] \
-                    + t_str[e_pos + 1:]
+            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg, validate)[::-1]\
+                + t_str[e_pos + 1:]
 
         return t_str[::-1]
 
@@ -635,16 +635,16 @@ class CustomCommands(BasePlugin):
         else:
             raise CustomCommandSyntaxError("<args> argument is not a number or *!")
 
-    def _username(self, args, msg):
+    def _username(self, _, msg):
         return msg.author.name
 
-    def _usernick(self, args, msg):
+    def _usernick(self, _, msg):
         return msg.author.display_name
 
-    def _usermention(self, args, msg):
+    def _usermention(self, _, msg):
         return msg.author.mention
 
-    def _authorname(self, args, msg):
+    def _authorname(self, _, msg):
         gid = str(msg.guild.id)
         author = self.ccs[gid][msg.clean_content.split()[0][len(self.plugin_config[gid].cc_prefix):]]["author"]
         try:
@@ -652,7 +652,7 @@ class CustomCommands(BasePlugin):
         except AttributeError:
             return "<Unknown user>"
 
-    def _authornick(self, args, msg):
+    def _authornick(self, _, msg):
         gid = str(msg.guild.id)
         author = self.ccs[gid][msg.clean_content.split()[0][len(self.plugin_config[gid].cc_prefix):]]["author"]
         try:
@@ -660,46 +660,46 @@ class CustomCommands(BasePlugin):
         except AttributeError:
             return "<Unknown user>"
 
-    def _if(self, args, msg):
+    def _if(self, args, _):
         args = self._split_args(args)
         if args[0] == "true":
             return args[1]
         else:
             return args[2]
 
-    def _equals(self, args, msg):
+    def _equals(self, args, _):
         args = self._split_args(args)
         return str(all(i == args[0] for i in args[1:])).lower()
 
-    def _match(self, args, msg):
+    def _match(self, args, _):
         args = self._split_args(args)
         return str(any(i == args[0] for i in args[1:])).lower()
 
-    def _not(self, args, msg):
+    def _not(self, args, _):
         if args == "true":
             return "false"
         else:
             return "true"
 
-    def _getvar(self, args, msg):
+    def _getvar(self, args, _):
         if args.lower() in self.ccvars:
             return self.ccvars[args.lower()]
         else:
             raise CustomCommandSyntaxError(f"No such variable {args.lower()}.")
 
-    def _setvar(self, args, msg):
+    def _setvar(self, args, _):
         var, val = self._split_args(args)[0:2]
         self.ccvars[var.lower()] = val
         return ""
 
-    def _contains(self, args, msg):
+    def _contains(self, args, _):
         args = self._split_args(args)
         for test in args[1:]:
             if test in args[0]:
                 return "true"
         return "false"
 
-    def _choice(self, args, msg):
+    def _choice(self, args, _):
         args = self._split_args(args)
         try:
             index = int(args[0])
@@ -712,7 +712,7 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise CommandSyntaxError(f"<choice> does not have an argument at index {index}")
 
-    def _isempty(self, args, msg):
+    def _isempty(self, args, _):
         if len(args) == 0:
             return "true"
         else:
@@ -726,16 +726,16 @@ class CustomCommands(BasePlugin):
                 return "true"
         return "false"
 
-    def _upper(self, args, msg):
+    def _upper(self, args, _):
         return args.upper()
 
-    def _lower(self, args, msg):
+    def _lower(self, args, _):
         return args.lower()
 
-    def _random(self, args, msg):
+    def _random(self, args, _):
         return random.choice(self._split_args(args))
 
-    def _wrandom(self, args, msg):
+    def _wrandom(self, args, _):
         """
         Weighted random .choice implementation.
         """
@@ -760,7 +760,7 @@ class CustomCommands(BasePlugin):
         else:
             raise CustomCommandSyntaxError("<wrandom> something went horribly wrong")
 
-    def _randint(self, args, msg):
+    def _randint(self, args, _):
         args = self._split_args(args)
         try:
             a = int(args[0])
@@ -778,7 +778,7 @@ class CustomCommands(BasePlugin):
             a, b = b, a
         return str(random.randint(a, b))
 
-    def _replace(self, args, msg):
+    def _replace(self, args, _):
         args = self._split_args(args)
         if len(args) < 3:
             raise CustomCommandSyntaxError(f"<replace> tag needs three arguments: text, from, to. Current arguments: "
@@ -792,13 +792,13 @@ class CustomCommands(BasePlugin):
             t_int = -1
         return args[0].replace(args[1], args[2], t_int)
 
-    def _resub(self, args, msg):
+    def _resub(self, args, _):
         args = self._split_args(args)
         if len(args) < 3:
             raise CustomCommandSyntaxError("<resub> tag needs three arguments: text, pattern, replace.")
         return re.sub(args[1], args[2], args[0])
 
-    def _transcode(self, args, msg):
+    def _transcode(self, args, _):
         def_code = "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz"
         alt_code = {
             "rot13": "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm",
@@ -851,7 +851,7 @@ class CustomCommands(BasePlugin):
             else:
                 raise CustomCommandSyntaxError("To and From transcoding patterns must be the same length.")
 
-    def _delcall(self, args, msg):
+    def _delcall(self, _, msg):
         ensure_future(self._rm_msg(msg))
         return ""
 
@@ -871,7 +871,7 @@ class CustomCommands(BasePlugin):
             elif t_arg[0].lower() in ["!color", "!colour"]:
                 try:
                     t_embed.colour = discord.Colour(int(t_arg[1], 16))
-                except:
+                except ValueError:
                     pass
             elif t_arg[0].lower() == "!url":
                 t_embed.url = t_arg[1]
@@ -895,14 +895,14 @@ class CustomCommands(BasePlugin):
             ensure_future(respond(msg, None, embed=t_embed))
         return ""
 
-    def _noembed(self, args, msg):
+    def _noembed(self, args, _):
         return f"<{args}>"
 
-    def _rpn(self, args, msg):
+    def _rpn(self, args, _):
         t_str = " ".join([str(x) for x in self._parse_rpn(args)])
         return t_str
 
-    def _assert(self, args, msg):
+    def _assert(self, args, _):
         args = self._split_args(args)
         if len(args) < 2:
             raise CustomCommandSyntaxError("<assert> requires at least two arguments - type and input.")
@@ -941,7 +941,7 @@ class CustomCommands(BasePlugin):
         else:
             raise CustomCommandSyntaxError(f"<assert> unsupported type {args[0]}.")
 
-    def _time(self, args, msg):
+    def _time(self, args, _):
         args = self._split_args(args)
         time = datetime.datetime.utcnow()
 
@@ -977,7 +977,7 @@ class CustomCommands(BasePlugin):
 
     # CC validator tag functions
 
-    def _valid_args(self, args, msg):
+    def _valid_args(self, args, _):
         split_args = ["Teststring"] * 10
         if args.isdecimal():
             try:
@@ -1004,10 +1004,10 @@ class CustomCommands(BasePlugin):
         else:
             raise CustomCommandSyntaxError("<args> argument is not a number or *!")
 
-    def _valid_username(self, args, msg):
+    def _valid_username(self, _, __):
         return "12345678901234567890123456789012"
 
-    def _valid_choice(self, args, msg):
+    def _valid_choice(self, args, _):
         args = self._split_args(args)
         try:
             index = int(args.pop(0))
@@ -1017,11 +1017,11 @@ class CustomCommands(BasePlugin):
             raise CustomCommandSyntaxError("<choice> requires at least one argument!")
         return max(args, key=len)
 
-    def _valid_random(self, args, msg):
+    def _valid_random(self, args, _):
         args = self._split_args(args)
         return max(args, key=len)
 
-    def _valid_randint(self, args, msg):
+    def _valid_randint(self, args, _):
         args = self._split_args(args)
         try:
             a = int(args[0])
@@ -1037,7 +1037,7 @@ class CustomCommands(BasePlugin):
             raise CommandSyntaxError("Arguments to <randint> must be integers.")
         return max(str(a), str(b), key=len)
 
-    def _valid_embed(self, args, msg):
+    def _valid_embed(self, args, _):
         t_args = self._split_args(args)
         if t_args == ['']:
             raise CustomCommandSyntaxError("<embed> tag needs arguments in arg=val format.")
@@ -1057,7 +1057,7 @@ class CustomCommands(BasePlugin):
             elif t_arg[0].lower() in ["!color", "!colour"]:
                 try:
                     t_embed.colour = discord.Colour(int(t_arg[1], 16))
-                except:
+                except ValueError:
                     pass
             elif t_arg[0].lower() == "!url":
                 t_embed.url = t_arg[1]

@@ -169,11 +169,13 @@ class Levelling(BasePlugin):
         args = msg.content.split(" ", 2)
         if len(args) != 3:
             if len(args) == 1:
+                missing_member_str = "skipping missing members" if self.plugin_config[gid].get("skip_missing", False) \
+                                     else "displaying missing members"
                 await respond(msg, "**ANALYSIS: Current XP settings:**```\n"
                                    f"low_cutoff: {self.plugin_config[gid]['low_cutoff']}\n"
                                    f"xp_min    : {self.plugin_config[gid]['xp_min']}\n"
                                    f"xp_max    : {self.plugin_config[gid]['xp_max']}\n"
-                                   f"missing   : {'skipping missing members' if self.plugin_config[gid].get('skip_missing', False) else 'displaying missing members'}```")
+                                   f"missing   : {missing_member_str}```")
             else:
                 raise CommandSyntaxError("Two arguments required.")
         else:
@@ -193,7 +195,6 @@ class Levelling(BasePlugin):
                         self.plugin_config[gid]["xp_max"] = val
                     else:
                         raise CommandSyntaxError(f"No option {args[1].lower()}")
-
 
     # Utilities
 

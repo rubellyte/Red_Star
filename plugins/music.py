@@ -3,7 +3,7 @@ from rs_utils import respond, split_message, find_user, DotDict, is_positive
 from command_dispatcher import Command
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
-import discord.game
+import discord.activity
 from random import choice, randint
 from math import ceil
 import asyncio
@@ -79,7 +79,7 @@ class MusicPlayer(BasePlugin):
 
         def __init__(self, parent, guild, config):
             """
-            Creates new server-speific instance
+            Creates new server-specific instance
             :type parent: MusicPlayer
             :param guild: discord.server object
             """
@@ -468,7 +468,6 @@ class MusicPlayer(BasePlugin):
     # Event functions
 
     async def on_guild_join(self, guild):
-        self.client.change_presence(game=None)
         if guild.id not in self.plugin_config:
             self.plugin_config[str(guild.id)] = self.plugin_config["default"]
         if guild.id not in self.storage["banned_members"]:
@@ -1138,7 +1137,7 @@ class MusicPlayer(BasePlugin):
             # time display (only if playing on *one* server, since status is cross-server
             if len(self.client.guilds) == 1:
                 t_player = self.players[next(iter(self.client.guilds)).id]
-                game = None
+                activity = None
                 if hasattr(t_player.vc, "source") and t_player.vc.source:
                     if not t_player.vc.is_paused():
                         progress = t_player.play_length()
@@ -1148,16 +1147,14 @@ class MusicPlayer(BasePlugin):
                             duration = f"{duration//60}:{duration%60:02d}"
                         else:
                             duration = "N/A"
-                        if not self.stream:
-                            game = discord.Game(name=f"[{progress}/{duration}]")
-                        else:
-                            game = discord.Game(name=f"[{progress}/{duration}]", url=self.stream, type=1)
+                        activity = discord.Activity(name=f"[{progress}/{duration}]",
+                                                    type=discord.ActivityType.listening)
                         playing = True
                     else:
-                        game = discord.Game(name=f"[PAUSED]")
-                if game or playing:
-                    await self.client.change_presence(game=game)
-                if playing and not game:
+                        activity = discord.Activity(name=f"[PAUSED]", type=discord.ActivityType.listening)
+                if activity or playing:
+                    await self.client.change_presence(activity=activity)
+                if playing and not activity:
                     playing = False
 
     def check_ban(self, data):

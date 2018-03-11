@@ -42,7 +42,7 @@ class Roleplay(BasePlugin):
     async def _roll(self, msg):
         args = msg.content.split(" ", 1)
         if len(args) < 2:
-            raise CommandSyntaxError("Needs an argument, dumbass.")
+            raise CommandSyntaxError("Requires one argument..")
         dice_data = re.search(r"(\d+|)d(\d+)(\+\d+|-\d+|)(a|d|)", args[1].lower())
         if dice_data:
             if dice_data.group(1):
@@ -57,8 +57,8 @@ class Roleplay(BasePlugin):
                 modif = 0
                 modif_str = ""
             t_adv = dice_data.group(4)
-            dice_set_a = [randint(1, die_sides) for i in range(num_dice)]
-            dice_set_b = [randint(1, die_sides) for i in range(num_dice)]
+            dice_set_a = [randint(1, die_sides) for _ in range(num_dice)]
+            dice_set_b = [randint(1, die_sides) for _ in range(num_dice)]
             if t_adv == "a":
                 rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
                 advstr = "an advantageous"
@@ -154,7 +154,8 @@ class Roleplay(BasePlugin):
         if len(args) > 1:
             t_member = find_user(msg.guild, args[1])
             if t_member:
-                t_bio_list = [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items() if v.get("author", 0) == t_member.id]
+                t_bio_list = [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items()
+                              if v.get("author", 0) == t_member.id]
                 await split_output(msg, f"**ANALYSIS: User {t_member.display_name} has following characters:**",
                                    t_bio_list)
             else:
@@ -441,7 +442,6 @@ class Roleplay(BasePlugin):
             for field in self.fields[8:]:
                 if bio.get(field, ""):
                     t_embed.add_field(name=field.capitalize(), value=bio[field])
-
 
             return t_embed
         else:

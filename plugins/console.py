@@ -3,7 +3,6 @@ import shlex
 import re
 import json
 import logging
-import discord
 from plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
 from rs_errors import ConsoleCommandSyntaxError
@@ -68,7 +67,6 @@ class ConsoleListener(BasePlugin):
         return data
 
     async def _listen(self):
-        conf = self.config_manager.config
         while self.run_loop:
             try:
                 t_input = await self._readline()
@@ -95,7 +93,7 @@ class ConsoleListener(BasePlugin):
 
     # Console command functions
 
-    async def _shutdown(self, args):
+    async def _shutdown(self, _):
         """
         Shuts down the bot.
         Syntax: shutdown
@@ -255,7 +253,7 @@ class ConsoleListener(BasePlugin):
                 print(f"Value {key} of {t_path} successfully deleted")
             self.config_manager.save_config()
 
-    async def _guilds(self, args):
+    async def _guilds(self, _):
         """
         Prints the list of guilds the bot is in, with numbers usable for addressing them in other commands.
         Syntax: guilds
@@ -352,8 +350,8 @@ class ConsoleListener(BasePlugin):
         except IndexError:
             raise ConsoleCommandSyntaxError("No arguments provided.")
         try:
-            id = int(args[1])
-            if id < 1:
+            msg_id = int(args[1])
+            if msg_id < 1:
                 raise ValueError
         except ValueError:
             raise ConsoleCommandSyntaxError("Invalid amount.")
@@ -372,9 +370,9 @@ class ConsoleListener(BasePlugin):
         except IndexError:
             raise ConsoleCommandSyntaxError("Invalid channel index.")
         try:
-            msg = chan.get_message(id)
+            msg = chan.get_message(msg_id)
         except NotFound:
-            raise ConsoleCommandSyntaxError(f"Message with ID {id} not found.")
+            raise ConsoleCommandSyntaxError(f"Message with ID {msg_id} not found.")
         try:
             await msg.delete()
         except Forbidden:
