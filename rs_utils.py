@@ -100,6 +100,23 @@ def dict_merge(d, u):
     return d
 
 
+def get_guild_config(cls, gid, key):
+    """
+    Gets guild-specific configuration for an option, or fills it in with the default if unspecified.
+    :param BasePlugin cls: The class calling the function, so it can access plugin-specific configs.
+    :param str gid: The guild ID of the guild you're working with, as a str.
+    :param str key: The config option you're trying to fetch.
+    :return: The config option asked for.
+    """
+    if gid not in cls.plugin_config:
+        cls.plugin_config[gid] = DotDict(cls.plugin_config["default"])
+        cls.config_manager.save_config()
+    elif key not in cls.plugin_config[gid]:
+        cls.plugin_config[gid][key] = cls.plugin_config["default"][key]
+        cls.config_manager.save_config()
+    return cls.plugin_config[gid][key]
+
+
 def sub_user_data(user, text):
     """
     Replaces certain tags in data with user info.

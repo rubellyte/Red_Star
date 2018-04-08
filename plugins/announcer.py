@@ -1,6 +1,6 @@
 from plugin_manager import BasePlugin
 from rs_errors import ChannelNotFoundError
-from rs_utils import sub_user_data, DotDict, respond
+from rs_utils import sub_user_data, DotDict, respond, get_guild_config
 from random import choice
 
 
@@ -36,13 +36,7 @@ class Announcer(BasePlugin):
     async def _greet(self):
         for guild in self.client.guilds:
             gid = str(guild.id)
-            if gid not in self.plugin_config:
-                self.plugin_config[gid] = DotDict(self.default_config["default"])
-                self.config_manager.save_config()
-            elif "greeting_message" not in self.plugin_config[gid]:
-                self.plugin_config[gid].greeting_message = self.default_config["default"]["greeting_message"]
-                self.config_manager.save_config()
-            msg = self.plugin_config[gid].greeting_message
+            msg = get_guild_config(self, gid, "greeting_message")
             try:
                 greet_channel = self.channel_manager.get_channel(guild, "startup")
                 await greet_channel.send(msg)
@@ -51,42 +45,23 @@ class Announcer(BasePlugin):
 
     async def _ping_response(self, msg):
         gid = str(msg.guild.id)
-        response = choice(self.plugin_config[gid].ping_message_options)
+        response = choice(get_guild_config(self, gid, "ping_message_options"))
         await respond(msg, response)
-
 
     # Event hooks
 
     async def on_message(self, msg):
         gid = str(msg.guild.id)
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict(self.default_config["default"])
-            self.config_manager.save_config()
-        elif "ping_messages" not in self.plugin_config[gid]:
-            self.plugin_config[gid].ping_messages = self.default_config["default"]["ping_messages"]
-            self.plugin_config[gid].ping_messages_on_everyone = self.default_config["default"][
-                "ping_messages_on_everyone"]
-            self.plugin_config[gid].ping_message_options = self.default_config["default"]["ping_message_options"]
-            self.config_manager.save_config()
-        if self.plugin_config[gid].ping_messages and (self.plugin_config[gid].ping_messages_on_everyone >=
-                                                      msg.mention_everyone) and msg.guild.me.mentioned_in(msg):
+        ping_messages = get_guild_config(self, gid, "ping_messages")
+        ping_messages_everyone = get_guild_config(self, gid, "ping_messages_on_everyone")
+        if ping_messages and (ping_messages_everyone >= msg.mention_everyone) and msg.guild.me.mentioned_in(msg):
             await self._ping_response(msg)
-
 
     async def on_member_join(self, msg):
         gid = str(msg.guild.id)
-        if self.plugin_config[gid].new_member_announce_enabled:
-            if gid not in self.plugin_config:
-                self.plugin_config[gid] = DotDict(self.default_config["default"])
-                self.config_manager.save_config()
-            if "new_member_announce_message" not in self.plugin_config[gid]:
-                self.plugin_config[gid].new_member_announce_message = \
-                    self.default_config["default"]["new_member_announce_message"]
-                self.config_manager.save_config()
-            text = self.plugin_config[gid].new_member_announce_message
-            text = sub_user_data(msg, text)
-            try:
-                chan = self.channel_manager.get_channel(msg.guild, "welcome")
-                await chan.send(text)
-            except ChannelNotFoundError:
-                pass
+        text = sub_user_data(msg, get_guild_config(self, gid, "new_member_announce_message"))
+        try:
+            chan = self.channel_manager.get_channel(msg.guild, "welcome")
+            await chan.send(text)
+        except ChannelNotFoundError:
+            pass
