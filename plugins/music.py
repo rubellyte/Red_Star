@@ -3,7 +3,7 @@ from rs_utils import respond, split_message, find_user, DotDict, is_positive
 from command_dispatcher import Command
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
-import discord.activity
+# import discord.activity
 from random import choice, randint
 from math import ceil
 import asyncio
@@ -1135,27 +1135,28 @@ class MusicPlayer(BasePlugin):
                 asyncio.ensure_future(t_player.check_idle(), loop=t_loop)
 
             # time display (only if playing on *one* server, since status is cross-server
-            if len(self.client.guilds) == 1:
-                t_player = self.players[next(iter(self.client.guilds)).id]
-                activity = None
-                if hasattr(t_player.vc, "source") and t_player.vc.source:
-                    if not t_player.vc.is_paused():
-                        progress = t_player.play_length()
-                        progress = f"{progress//60}:{progress%60:02d}"
-                        if t_player.player.duration:
-                            duration = t_player.vc.source.duration
-                            duration = f"{duration//60}:{duration%60:02d}"
-                        else:
-                            duration = "N/A"
-                        activity = discord.Activity(name=f"[{progress}/{duration}]",
-                                                    type=discord.ActivityType.listening)
-                        playing = True
-                    else:
-                        activity = discord.Activity(name=f"[PAUSED]", type=discord.ActivityType.listening)
-                if activity or playing:
-                    await self.client.change_presence(activity=activity)
-                if playing and not activity:
-                    playing = False
+            # TODO Figure out something with this. Do we still need it?
+            # if len(self.client.guilds) == 1:
+            #     t_player = self.players[next(iter(self.client.guilds)).id]
+            #     activity = None
+            #     if hasattr(t_player.vc, "source") and t_player.vc.source:
+            #         if not t_player.vc.is_paused():
+            #             progress = t_player.play_length()
+            #             progress = f"{progress//60}:{progress%60:02d}"
+            #             if t_player.player.duration:
+            #                 duration = t_player.vc.source.duration
+            #                 duration = f"{duration//60}:{duration%60:02d}"
+            #             else:
+            #                 duration = "N/A"
+            #             activity = discord.Activity(name=f"[{progress}/{duration}]",
+            #                                         type=discord.ActivityType.listening)
+            #             playing = True
+            #         else:
+            #             activity = discord.Activity(name=f"[PAUSED]", type=discord.ActivityType.listening)
+            #     if activity or playing:
+            #         await self.client.change_presence(activity=activity)
+            #     if playing and not activity:
+            #         playing = False
 
     def check_ban(self, data):
         if "banned_members" in self.storage and data.guild.id in self.storage["banned_members"]:
