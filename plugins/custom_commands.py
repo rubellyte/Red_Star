@@ -945,33 +945,23 @@ class CustomCommands(BasePlugin):
         args = self._split_args(args)
         time = datetime.datetime.utcnow()
 
-        if args[0].lower() in ["h", "hour"]:
+        if args != ['']:
+            if not args[0]:
+                args[0] = "%Y-%m-%d @ %H:%M:%S"
             if len(args) > 1:
-                try:
-                    delta = int(args[1])
-                except ValueError:
-                    raise CustomCommandSyntaxError(f"<time> invalid hour offset {args[1]}.")
+                o_time = re.match(r"(?P<h>-?\d*):(?P<m>-?\d*):(?P<s>-?\d*)",args[1])
+                if o_time:
+                    o_time = o_time.groupdict()
+                    delta = datetime.timedelta(hours=int(o_time['h']) if o_time['h'] else 0,
+                                               minutes=int(o_time['m']) if o_time['m'] else 0,
+                                               seconds=int(o_time['s']) if o_time['s'] else 0)
                 else:
-                    time = time + datetime.timedelta(hours=delta)
-            return str(time.hour)
-        elif args[0].lower() in ["m", "min", "minute"]:
-            if len(args) > 1:
-                try:
-                    delta = int(args[1])
-                except ValueError:
-                    raise CustomCommandSyntaxError(f"<time> invalid minute offset {args[1]}.")
-                else:
-                    time = time + datetime.timedelta(minutes=delta)
-            return str(time.minute)
-        elif args[0].lower() in ["s", "sec", "second"]:
-            if len(args) > 1:
-                try:
-                    delta = int(args[1])
-                except ValueError:
-                    raise CustomCommandSyntaxError(f"<time> invalid second offset {args[1]}.")
-                else:
-                    time = time + datetime.timedelta(seconds=delta)
-            return str(time.second)
+                    raise CustomCommandSyntaxError(f"<time> invalid offset string \"{args[1]}\". "
+                                                   f"Please use H:M:S format.")
+            else:
+                delta = datetime.timedelta()
+            time = time + delta
+            return time.strftime(args[0])
         else:
             return time.strftime("%Y-%m-%d @ %H:%M:%S")
 
