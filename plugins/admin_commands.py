@@ -10,8 +10,10 @@ import shlex
 class AdminCommands(BasePlugin):
     name = "admin_commands"
 
-    @Command("purge", "prune",
-             doc="Purges messages from the channel in bulk.",
+    @Command("Purge", "Prune", "RPurge", "RPrune",
+             doc="Purges messages from the channel in bulk.\nUse R- variant for regexp match filtering.\nWARNING: "
+                 "some special characters such as \"\\\" may need to be escaped - eg, use \"\\\\\" or wrap match "
+                 "into quotation marks instead.",
              syntax="(count) [match] [user mention/user id/user name]",
              category="admin",
              run_anywhere=True,
@@ -37,7 +39,11 @@ class AdminCommands(BasePlugin):
             for s in args[3:]:
                 members.append(find_user(msg.guild, s))
         await msg.delete()
-        deleted = await msg.channel.purge(limit=count, check=lambda x: self.search(x, searchstr, members))
+        # check if regexp version is used
+        args[0] = args[0].lower().endswith('rpurge') or args[0].lower().endswith('rprune')
+        deleted = await msg.channel.purge(limit=count,
+                                          check=((lambda x: self.rsearch(x, searchstr, members)) if
+                                                 args[0] else (lambda x: self.search(x, searchstr, members))))
         fb = await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**")
         await sleep(5)
         await fb.delete()
@@ -45,11 +51,18 @@ class AdminCommands(BasePlugin):
     @staticmethod
     def search(msg, searchstr, members=None):
         if searchstr:
-            if searchstr.startswith("re:"):
-                search = searchstr[3:]
-                t_find = re.match(search.lower(), msg.content.lower())
+            t_find = searchstr.lower() in msg.content.lower()
+            if members:
+                return t_find and msg.author in members
             else:
-                t_find = searchstr.lower() in msg.content.lower()
+                return t_find
+        else:
+            return True
+
+    @staticmethod
+    def rsearch(msg, searchstr, members=None):
+        if searchstr:
+            t_find = re.match(searchstr.lower(), msg.content.lower())
             if members:
                 return t_find and msg.author in members
             else:

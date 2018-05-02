@@ -1140,7 +1140,9 @@ class CustomCommands(BasePlugin):
             "//": lambda x, y: stack.append(y // x),
             "log": lambda x, y: stack.append(math.log(y, x)),
             "atan2": lambda x, y: stack.append(math.atan2(y, x)),
-            "swap": _swap
+            "swap": _swap,
+            "min": lambda x, y: stack.append(min(x, y)),
+            "max": lambda x, y: stack.append(max(x, y)),
         }
         u_ops = {
             "sin": lambda x: stack.append(math.sin(x)),
