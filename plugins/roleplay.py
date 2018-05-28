@@ -36,20 +36,27 @@ class Roleplay(BasePlugin):
 
     @Command("Roll",
              doc="Rolls a specified amount of specified dice with specified bonus and advantage/disadvantage",
-             syntax="[number]D(die)[+/-bonus][A/D]",
+             syntax="[number]D(die/F)[+/-bonus][A/D]",
              category="role_play",
              run_anywhere=True)
     async def _roll(self, msg):
         args = msg.content.split(" ", 1)
         if len(args) < 2:
-            raise CommandSyntaxError("Requires one argument..")
-        dice_data = re.search(r"(\d+|)d(\d+)(\+\d+|-\d+|)(a|d|)", args[1].lower())
+            raise CommandSyntaxError("Requires one argument.")
+        dice_data = re.search(r"(\d+|)d(\d+|f)(\+\d+|-\d+|)(a|d|)", args[1].lower())
         if dice_data:
+            # checking for optional dice number
             if dice_data.group(1):
                 num_dice = min(max(int(dice_data.group(1)), 1), 10000)
             else:
                 num_dice = 1
-            die_sides = min(max(int(dice_data.group(2)), 2), 10000)
+            # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
+            if dice_data.group(2) != 'f':
+                die_sides = min(max(int(dice_data.group(2)), 2), 10000)
+                def roll_function(): return randint(1, die_sides)
+            else:
+                die_sides = "F"
+                def roll_function(): return randint(1, 3) - 2
             if dice_data.group(3):
                 modif = int(dice_data.group(3))
                 modif_str = f" with a {'+' if modif > 0 else ''}{modif} modifier"
@@ -57,8 +64,8 @@ class Roleplay(BasePlugin):
                 modif = 0
                 modif_str = ""
             t_adv = dice_data.group(4)
-            dice_set_a = [randint(1, die_sides) for _ in range(num_dice)]
-            dice_set_b = [randint(1, die_sides) for _ in range(num_dice)]
+            dice_set_a = [roll_function() for _ in range(num_dice)]
+            dice_set_b = [roll_function() for _ in range(num_dice)]
             if t_adv == "a":
                 rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
                 advstr = "an advantageous"
