@@ -949,7 +949,7 @@ class CustomCommands(BasePlugin):
             if not args[0]:
                 args[0] = "%Y-%m-%d @ %H:%M:%S"
             if len(args) > 1:
-                o_time = re.match(r"(?P<h>-?\d*):(?P<m>-?\d*):(?P<s>-?\d*)",args[1])
+                o_time = re.match(r"(?P<h>-?\d*):(?P<m>-?\d*):(?P<s>-?\d*)", args[1])
                 if o_time:
                     o_time = o_time.groupdict()
                     delta = datetime.timedelta(hours=int(o_time['h']) if o_time['h'] else 0,
