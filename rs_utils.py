@@ -6,6 +6,7 @@ import shelve
 import json
 from io import BytesIO
 from pickle import Pickler, Unpickler
+from rs_errors import CommandSyntaxError
 
 
 class DotDict(dict):
@@ -350,6 +351,7 @@ def is_positive(string):
     elif string.lower() in ["on", "enable", "yes", "affirmative", "true"]:
         return True
     else:
-        raise SyntaxError("Expected positive/negative input.")
+        raise CommandSyntaxError("Expected positive/negative input. Allowed inputs: off/disable/no/negative/false, "
+                                 "on/enable/yes/affirmatie/true.")
 
 
