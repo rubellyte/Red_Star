@@ -16,6 +16,7 @@ class PluginManager:
         self.config_manager = client.config_manager
         self.channel_manager = client.channel_manager
         self.command_dispatcher = client.command_dispatcher
+        self.modules = {}
         self.plugins = DotDict({})
         self.active_plugins = DotDict({})
         self.logger = logging.getLogger("red_star.plugin_manager")
@@ -38,7 +39,8 @@ class PluginManager:
                     and str(file) not in loaded \
                     and not file.stem.startswith("_"):
                 try:
-                    self.load_plugin(file)
+                    modul = self._load_module(file)
+                    self.load_plugin(modul)
                     loaded.add(str(file))
                 except (SyntaxError, ImportError):
                     self.logger.exception(f"Exception encounter loading plugin {file.stem}: ", exc_info=True)
@@ -51,8 +53,7 @@ class PluginManager:
         if not module_path.exists():
             raise FileNotFoundError(f"{module_path} does not exist.")
         name = "plugins." + module_path.stem
-        loader = importlib.machinery.SourceFileLoader(name, str(module_path))
-        modul = loader.load_module(name)
+        modul = importlib.import_module(name)
         return modul
 
     def _get_plugin_class(self, modul):
@@ -67,11 +68,11 @@ class PluginManager:
                 class_list.add(obj)
         return class_list
 
-    def load_plugin(self, plugin_path):
-        modul = self._load_module(plugin_path)
+    def load_plugin(self, modul):
         classes = self._get_plugin_class(modul)
         for i in classes:
             self.plugins[i.name] = i()
+            self.modules[i.name] = modul
 
     def final_load(self):
         try:
@@ -154,6 +155,24 @@ class PluginManager:
                 self.logger.warning(f"Attempted to deactivate already inactive plugin {name}.")
         except KeyError:
             self.logger.error(f"Attempted to deactivate non-existent plugin {name}.")
+
+    async def reload_plugin(self, name):
+        try:
+            plg = self.plugins[name]
+            was_active = False
+            if name in self.active_plugins:
+                was_active = True
+                await self.deactivate(name)
+            del self.plugins[name]
+            modul = self.modules[name]
+            importlib.reload(modul)
+            self.load_plugin(modul)
+            if was_active:
+                await self.activate(name)
+        except KeyError:
+            self.logger.error(f"Attempted to reload non-existent plugin module {name}.")
+
+
 
     async def hook_event(self, event, *args, **kwargs):
         """

@@ -34,7 +34,7 @@ class BotManagement(BasePlugin):
              doc="Updates the bot's avatar.",
              syntax="(URL)",
              category="bot_management",
-             perms={"manage_guild"})
+             bot_maintainers_only=True)
     async def _update_avatar(self, msg):
         if "bot_maintainers" not in self.config_manager.config:
             raise UserPermissionError("No bot maintainers are set!")
@@ -84,12 +84,8 @@ class BotManagement(BasePlugin):
              doc="Activates an inactive plugin.",
              syntax="(plugin) [permanent]",
              category="bot_management",
-             perms={"manage_guild"})
+             bot_maintainers_only=True)
     async def _activate(self, msg):
-        if "bot_maintainers" not in self.config_manager.config:
-            raise UserPermissionError("No bot maintainers are set!")
-        elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise UserPermissionError
         plgname = msg.content.split()[1]
         try:
             permanent = is_positive(msg.content.split()[2])
@@ -112,12 +108,8 @@ class BotManagement(BasePlugin):
              doc="Deactivates an active plugin.",
              syntax="(plugin) [permanent]",
              category="bot_management",
-             perms={"manage_guild"})
+             bot_maintainers_only=True)
     async def _deactivate(self, msg):
-        if "bot_maintainers" not in self.config_manager.config:
-            raise UserPermissionError("No bot maintainers are set!")
-        elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise UserPermissionError
         plgname = msg.content.split()[1].lower()
         try:
             permanent = is_positive(msg.content.split()[2])
@@ -134,20 +126,29 @@ class BotManagement(BasePlugin):
         else:
             await respond(msg, f"**ANALYSIS: Plugin {plgname} is not active.**")
 
+    @Command("ReloadPlugin",
+             doc="Reloads a plugin module, refreshing code changes.",
+             syntax="(plugin)",
+             category="bot_management",
+             bot_maintainers_only=True)
+    async def _reload_plugin(self, msg):
+        plgname = msg.content.split()[1].lower()
+        if plgname == self.name:
+            await respond(msg, f"**WARNING: Cannot deactivate {self.name}.**")
+        elif plgname in self.plugins:
+            await self.plugin_manager.reload_plugin(plgname)
+            await respond(msg, f"**ANALYSIS: Plugin {plgname} was reloaded successfully.**")
+
     @Command("ListPlugins",
              doc="Lists all plugins and their activation status.",
              syntax="(plugin)",
              category="bot_management",
-             perms={"manage_guild"})
+             bot_maintainers_only=True)
     async def _list_plugins(self, msg):
-        if "bot_maintainers" not in self.config_manager.config:
-            raise UserPermissionError("No bot maintainers are set!")
-        elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise UserPermissionError
         active_plgs = ", ".join(self.plugins.keys())
         if not active_plgs:
             active_plgs = "None."
-        all_plgs = list(self.plugin_manager.plugins.keys())
+        all_plgs = list(self.plugin_manager.plugins)
         inactive_plgs = ", ".join([x for x in all_plgs if x not in self.plugins])
         if not inactive_plgs:
             inactive_plgs = "None."
