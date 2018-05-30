@@ -159,6 +159,7 @@ class PluginManager:
     async def reload_plugin(self, name):
         try:
             plg = self.plugins[name]
+            self.logger.info(f"Reloading plugin module {name}.")
             was_active = False
             if name in self.active_plugins:
                 was_active = True

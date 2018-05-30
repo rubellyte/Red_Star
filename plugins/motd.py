@@ -68,7 +68,12 @@ class MOTD(BasePlugin):
                 continue
             holiday_lines = self._get_holiday(motds, month, day, weekday)
             if holiday_lines:
-                    await chan.send(choice(holiday_lines))
+                    line = choice(holiday_lines)
+                    try:
+                        line = today.strftime(line)
+                    except ValueError:
+                        pass
+                    await chan.send(line)
             else:
                 lines = []
                 lines += motds.get("Any", {}).get("Any", [])
@@ -77,7 +82,12 @@ class MOTD(BasePlugin):
                 lines += motds.get(month, {}).get("Any", [])
                 lines += motds.get(month, {}).get(day, [])
                 lines += motds.get(month, {}).get(weekday, [])
-                await chan.send(choice(lines))
+                line = choice(lines)
+                try:
+                    line = today.strftime(line)
+                except ValueError:
+                    pass
+                await chan.send(line)
 
     def _get_holiday(self, motds, month, day, weekday):
         holidays = motds.get("holidays", [])
@@ -170,7 +180,7 @@ class MOTD(BasePlugin):
         motds = self.motds[motd_path]
         holiday_lines = self._get_holiday(motds, month, day, weekday)
         if holiday_lines:
-            await respond(msg, choice(holiday_lines))
+            await respond(msg, "\n".join(holiday_lines))
         else:
             lines = []
             lines += motds.get("Any", {}).get("Any", [])
