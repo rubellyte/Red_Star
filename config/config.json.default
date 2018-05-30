@@ -48,7 +48,9 @@
       }
     },
     "motd": {
-      "motd_file": "config/motds.json"
+      "default": {
+        "motd_file": "config/motds.json"
+      }
     },
     "music_player": {
       "default": {

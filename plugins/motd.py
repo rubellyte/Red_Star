@@ -4,28 +4,34 @@ import json
 from random import choice
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, ChannelNotFoundError
-from rs_utils import respond
+from rs_utils import respond, get_guild_config
 from command_dispatcher import Command
 
 
 class MOTD(BasePlugin):
     name = "motd"
     default_config = {
-        "motd_file": "config/motds.json"
+        "default": {
+            "motd_file": "config/motds.json"
+        }
     }
 
     async def activate(self):
         self.run_timer = True
-        try:
-            with open(self.plugin_config.motd_file, "r", encoding="utf8") as f:
-                self.motds = json.load(f)
-                asyncio.ensure_future(self._run_motd())
-        except FileNotFoundError:
-            with open(self.plugin_config.motd_file, "w", encoding="utf8") as f:
-                self.motds = {}
-                f.write("{}")
-        except json.decoder.JSONDecodeError:
-            self.logger.exception(f"Could not decode {self.plugin_config.motd_file}! ", exc_info=True)
+        self.motds = {}
+        for guild in self.client.guilds:
+            motd_path = get_guild_config(self, str(guild.id), "motd_file")
+            if motd_path not in self.motds:
+                try:
+                    with open(motd_path) as fp:
+                        self.motds[motd_path] = json.load(fp)
+                except FileNotFoundError:
+                    self.logger.error(f"MotD file {motd_path} for guild {guild.name} not found! Skipping...")
+                    continue
+                except json.decoder.JSONDecodeError:
+                    self.logger.error(f"MotD file {motd_path} for guild {guild.name} couldn't be decoded! Skipping...")
+                    continue
+        asyncio.ensure_future(self._run_motd())
         self.valid_months = {
             "January", "February", "March", "April", "May", "June", "July",
             "August", "September", "October", "November", "December", "Any"
@@ -44,52 +50,47 @@ class MOTD(BasePlugin):
         await asyncio.sleep(60 - now.second)
         while self.run_timer:
             now = datetime.datetime.utcnow().time()
-            self.logger.debug(now)
             if now.hour is 0 and now.minute is 0:
                 await self._display_motd()
             await asyncio.sleep(60 - now.second)
-
-    def _save_motds(self):
-        with open(self.plugin_config.motd_file, "w", encoding="utf8") as f:
-            json.dump(self.motds, f, indent=2, ensure_ascii=False)
 
     async def _display_motd(self):
         today = datetime.date.today()
         month = today.strftime("%B")
         day = str(today.day)
         weekday = today.strftime("%A")
-        holiday_lines = self._get_holiday(month, day, weekday)
-        if holiday_lines:
-            for guild in self.client.guilds:
+        for guild in self.client.guilds:
+            try:
                 chan = self.channel_manager.get_channel(guild, "motd")
-                asyncio.ensure_future(chan.send(choice(holiday_lines)))
-        else:
-            lines = []
-            lines += self.motds.get("Any", {}).get("Any", [])
-            lines += self.motds.get("Any", {}).get(day, [])
-            lines += self.motds.get("Any", {}).get(weekday, [])
-            lines += self.motds.get(month, {}).get("Any", [])
-            lines += self.motds.get(month, {}).get(day, [])
-            lines += self.motds.get(month, {}).get(weekday, [])
-            for guild in self.client.guilds:
-                try:
-                    chan = self.channel_manager.get_channel(guild, "motd")
-                    await chan.send(choice(lines))
-                except ChannelNotFoundError:
-                    pass
+                motd_path = get_guild_config(self, str(guild.id), "motd_file")
+                motds = self.motds[motd_path]
+            except ChannelNotFoundError:
+                continue
+            holiday_lines = self._get_holiday(motds, month, day, weekday)
+            if holiday_lines:
+                    await chan.send(choice(holiday_lines))
+            else:
+                lines = []
+                lines += motds.get("Any", {}).get("Any", [])
+                lines += motds.get("Any", {}).get(day, [])
+                lines += motds.get("Any", {}).get(weekday, [])
+                lines += motds.get(month, {}).get("Any", [])
+                lines += motds.get(month, {}).get(day, [])
+                lines += motds.get(month, {}).get(weekday, [])
+                await chan.send(choice(lines))
 
-    def _get_holiday(self, month, day, weekday):
-        holidays = self.motds.get("holidays", [])
+    def _get_holiday(self, motds, month, day, weekday):
+        holidays = motds.get("holidays", [])
         if f"{month}/{day}" in holidays:
-            return self.motds[month][day]
+            return motds[month][day]
         elif f"{month}/{weekday}" in holidays:
-            return self.motds[month][weekday]
+            return motds[month][weekday]
         elif f"{month}/Any" in holidays:
-            return self.motds[month]["Any"]
+            return motds[month]["Any"]
         elif f"Any/{day}" in holidays:
-            return self.motds["Any"][day]
+            return motds["Any"][day]
         elif f"Any/{weekday}" in holidays:
-            return self.motds["Any"][weekday]
+            return motds["Any"][weekday]
         else:
             return
 
@@ -109,12 +110,15 @@ class MOTD(BasePlugin):
         if month not in self.valid_months or day not in self.valid_days:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         try:
-            if month not in self.motds:
-                self.motds[month] = {}
-            if day not in self.motds[month]:
-                self.motds[month][day] = []
-            self.motds[month][day].append(newmotd)
-            self._save_motds()
+            motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
+            motds = self.motds[motd_path]
+            if month not in motds:
+                motds[month] = {}
+            if day not in motds[month]:
+                motds[month][day] = []
+            motds[month][day].append(newmotd)
+            with open(motd_path, "w", encoding="utf8") as fp:
+                json.dump(motds, fp, indent=2, ensure_ascii=False)
             await respond(msg, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
         except KeyError:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
@@ -132,12 +136,14 @@ class MOTD(BasePlugin):
         except IndexError:
             raise CommandSyntaxError
         if month not in self.valid_months or day not in self.valid_days:
-            self.logger.debug(month)
-            self.logger.debug(day)
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         holidaystr = month + "/" + day
-        if holidaystr not in self.motds["holidays"]:
-            self.motds["holidays"].append(holidaystr)
+        motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
+        motds = self.motds[motd_path]
+        if holidaystr not in motds["holidays"]:
+            motds["holidays"].append(holidaystr)
+            with open(motd_path, "w", encoding="utf8") as fp:
+                json.dump(motds, fp, indent=2, ensure_ascii=False)
             await respond(msg, f"**ANALYSIS: Holiday {holidaystr} added successfully.**")
         else:
             await respond(msg, f"**ANALYSIS: {holidaystr} is already a holiday.**")
@@ -160,15 +166,17 @@ class MOTD(BasePlugin):
             weekday = "" if weekday == "Any" else weekday
         except IndexError:
             raise CommandSyntaxError("Missing arguments.")
-        holiday_lines = self._get_holiday(month, day, weekday)
+        motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
+        motds = self.motds[motd_path]
+        holiday_lines = self._get_holiday(motds, month, day, weekday)
         if holiday_lines:
             await respond(msg, choice(holiday_lines))
         else:
             lines = []
-            lines += self.motds.get("Any", {}).get("Any", [])
-            lines += self.motds.get("Any", {}).get(day, [])
-            lines += self.motds.get("Any", {}).get(weekday, [])
-            lines += self.motds.get(month, {}).get("Any", [])
-            lines += self.motds.get(month, {}).get(day, [])
-            lines += self.motds.get(month, {}).get(weekday, [])
+            lines += motds.get("Any", {}).get("Any", [])
+            lines += motds.get("Any", {}).get(day, [])
+            lines += motds.get("Any", {}).get(weekday, [])
+            lines += motds.get(month, {}).get("Any", [])
+            lines += motds.get(month, {}).get(day, [])
+            lines += motds.get(month, {}).get(weekday, [])
             await respond(msg, "\n".join(lines))
