@@ -22,8 +22,6 @@ A general-purpose Discord bot with administration and entertainment functions. N
   - Install discord.py\[voice]
   - Install [ffmpeg](http://ffmpeg.zeranoe.com/builds/) and add it to your PATH
   - Install [youtube-dl](https://github.com/rg3/youtube-dl)
-- For MotD:
-  - Install [schedule](https://github.com/dbader/schedule)
 - Clone the `Red_Star` repository to your computer.
 - [Configure](https://github.com/medeor413/Red_Star/wiki/Configuring-Red-Star) the bot.
 - [Add the bot to your server.](https://github.com/medeor413/Red_Star/wiki/Adding-A-Bot)

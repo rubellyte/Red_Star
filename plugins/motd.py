@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import json
-import schedule
 from random import choice
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, ChannelNotFoundError
@@ -20,7 +19,6 @@ class MOTD(BasePlugin):
         try:
             with open(self.plugin_config.motd_file, "r", encoding="utf8") as f:
                 self.motds = json.load(f)
-                schedule.every().day.at("00:00").do(self._display_motd)
                 asyncio.ensure_future(self._run_motd())
         except FileNotFoundError:
             with open(self.plugin_config.motd_file, "w", encoding="utf8") as f:
@@ -28,7 +26,6 @@ class MOTD(BasePlugin):
                 f.write("{}")
         except json.decoder.JSONDecodeError:
             self.logger.exception(f"Could not decode {self.plugin_config.motd_file}! ", exc_info=True)
-        # This is stupid
         self.valid_months = {
             "January", "February", "March", "April", "May", "June", "July",
             "August", "September", "October", "November", "December", "Any"
@@ -43,17 +40,20 @@ class MOTD(BasePlugin):
         self.run_timer = False
 
     async def _run_motd(self):
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow().time()
         await asyncio.sleep(60 - now.second)
         while self.run_timer:
-            schedule.run_pending()
-            await asyncio.sleep(60)
+            now = datetime.datetime.utcnow().time()
+            self.logger.debug(now)
+            if now.hour is 0 and now.minute is 0:
+                await self._display_motd()
+            await asyncio.sleep(60 - now.second)
 
     def _save_motds(self):
         with open(self.plugin_config.motd_file, "w", encoding="utf8") as f:
             json.dump(self.motds, f, indent=2, ensure_ascii=False)
 
-    def _display_motd(self):
+    async def _display_motd(self):
         today = datetime.date.today()
         month = today.strftime("%B")
         day = str(today.day)
@@ -61,7 +61,7 @@ class MOTD(BasePlugin):
         holiday_lines = self._get_holiday(month, day, weekday)
         if holiday_lines:
             for guild in self.client.guilds:
-                chan = self.channel_manager.get_channel(guild, "general")
+                chan = self.channel_manager.get_channel(guild, "motd")
                 asyncio.ensure_future(chan.send(choice(holiday_lines)))
         else:
             lines = []
@@ -73,13 +73,13 @@ class MOTD(BasePlugin):
             lines += self.motds.get(month, {}).get(weekday, [])
             for guild in self.client.guilds:
                 try:
-                    chan = self.channel_manager.get_channel(guild, "general")
-                    asyncio.ensure_future(chan.send(choice(lines)))
-                except ChannelNotFoundError as e:
-                    self.logger.warning(f"No channel set as {e} in {str(guild)}.")
+                    chan = self.channel_manager.get_channel(guild, "motd")
+                    await chan.send(choice(lines))
+                except ChannelNotFoundError:
+                    pass
 
     def _get_holiday(self, month, day, weekday):
-        holidays = self.motds["holidays"]
+        holidays = self.motds.get("holidays", [])
         if f"{month}/{day}" in holidays:
             return self.motds[month][day]
         elif f"{month}/{weekday}" in holidays:
