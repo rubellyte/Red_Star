@@ -1,10 +1,11 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError
-from rs_utils import respond, is_positive, find_role, split_output
+from rs_utils import respond, is_positive, find_role, split_output, RSArgumentParser
 from command_dispatcher import Command
 from string import capwords
 import shlex
+from argparse import SUPPRESS
 
 
 class RoleCommands(BasePlugin):
@@ -13,11 +14,12 @@ class RoleCommands(BasePlugin):
     @Command("EditRole",
              perms={"manage_roles"},
              category="roles",
-             syntax="(role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool][position=integer].\n"
+             syntax="(role) [-n/--name string][-c/--colour FFFFFF][-h/--hoist bool][-m/--mentionable bool][-p/"
+                    "--position integer].\n"
                     "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Edits the specified role name, colour, hoist (show separately from others)"
                  " and mentionable properties.\n"
-                 "WARNING: Options must be specified as option=value. No spaces around `=`.\n"
+                 "WARNING: Options must be specified as \"--option value\" or \"-o value\".\n"
                  "ANALYSIS: Colour can be reset by setting it to 0.")
     async def _editrole(self, msg):
         """
@@ -32,47 +34,50 @@ class RoleCommands(BasePlugin):
         except ValueError as e:
             self.logger.warning(f"Unable to split {msg.content}. {e}")
             raise CommandSyntaxError(e)
+
+        parser = RSArgumentParser(argument_default=SUPPRESS)
+        parser.add_argument("command")                      # Well it's gonna be there.
+        parser.add_argument("role")                         # The role name/ID
+        parser.add_argument("-n", "--name")                 # New role name
+        parser.add_argument("-c", "--colour", "--color")    # New role colour
+        parser.add_argument("-h", "--hoist")                # To separate the role or not
+        parser.add_argument("-m", "--mentionable")          # To allow role being mentioned
+        parser.add_argument("-p", "--position", type=int)   # Changing position (DON'T ACTUALLY USE IT)
         if len(args) > 1:
-            role = find_role(msg.guild, args[1])
+            p_args = parser.parse_args(args)
+
+            role = find_role(msg.guild, p_args['role'])
             if role:
-                t_dict = {}
-                for arg in args[2:]:
-                    t_arg = arg.split("=")
-                    if len(t_arg) > 1:  # beautiful
-                        if t_arg[0].lower() == "name":
-                            t_dict["name"] = t_arg[1]
-                        elif t_arg[0].lower() == "colour":
-                            t_dict["colour"] = Colour(int(t_arg[1], 16))
-                        elif t_arg[0].lower() == "color":
-                            t_dict["colour"] = Colour(int(t_arg[1], 16))
-                        elif t_arg[0].lower() == "hoist":
-                            t_dict["hoist"] = is_positive(t_arg[1])
-                        elif t_arg[0].lower() == "mentionable":
-                            t_dict["mentionable"] = is_positive(t_arg[1])
-                        elif t_arg[0].lower() == "position":
-                            if t_arg[1].isdecimal():
-                                pos = int(t_arg[1])
-                                if pos >= 0:
-                                    t_dict["position"] = pos
-                            else:
-                                raise CommandSyntaxError("Position must be a positive integer.")
-                if len(t_dict) == 0:  # you're wasting my time
+                # strip out irrelevant fields
+                t_dict = {k: v for k, v in p_args.items() if v and k not in ["command", "role"]}
+                # colour has to be a Colour()
+                if "colour" in t_dict:
+                    try:
+                        t_dict["colour"] = Colour(int(t_dict["colour"], 16))
+                    except ValueError:
+                        raise CommandSyntaxError("Colour must be in web-colour hexadecimal format.")
+                # position can't be below 0. Or over max number of roles but shhh
+                if "position" in t_dict:
+                    t_dict["position"] = max(0, t_dict["position"])
+                if "mentionable" in t_dict:
+                    t_dict["mentionable"] = is_positive(t_dict["mentionable"])
+                if "hoist" in t_dict:
+                    t_dict["hoist"] = is_positive(t_dict["hoist"])
+                if len(t_dict) == 0:
                     raise CommandSyntaxError
-                await role.edit(**t_dict)
-                t_string = ""
-                for k, v in t_dict.items():
-                    t_string = f"{t_string}{k}: {v!s}\n"
-                name = args[1].capitalize()
-                await respond(msg, f"**AFFIRMATIVE. Role {name} modified with parameters :**\n ```{t_string}```")
+                t_string = "\n".join([f"{k}: {v!s}" for k, v in t_dict.items()])
+                await respond(msg, f"**AFFIRMATIVE. Role {p_args['role'].capitalize()} modified with parameters :**\n "
+                                   f"```{t_string}```")
             else:
-                await respond(msg, f"**NEGATIVE. ANALYSIS: no role {args[1].capitalize()} found.**")
+                raise CommandSyntaxError(f"No role \"{p_args['role']}\" found.")
         else:
             raise CommandSyntaxError
 
     @Command("CreateRole",
              perms={"manage_roles"},
              category="roles",
-             syntax="(role name) (base role) [name=string][colour=FFFFFF][hoist=bool][mentionable=bool].\n"
+             syntax="(role name) (base role) [-n/--name string][-c/--colour FFFFFF][-h/--hoist bool]"
+                    "[-m/--mentionable bool][-p/--position integer].\n"
                     "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Creates a role based on an existing role (for position and permissions), "
              "with parameters similar to editrole")
@@ -86,39 +91,36 @@ class RoleCommands(BasePlugin):
         except ValueError as e:
             self.logger.warning(f"Unable to split {msg.content}. {e}")
             raise CommandSyntaxError(e)
+
+        parser = RSArgumentParser()
+        parser.add_argument("command")                      # Well it's gonna be there.
+        parser.add_argument("role")                         # Name of the new role
+        parser.add_argument("template")                     # Permission donor name/ID
+        parser.add_argument("-n", "--name")                 # New role name
+        parser.add_argument("-c", "--colour", "--color")    # New role colour
+        parser.add_argument("-h", "--hoist")                # To separate the role or not
+        parser.add_argument("-m", "--mentionable")          # To allow role being mentioned
+        parser.add_argument("-p", "--position", type=int)   # Changing position (DON'T ACTUALLY USE IT)
+
         if len(args) > 2:
-            role = find_role(msg.guild, args[2])
+            p_args = parser.parse_args(args)
+            role = find_role(msg.guild, p_args['template'])
             if role:
-                # copying the existing role (especially permissions)
-                t_dict = {
-                    "name": args[1],
-                    "permissions": role.permissions,
-                    "colour": role.colour,
-                    "hoist": role.hoist,
-                    "mentionable": role.mentionable
-                }
-                rolepos = role.position
-                for arg in args[3:]:
-                    t_arg = arg.split("=")
-                    if len(t_arg) > 1:  # beautiful
-                        if t_arg[0].lower() == "name":
-                            t_dict["name"] = t_arg[1]
-                        elif t_arg[0].lower() == "colour":
-                            t_dict["colour"] = Colour(int(t_arg[1], 16))
-                        elif t_arg[0].lower() == "color":
-                            t_dict["colour"] = Colour(int(t_arg[1], 16))
-                        elif t_arg[0].lower() == "hoist":
-                            t_dict["hoist"] = is_positive(t_arg[1])
-                        elif t_arg[0].lower() == "mentionable":
-                            t_dict["mentionable"] = is_positive(t_arg[1])
-                        elif t_arg[0].lower() == "position":
-                            if t_arg[1].isdecimal():
-                                pos = int(t_arg[1])
-                                if pos > 0:
-                                    rolepos = pos
-                            else:
-                                raise CommandSyntaxError("Position must be a positive integer.")
+                try:
+                    t_dict = {
+                        "name": p_args['name'] if p_args['name'] else args[1],
+                        "permissions": role.permissions,
+                        "colour": Colour(int(p_args['colour'], 16)) if p_args['colour'] else role.colour,
+                        "hoist": is_positive(p_args['hoist']) if p_args['hoist'] else role.hoist,
+                        "mentionable": is_positive(p_args['mentionable']) if p_args['mentionable'] else role.mentionable
+                    }
+                except ValueError:
+                    raise CommandSyntaxError("Colour must be in web-colour hexadecimal format.")
+
+                rolepos = max(0, p_args['position']) if p_args['position'] else role.position
+
                 t_role = await msg.guild.create_role(**t_dict)
+
                 try:
                     # since I can't create a role with a preset position :T
                     await t_role.edit(position=rolepos)
@@ -126,8 +128,7 @@ class RoleCommands(BasePlugin):
                     # oh hey, why are we copying this role again?
                     name = args[1].capitalize()
                     await t_role.delete()
-                    await respond(msg, f"**WARNING: Failed to move role {name} to position {rolepos}.**")
-                    raise Forbidden  # yeah, we're not copying this
+                    raise CommandSyntaxError(f"Failed to move role {name} to position {rolepos}.")
                 t_string = ""
                 for k, v in t_dict.items():
                     if k != "permissions":

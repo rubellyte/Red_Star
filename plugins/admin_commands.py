@@ -2,7 +2,7 @@ import re
 from asyncio import sleep
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError
-from rs_utils import respond, find_user
+from rs_utils import respond, find_user, RSArgumentParser
 from command_dispatcher import Command
 import shlex
 
@@ -10,62 +10,82 @@ import shlex
 class AdminCommands(BasePlugin):
     name = "admin_commands"
 
-    @Command("Purge", "Prune", "RPurge", "RPrune",
-             doc="Purges messages from the channel in bulk.\nUse R- variant for regexp match filtering.\nWARNING: "
+    @Command("Purge", "Prune",
+             doc="Purges messages from the channel in bulk.\nUse -r option for regexp match filtering.\nWARNING: "
                  "some special characters such as \"\\\" may need to be escaped - eg, use \"\\\\\" or wrap match "
                  "into quotation marks instead.",
-             syntax="(count) [match] [user mention/user id/user name]",
-             category="admin",
+             syntax="(count) [match] [-u/--user mention/ID/Name] [-r/--regex] [-v/--verbose] [-e/--emulate/--dryrun]",
              run_anywhere=True,
-             perms={"manage_messages"})
-    async def _purge(self, msg):
-        args = shlex.split(msg.content)
-        try:
-            count = int(args[1])
-            if count > 250:
-                count = 250
-            elif count < 0:
-                raise ValueError
-        except IndexError:
-            raise CommandSyntaxError("No count to delete provided.")
-        except ValueError:
-            raise CommandSyntaxError("Count to delete is not a valid number.")
-        if len(args) > 2:
-            searchstr = args[2]
-        else:
-            searchstr = None
+             perms={"manage_messages"},
+             category="admin")
+    async def _tpurge(self, msg):
+
+        parser = RSArgumentParser(add_help=False)
+        parser.add_argument("command")
+        parser.add_argument("count", type=int)
+        parser.add_argument("match", default=False, nargs='*')
+        parser.add_argument("-r", "--regex", action="store_true")
+        parser.add_argument("-u", "--user", action="append")
+        parser.add_argument("-v", "--verbose", action="store_true")
+        parser.add_argument("-e", "--emulate", "--dryrun", action="store_true")
+
+        args = parser.parse_args(shlex.split(msg.content))
+
+        # Clamp the count. No negatives (duh), not more than 250 (don't get trigger happy)
+        args['count'] = min(max(args['count'], 0), 250)
+
+        if args['match']:
+            args['match'] = ' '.join(args['match'])
+
+        # find all possible members mentioned
         members = []
-        if len(args) > 3:
-            for s in args[3:]:
-                members.append(find_user(msg.guild, s))
+        if args['user']:
+            for q in args['user']:
+                u = find_user(msg.guild, q)
+                if u:
+                    members.append(u.id)
+
         await msg.delete()
-        # check if regexp version is used
-        args[0] = args[0].lower().endswith('rpurge') or args[0].lower().endswith('rprune')
-        deleted = await msg.channel.purge(limit=count,
-                                          check=((lambda x: self.rsearch(x, searchstr, members)) if
-                                                 args[0] else (lambda x: self.search(x, searchstr, members))))
-        fb = await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**")
+
+        if not args['emulate']:
+            # actual purging
+            deleted = await msg.channel.purge(limit=args['count'],
+                                              check=((lambda x: self.rsearch(x, args['match'], members)) if
+                                                     args['regex'] else
+                                                     (lambda x: self.search(x, args['match'], members))))
+        else:
+            # dry run to test your query
+            deleted = []
+            check = ((lambda x: self.rsearch(x, args['match'], members)) if args['regex'] else
+                     (lambda x: self.search(x, args['match'], members)))
+            async for m in msg.channel.history(limit=args['count']):
+                if check(m):
+                    deleted.append(m)
+
+        # if you REALLY want those messages
+        if args['verbose']:
+            await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                                                 "**WARNING: Beginning verbose purge dump.**",
+                                                 log_type="purge_event")
+            for d in deleted[::-1]:
+                await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                                                     f"{d.author}({d.author.id}) @ {d.created_at}:\n{d.content}",
+                                                     log_type="purge_event")
+            await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                                                 "**Verbose purge dump complete.**",
+                                                 log_type="purge_event")
+
+        fb = await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**" +
+                           (f"\n**Purge query: **{args['match']}" if args['match'] else ""))
         await sleep(5)
         await fb.delete()
 
     @staticmethod
-    def search(msg, searchstr, members=None):
-        if searchstr:
-            t_find = searchstr.lower() in msg.content.lower()
-            if members:
-                return t_find and msg.author in members
-            else:
-                return t_find
-        else:
-            return True
+    def search(msg, searchstr, members=list()):
+        return ((not searchstr) or (searchstr.lower() in msg.content.lower())) and \
+               ((msg.author.id in members) or not members)
 
     @staticmethod
-    def rsearch(msg, searchstr, members=None):
-        if searchstr:
-            t_find = re.match(searchstr.lower(), msg.content.lower())
-            if members:
-                return t_find and msg.author in members
-            else:
-                return t_find
-        else:
-            return True
+    def rsearch(msg, searchstr, members=list()):
+        return ((not searchstr) or re.match(searchstr.lower(), msg.content.lower())) and \
+               ((msg.author.id in members) or not members)
