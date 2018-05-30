@@ -116,7 +116,7 @@ class RSArgumentParser(argparse.ArgumentParser):
     def parse_known_args(self, args=None, namespace=None):
         if namespace is None:
             namespace = RSNamespace()
-        super().parse_known_args(args=args, namespace=namespace)
+        return super().parse_known_args(args=args, namespace=namespace)
 
 
 def dict_merge(d, u):
