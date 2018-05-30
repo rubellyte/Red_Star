@@ -1,11 +1,11 @@
 from discord import InvalidArgument, HTTPException, Forbidden, Colour
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError
-from rs_utils import respond, is_positive, find_role, split_output
+from rs_utils import respond, is_positive, find_role, split_output, RSArgumentParser
 from command_dispatcher import Command
 from string import capwords
 import shlex
-import argparse
+from argparse import SUPPRESS
 
 
 class RoleCommands(BasePlugin):
@@ -35,7 +35,7 @@ class RoleCommands(BasePlugin):
             self.logger.warning(f"Unable to split {msg.content}. {e}")
             raise CommandSyntaxError(e)
 
-        parser = argparse.ArgumentParser(add_help=False, argument_default=argparse.SUPPRESS)
+        parser = RSArgumentParser(argument_default=SUPPRESS)
         parser.add_argument("command")                      # Well it's gonna be there.
         parser.add_argument("role")                         # The role name/ID
         parser.add_argument("-n", "--name")                 # New role name
@@ -44,10 +44,8 @@ class RoleCommands(BasePlugin):
         parser.add_argument("-m", "--mentionable")          # To allow role being mentioned
         parser.add_argument("-p", "--position", type=int)   # Changing position (DON'T ACTUALLY USE IT)
         if len(args) > 1:
-            try:
-                p_args = parser.parse_args(args).__dict__
-            except:
-                raise CommandSyntaxError("Invalid arg string.")
+            p_args = parser.parse_args(args)
+
             role = find_role(msg.guild, p_args['role'])
             if role:
                 # strip out irrelevant fields
@@ -94,7 +92,7 @@ class RoleCommands(BasePlugin):
             self.logger.warning(f"Unable to split {msg.content}. {e}")
             raise CommandSyntaxError(e)
 
-        parser = argparse.ArgumentParser(add_help=False)
+        parser = RSArgumentParser()
         parser.add_argument("command")                      # Well it's gonna be there.
         parser.add_argument("role")                         # Name of the new role
         parser.add_argument("template")                     # Permission donor name/ID
@@ -105,10 +103,7 @@ class RoleCommands(BasePlugin):
         parser.add_argument("-p", "--position", type=int)   # Changing position (DON'T ACTUALLY USE IT)
 
         if len(args) > 2:
-            try:
-                p_args = parser.parse_args(args).__dict__
-            except:
-                raise CommandSyntaxError("Invalid arg string.")
+            p_args = parser.parse_args(args)
             role = find_role(msg.guild, p_args['template'])
             if role:
                 try:
