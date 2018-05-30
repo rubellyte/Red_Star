@@ -105,17 +105,6 @@ class RSArgumentParser(argparse.ArgumentParser):
         raise CommandSyntaxError(message)
 
     def error(self, message):
-        """error(message: string)
-
-        Prints a usage message incorporating the message to stderr and
-        exits.
-
-        If you override this in a subclass, it should not return -- it
-        should either exit or raise an exception.
-        """
-        # self.print_usage(_sys.stderr)
-        # args = {'prog': self.prog, 'message': message}
-        # self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
         raise CommandSyntaxError(message)
 
     def parse_args(self, args=None, namespace=None):
