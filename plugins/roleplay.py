@@ -201,171 +201,134 @@ class Roleplay(BasePlugin):
         gid = str(msg.guild.id)
         self._initialize(gid)
         try:
-            args = " ".join(shlex.split(msg.clean_content)[1:])
-        except ValueError as e:
-            self.logger.warning("Unable to split {data.content}. {e}")
-            raise CommandSyntaxError(e)
-
-        if len(args) < 2:
-            raise CommandSyntaxError("Bio name required.")
-
-        t_name = self._sanitise_name(args.lower())
-
-        if t_name in self.bios[gid]:
-            await respond(msg, None, embed=self._print_bio(msg.guild, t_name))
-        else:
-            raise CommandSyntaxError(f"No such character: {args[1]}.")
-
-    @Command("EditBio",
-             doc="Edits the specified bio field, or creates the bio if it doesn't exist.",
-             syntax="(bio) (field) (value or clear)",
-             category="role_play")
-    async def _editbio(self, msg):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-        try:
             args = shlex.split(msg.clean_content)
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
             raise CommandSyntaxError(e)
 
-        if len(args) < 4:
-            raise CommandSyntaxError("Three arguments required.")
+        if len(args) < 2:
+            raise CommandSyntaxError("At least one argument required.")
+
+        if args[0].lower().endswith('editbio'):
+            if len(args) > 2:
+                args = [*args[:2], 'set', *args[2:]]
+            else:
+                args.append('create')
+
+        if args[0].lower().endswith('deletebio'):
+            args.append('delete')
 
         t_name = self._sanitise_name(args[1].lower())
-        if t_name in self.bios[gid]:
-            if self.bios[gid][t_name].get("author", 0) != msg.author.id:
-                raise UserPermissionError("Character belongs to other user.")
-        else:
-            if len(t_name) > 64:
-                raise CommandSyntaxError("Character name too long. Maximum length is 64 characters.")
-            self.bios[gid][t_name] = {
-                "author": msg.author.id,
-                "name": self._sanitise_name(args[1]),
-                "race": "undefined",
-                "gender": "undefined",
-                "appearance": "undefined",
-                "backstory": "undefined"
-            }
-            for f in self.fields:
-                if f not in self.bios[gid][t_name]:
-                    self.bios[gid][t_name][f] = ""
-            await respond(msg, f"**ANALYSIS: created character {self._sanitise_name(args[1])}.**")
-        t_field = args[2].lower()
-        if t_field in self.fields:
-            bio = self.bios[gid][t_name]
-            if args[3].lower() == "clear":
-                if t_field in self.mandatory_fields:
-                    bio[t_field] = "undefined"
-                else:
-                    bio[t_field] = ""
-                await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} cleared.**")
+
+        if len(args) == 2:
+            if t_name in self.bios[gid]:
+                await respond(msg, None, embed=self._print_bio(msg.guild, t_name))
             else:
-                t_value = " ".join(args[3:])
-                if t_field in ["race", "gender", "height", "age", "name"]:
-                    if t_field == "name":
-                        t_value = self._sanitise_name(t_value)
-                    if len(t_value) > 64:
-                        raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
-                                                 f"Maximum length is 64 characters.")
-                    bio[t_field] = t_value
-                    await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
+                raise CommandSyntaxError(f"No such character: {args[1]}.")
+        elif len(args) == 3:
+            if args[2].lower() == "delete":
+                if t_name in self.bios[gid]:
+                    if self.bios[gid][t_name].get("author", 0) == msg.author.id or \
+                            msg.author.permissions_in(msg.channel).manage_messages or \
+                            msg.author.id in self.config_manager.config.get("bot_maintainers", []):
+                        del self.bios[gid][t_name]
+                        await respond(msg, f"**AFFIRMATIVE. Character bio {args[1]} was deleted.**")
+                    else:
+                        raise UserPermissionError("Character belongs to other user.")
                 else:
-                    if len(t_value) > 1024:
-                        raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
-                                                 f"Maximum length is 1024 characters.")
-                    bio[t_field] = t_value
-                    await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
-        elif t_field not in self.fields:
-            raise CommandSyntaxError(f"Invalid field. Available fields: {', '.join(self.fields[1:])}.")
-        self._save_bios()
+                    raise CommandSyntaxError(f"No such character: {args[1]}.")
+                self._save_bios()
+            elif args[2].lower() == "dump":
+                if t_name in self.bios[gid]:
+                    t_bio = self.bios[gid][t_name].copy()
+                    del t_bio["author"]
+                    t_bio["fullname"] = t_bio["name"]
+                    t_bio["name"] = t_name
+                    t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
+                    async with msg.channel.typing():
+                        await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
+                                      file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name+".json"))
+                else:
+                    raise CommandSyntaxError(f"No such character: {args[1]}.")
+            elif args[2].lower() == "create":
+                if t_name in self.bios[gid]:
+                    raise CommandSyntaxError("Character already exists.")
+                else:
+                    if len(t_name) > 64:
+                        raise CommandSyntaxError("Character name too long. Maximum length is 64 characters.")
+                    self.bios[gid][t_name] = {
+                        "author": msg.author.id,
+                        "name": self._sanitise_name(args[1]),
+                        "race": "undefined",
+                        "gender": "undefined",
+                        "appearance": "undefined",
+                        "backstory": "undefined"
+                    }
+                    for f in self.fields:
+                        if f not in self.bios[gid][t_name]:
+                            self.bios[gid][t_name][f] = ""
+                    await respond(msg, f"**ANALYSIS: created character {self._sanitise_name(args[1])}.**")
+                    self._save_bios()
+        elif len(args) == 4 and args[2].lower() == "rename":
+            if t_name in self.bios[gid]:
+                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                    raise UserPermissionError("Character belongs to other user.")
+            else:
+                raise CommandSyntaxError(f"No such character: {t_name}.")
+            if args[3].lower() in self.bios[gid]:
+                raise CommandSyntaxError("Character ID already taken.")
+            self.bios[gid][args[3].lower()] = self.bios[gid][t_name]
+            del self.bios[gid][t_name]
+            await respond(msg, f"**AFFIRMATIVE. Character bio {t_name} can now be accessed as {args[3].lower()}.**")
+        elif len(args) >= 4 and args[2].lower() == "set":
+            if t_name in self.bios[gid]:
+                if self.bios[gid][t_name].get("author", 0) != msg.author.id:
+                    raise UserPermissionError("Character belongs to other user.")
+            else:
+                raise CommandSyntaxError(f"No such character: {t_name}.")
+            t_field = args[3].lower()
+            if t_field in self.fields:
+                bio = self.bios[gid][t_name]
+                if len(args) < 5:
+                    if t_field in self.mandatory_fields:
+                        bio[t_field] = "undefined"
+                    else:
+                        bio[t_field] = ""
+                    await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} reset.**")
+                else:
+                    t_value = " ".join(args[4:])
+                    if t_field in ["race", "gender", "height", "age", "name"]:
+                        if t_field == "name":
+                            t_value = self._sanitise_name(t_value)
+                        if len(t_value) > 64:
+                            raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
+                                                     f"Maximum length is 64 characters.")
+                        bio[t_field] = t_value
+                        await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
+                    else:
+                        if len(t_value) > 1024:
+                            raise CommandSyntaxError(f"{t_field.capitalize()} too long. "
+                                                     f"Maximum length is 1024 characters.")
+                        bio[t_field] = t_value
+                        await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} set.**")
+            elif t_field not in self.fields:
+                raise CommandSyntaxError(f"Available fields: {', '.join(self.fields[1:])}.")
+            self._save_bios()
+
+    @Command("EditBio",
+             doc="Edits the specified bio field, or creates the bio if it doesn't exist.",
+             syntax="(bio) (field) [value]",
+             category="role_play"
+             )
+    async def _editbio(self, msg):
+        await self._bio(msg)
 
     @Command("DeleteBio",
              doc="Deletes the specified bio. Requires you to be the author or have Manage Messages permission.",
              syntax="(bio)",
              category="role_play")
     async def _deletebio(self, msg):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-        try:
-            args = " ".join(shlex.split(msg.clean_content)[1:])
-        except ValueError as e:
-            self.logger.warning("Unable to split {data.content}. {e}")
-            raise CommandSyntaxError(e)
-
-        if len(args) < 2:
-            raise CommandSyntaxError("Bio name required.")
-
-        t_name = self._sanitise_name(args.lower())
-        if t_name in self.bios[gid]:
-            if self.bios[gid][t_name].get("author", 0) == msg.author.id or \
-                    msg.author.permissions_in(msg.channel).manage_messages or \
-                    msg.author.id in self.config_manager.config.get("bot_maintainers", []):
-                del self.bios[gid][t_name]
-                await respond(msg, f"**AFFIRMATIVE. Character bio {t_name} was deleted.**")
-            else:
-                raise UserPermissionError("Character belongs to other user.")
-        else:
-            raise CommandSyntaxError(f"No such character: {t_name}.")
-        self._save_bios()
-
-    @Command("DumpBio",
-             doc="Dumps the specified bio into a JSON file.",
-             syntax="(bio)",
-             category="role_play")
-    async def _dumpbio(self, msg):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-        try:
-            args = " ".join(shlex.split(msg.clean_content)[1:])
-        except ValueError as e:
-            self.logger.warning("Unable to split {data.content}. {e}")
-            raise CommandSyntaxError(e)
-
-        if len(args) < 2:
-            raise CommandSyntaxError("Bio name required.")
-
-        t_name = self._sanitise_name(args.lower())
-        if t_name in self.bios[gid]:
-            t_bio = self.bios[gid][t_name].copy()
-            del t_bio["author"]
-            t_bio["fullname"] = t_bio["name"]
-            t_bio["name"] = t_name
-            t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
-            async with msg.channel.typing():
-                await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                              file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name + ".json"))
-        else:
-            raise CommandSyntaxError(f"No such character: {args[1]}.")
-
-    @Command("RenameBio",
-             doc="Renames the specified bio to the specified new name. Requires you to be the author.",
-             syntax="(bio) (new name)",
-             category="role_play")
-    async def _renamebio(self, msg):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-        try:
-            args = shlex.split(msg.clean_content)
-        except ValueError as e:
-            self.logger.warning("Unable to split {data.content}. {e}")
-            raise CommandSyntaxError(e)
-
-        if len(args) < 3:
-            raise CommandSyntaxError("Bio name and new name required.")
-
-        t_name = self._sanitise_name(args[1].lower())
-        new_name = self._sanitise_name(args[2].lower())
-        if t_name in self.bios[gid]:
-            if self.bios[gid][t_name].get("author", 0) != msg.author.id:
-                raise UserPermissionError("Character belongs to other user.")
-        else:
-            raise CommandSyntaxError(f"No such character: {t_name}.")
-        if new_name in self.bios[gid]:
-            raise CommandSyntaxError("Character ID already taken.")
-        self.bios[gid][new_name] = self.bios[gid][t_name]
-        del self.bios[gid][t_name]
-        await respond(msg, f"**AFFIRMATIVE. Character bio {t_name} can now be accessed as {new_name}.**")
+        await self._bio(msg)
 
     @Command("UploadBio",
              doc="Parses a json file to update/create character bios.\n"
@@ -451,7 +414,7 @@ class Roleplay(BasePlugin):
              doc="Administrative function that reloads the bios from the file.",
              category="role_play",
              bot_maintainers_only=True)
-    async def _reloadbios(self, msg):
+    async def _reloadbio(self, msg):
         try:
             with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
                 self.bios = json.load(f)
