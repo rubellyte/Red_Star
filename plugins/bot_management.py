@@ -1,9 +1,11 @@
 import urllib
 import re
 import asyncio
+import shlex
+import json
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, is_positive
+from rs_utils import respond, is_positive, RSArgumentParser, split_output
 from command_dispatcher import Command
 from discord import InvalidArgument
 from traceback import format_exception, format_exc
@@ -159,108 +161,151 @@ class BotManagement(BasePlugin):
              doc="Gets the config value at the specified path. Use <server> to fill in the server ID.",
              syntax="(path/to/value)",
              category="bot_management",
-             perms={"manage_guild"})
+             bot_maintainers_only=True)
     async def _get_config(self, msg):
-        if "bot_maintainers" not in self.config_manager.config:
-            raise UserPermissionError("No bot maintainers are set!")
-        elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise UserPermissionError
-        conf = self.config_manager.config
+        conf_dict = self.config_manager.config.copy()
         args = msg.clean_content.split()[1:]
+
         try:
             path = args[0]
         except IndexError:
-            raise CommandSyntaxError("Missing path to config value.")
+            # raise CommandSyntaxError("Missing path to config value.")
+            path = ""
         path = path.replace("<server>", str(msg.guild.id))
         if path.startswith("/"):
             path = path[1:]
-        path = path.split("/")
-        val = conf
-        for k in path:
+        path_list = path.split("/")
+        del conf_dict["token"]  # Don't wanna leak that by accident!
+
+        for k in path_list:
+            if not k:
+                break
             try:
-                val = val[k]
-            except TypeError:
-                try:
-                    i = int(k)
-                    val = val[i]
-                except ValueError:
-                    raise CommandSyntaxError(f"{k} is not a valid integer.")
-                except IndexError:
-                    raise CommandSyntaxError(f"Path {args[0]} is invalid.")
+                conf_dict = self._list_or_dict_subscript(conf_dict, k)
             except KeyError:
-                raise CommandSyntaxError(f"Path {args[0]} is invalid.")
-        await respond(msg, f"**ANALYSIS: Value of {args[0]}:** `{val}`")
+                raise CommandSyntaxError(f"Key {k} does not exist.")
+            except IndexError:
+                raise CommandSyntaxError(f"Index {k} does not exist.")
+            except ValueError:
+                raise CommandSyntaxError(f"{k} is not a valid integer index.")
+            except TypeError:
+                raise CommandSyntaxError(f"{args.path} is not a valid path!")
+
+        res = json.dumps(conf_dict, indent=2).split("\n")
+        await split_output(msg, f"**ANALYSIS: Contents of {path}:**", res, header="```JSON\n")
 
     @Command("SetConfig",
-             doc="Edits the config key at the specified path. Use <server> to fill in the server ID.",
-             syntax="(path/to/edit) (value)",
+             doc="Edits the config value at the specified path. Use <server> to fill in the server ID. Doesn't allow "
+                 "types to be changed unless forced.\n"
+                 "Use --remove to delete a value, --append to add a value to a list, --addkey to add a new key/value"
+                 "pair to a dict, and --type with a type name to force type conversion.\n"
+                 "Valid --types: bool, int, float, str, list, dict, json",
+             syntax="(path/to/edit) (value or -r/--remove) [-a/--append] [-k/--addkey key_name] [-t/--type type]",
              category="bot_management",
-             perms={"manage_guild"})
+             bot_maintainers_only=True)
     async def _set_config(self, msg):
-        if "bot_maintainers" not in self.config_manager.config:
-            raise UserPermissionError("No bot maintainers are set!")
-        elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise UserPermissionError
-        conf = self.config_manager.config
-        args = msg.clean_content.split()[1:]
+        conf_dict = self.config_manager.config.copy()
+
+        parser = RSArgumentParser()
+        parser.add_argument("path")
+        parser.add_argument("value", nargs="*")
+        parser.add_argument("-r", "--remove", action="store_true")
+        parser.add_argument("-a", "--append", action="store_true")
+        parser.add_argument("-k", "--addkey")
+        parser.add_argument("-t", "--type", choices=("null", "bool", "int", "float", "str", "list", "dict", "json"),
+                            type=str.lower)
+
+        args = parser.parse_args(shlex.split(msg.clean_content)[1:])
+
+        type_converters = {
+            "null": lambda x: None,
+            "bool": is_positive,
+            "int": int,
+            "float": float,
+            "str": str,
+            "list": json.loads,
+            "dict": json.loads,
+            "DotDict": json.loads,
+            "json": json.loads
+        }
+
+        if sum((args.remove, args.append, bool(args.addkey))) > 1:
+            raise CommandSyntaxError("--remove, --append, and --addkey arguments are mutually exclusive.")
+
         try:
-            path = args[0]
+            path = args.path
             path = path.replace("<server>", str(msg.guild.id))
             if path.startswith("/"):
                 path = path[1:]
-            path = path.split("/")
-            key = path.pop()
-            value = " ".join(args[1:])
-            if not value:
+            path_list = path.split("/")
+            final_key = path_list.pop()
+            value = " ".join(args.value)
+            if args.type:
+                try:
+                    value = type_converters[args.type](value)
+                except ValueError:
+                    raise CommandSyntaxError(f"{value} cannot be converted to {args.type}!")
+            if value is None and not args.remove and args.type != "null":
                 raise CommandSyntaxError("Missing new config value.")
         except IndexError:
             raise CommandSyntaxError("Missing path to config value.")
-        val = conf
-        for k in path:
+        for k in path_list:
             try:
-                val = val[k]
-            except TypeError:
-                try:
-                    i = int(k)
-                    val = val[i]
-                except ValueError:
-                    raise CommandSyntaxError(f"{k} is not a valid integer.")
-                except IndexError:
-                    raise CommandSyntaxError(f"Path {args[0]} is invalid.")
+                conf_dict = self._list_or_dict_subscript(conf_dict, k)
             except KeyError:
-                raise CommandSyntaxError(f"Path {args[0]} is invalid.")
-        try:
-            orig = val[key]
-        except TypeError:
-            try:
-                key = int(key)
-                orig = val[key]
-            except ValueError:
-                raise CommandSyntaxError(f"{k} is not a valid integer.")
+                raise CommandSyntaxError(f"Key {k} does not exist.")
             except IndexError:
-                raise CommandSyntaxError(f"Path {args[0]} is invalid.")
+                raise CommandSyntaxError(f"Index {k} does not exist.")
+            except TypeError:
+                raise CommandSyntaxError(f"{args.path} is not a valid path!")
+
+        try:
+            orig = self._list_or_dict_subscript(conf_dict, final_key)
         except KeyError:
-            raise CommandSyntaxError(f"Path {args[0]} is invalid.")
-        if isinstance(orig, str):
-            val[key] = value
-        elif isinstance(orig, bool):
-                val[key] = is_positive(value)
-        elif isinstance(orig, int):
+            raise CommandSyntaxError(f"Key {final_key} does not exist.")
+        except IndexError:
+            raise CommandSyntaxError(f"Index {final_key} does not exist.")
+        except ValueError:
+            raise CommandSyntaxError(f"{final_key} is not a valid integer index.")
+        except TypeError:
+            raise CommandSyntaxError(f"{args.path} is not a valid path!")
+
+        if args.remove:
+            if isinstance(conf_dict, dict):
+                del conf_dict[final_key]
+            elif isinstance(conf_dict, list):
+                conf_dict.pop(int(final_key))
+            else:
+                raise CommandSyntaxError("Path does not lead to a collection!")
+            await respond(msg, f"**ANALYSIS: Config value {args.path} deleted successfully.**")
+
+        elif args.append:
+            if isinstance(conf_dict[final_key], list):
+                conf_dict[final_key].append(value)
+                await respond(msg, f"**ANALYSIS: {value} appended to {path} successfully.**")
+            else:
+                raise CommandSyntaxError("Path does not lead to a list!")
+
+        elif args.addkey:
+            if isinstance(conf_dict[final_key], dict):
+                conf_dict[final_key][args.addkey] = value
+                await respond(msg, f"**ANALYSIS: Key {args.addkey} with value {value} added to {path} "
+                                   f"successfully.**")
+            else:
+                raise CommandSyntaxError("Path does not lead to a dict!")
+
+        elif not args.type and type(value) is not type(orig) and orig is not None:
+            orig_type = type(orig).__name__
             try:
-                value = int(value)
-                val[key] = value
-            except ValueError:
-                raise CommandSyntaxError(f"{value} is not a valid integer.")
-        elif isinstance(orig, float):
-            try:
-                value = float(value)
-                val[key] = value
-            except ValueError:
-                raise CommandSyntaxError(f"{value} is not a valid floating-point number.")
-        else:
-            raise CommandSyntaxError(f"{args[0]} is an object or array.")
+                conf_dict[final_key] = type_converters[orig_type](value)
+                await respond(msg, f"**ANALYSIS: Config value {path} edited to** `{value}` **successfully.**")
+            except (KeyError, ValueError):
+                raise CommandSyntaxError(f"Couldn't coerce {value} into type {orig_type}!")
+        elif args.type:
+            conf_dict[final_key] = value
+            await respond(msg, f"**ANALYSIS: Config value {path} edited to** `{value}` **successfully.**")
+
         self.config_manager.save_config()
-        await respond(msg, f"**ANALYSIS: Config value {args[0]} edited to** `{value}` **successfully.**")
 
     @Command("LastError",
              doc="Gets the last error to occur in the specified context.",
@@ -315,3 +360,18 @@ class BotManagement(BasePlugin):
         if self.res is not None:
             await respond(msg, f"**ANALYSIS: Result: {self.res}**")
             self.res = None
+
+    def _list_or_dict_subscript(self, obj, key):
+        """
+        Helper function to use key as a key if obj is a dict, or as an int index if list.
+
+        :param obj: The object to subscript.
+        :param key: The key to subscript with.
+        :return: The subscripted object.
+        """
+        if isinstance(obj, dict):
+            return obj[key]
+        elif isinstance(obj, list):
+            return obj[int(key)]
+        else:
+            raise TypeError

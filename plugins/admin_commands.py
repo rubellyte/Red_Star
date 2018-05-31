@@ -20,7 +20,7 @@ class AdminCommands(BasePlugin):
              category="admin")
     async def _tpurge(self, msg):
 
-        parser = RSArgumentParser(add_help=False)
+        parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("count", type=int)
         parser.add_argument("match", default=False, nargs='*')
