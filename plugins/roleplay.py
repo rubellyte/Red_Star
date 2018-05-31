@@ -209,6 +209,15 @@ class Roleplay(BasePlugin):
         if len(args) < 2:
             raise CommandSyntaxError("At least one argument required.")
 
+        if args[0].lower().endswith('editbio'):
+            if len(args) > 2:
+                args = [*args[:2], 'set', *args[2:]]
+            else:
+                args.append('create')
+
+        if args[0].lower().endswith('deletebio'):
+            args.append('delete')
+
         t_name = self._sanitise_name(args[1].lower())
 
         if len(args) == 2:
@@ -305,6 +314,21 @@ class Roleplay(BasePlugin):
             elif t_field not in self.fields:
                 raise CommandSyntaxError(f"Available fields: {', '.join(self.fields[1:])}.")
             self._save_bios()
+
+    @Command("EditBio",
+             doc="Edits the specified bio field, or creates the bio if it doesn't exist.",
+             syntax="(bio) (field) [value]",
+             category="role_play"
+             )
+    async def _editbio(self, msg):
+        await self._bio(msg)
+
+    @Command("DeleteBio",
+             doc="Deletes the specified bio. Requires you to be the author or have Manage Messages permission.",
+             syntax="(bio)",
+             category="role_play")
+    async def _deletebio(self, msg):
+        await self._bio(msg)
 
     @Command("UploadBio",
              doc="Parses a json file to update/create character bios.\n"
