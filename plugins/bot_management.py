@@ -301,7 +301,7 @@ class BotManagement(BasePlugin):
                 await respond(msg, f"**ANALYSIS: Config value {path} edited to** `{value}` **successfully.**")
             except (KeyError, ValueError):
                 raise CommandSyntaxError(f"Couldn't coerce {value} into type {orig_type}!")
-        elif args.type:
+        else:
             conf_dict[final_key] = value
             await respond(msg, f"**ANALYSIS: Config value {path} edited to** `{value}` **successfully.**")
 
