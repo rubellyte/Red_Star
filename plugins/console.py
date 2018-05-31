@@ -19,7 +19,6 @@ class ConsoleListener(BasePlugin):
     }
 
     async def activate(self):
-        self.log_items = {}
         self.run_loop = True
         self.con_commands = {
             "set_config": self._set_config,
@@ -36,12 +35,13 @@ class ConsoleListener(BasePlugin):
         }
         if not self.plugin_config.allow_stdout_logging:
             base_logger = logging.getLogger()
-            self.logger.info("Disabling STDOUT logger and starting console...")
             for h in base_logger.handlers:
                 if type(h) == logging.StreamHandler:
                     if self.plugin_config.allow_stdout_errors:
+                        self.logger.info("Quieting STDOUT logger (errors-only) and starting console...")
                         h.setLevel(logging.ERROR)
                     else:
+                        self.logger.info("Disabling STDOUT logger and starting console...")
                         base_logger.removeHandler(h)
         else:
             self.logger.info("Starting console...")
@@ -148,10 +148,12 @@ class ConsoleListener(BasePlugin):
 
     async def _set_config(self, args):
         """
-        Sets the specified config key to the specified value, or all of the config if none specified.
+        Sets the specified config key to the specified value. Doesn't allow types to be changed unless forced.
         Use <guildX>, where X is the index of a guild as shown in 'guilds', to substitute in a guild's ID.
-        An optional third argument, type, can be used to set to a specific type of value.
-        Syntax: set_config (path) (value) [type]
+        Use --remove to delete a value, --append to add a value to a list, --addkey to add a new key/value pair
+        to a dict, and --type with a type name to force type conversion.
+        Valid --types: bool, int, float, str, list, dict, json
+        Syntax: (path/to/edit) (value or -r/--remove) [-a/--append] [-k/--addkey key_name] [-t/--type type]
         """
         conf_dict = self.config_manager.config.copy()
 
