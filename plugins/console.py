@@ -6,6 +6,7 @@ import logging
 from plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
 from rs_errors import ConsoleCommandSyntaxError
+from rs_utils import RSArgumentParser, is_positive
 from discord import NotFound, Forbidden
 from traceback import format_exception
 
@@ -111,44 +112,39 @@ class ConsoleListener(BasePlugin):
         if args:
             path = " ".join(args)
         else:
-            path = None
+            path = ""
         print(json.dumps(self._get_config(path), sort_keys=True, indent=2))
 
-    def _get_config(self, path=None):
-        conf = self.config_manager.config
-        if path and path != "/":
-            pattern = re.compile("<guild(\d+)>")
+    def _get_config(self, path=""):
+        conf_dict = self.config_manager.config
+        pattern = re.compile("<guild(\d+)>")
 
-            t_s = pattern.search(path)
-            if t_s:
-                t_i = min(max(0, int(t_s.group(1))), len(self.client.guilds)-1)
-                path = pattern.sub(str(self.client.guilds[t_i].id), path)
+        t_s = pattern.search(path)
+        if t_s:
+            t_i = min(max(0, int(t_s.group(1))), len(self.client.guilds)-1)
+            path = pattern.sub(str(self.client.guilds[t_i].id), path)
 
-            if path.startswith("/"):
-                path = path[1:]
-            if path.endswith("/"):
-                path = path[:-1]
-            path = path.split("/")
+        if path.startswith("/"):
+            path = path[1:]
+        if path.endswith("/"):
+            path = path[:-1]
+        path_list = path.split("/")
 
-            val = conf
+        for k in path_list:
+            if not k:
+                break
+            try:
+                conf_dict = self._list_or_dict_subscript(conf_dict, k)
+            except KeyError:
+                raise ConsoleCommandSyntaxError(f"Key {k} does not exist.")
+            except IndexError:
+                raise ConsoleCommandSyntaxError(f"Index {k} does not exist.")
+            except ValueError:
+                raise ConsoleCommandSyntaxError(f"{k} is not a valid integer index.")
+            except TypeError:
+                raise ConsoleCommandSyntaxError(f"{path} is not a valid path!")
 
-            for k in path:
-                try:
-                    val = val[k]
-                except TypeError:
-                    try:
-                        i = int(k)
-                        val = val[i]
-                    except ValueError:
-                        raise ConsoleCommandSyntaxError(f"{k} is not a valid integer.")
-                    except IndentationError:
-                        raise ConsoleCommandSyntaxError(f"Path {path} is invalid.")
-                except KeyError:
-                    raise ConsoleCommandSyntaxError(f"Path {path} is invalid.")
-            else:
-                return val
-        else:
-            return conf
+        return conf_dict
 
     async def _set_config(self, args):
         """
@@ -157,101 +153,99 @@ class ConsoleListener(BasePlugin):
         An optional third argument, type, can be used to set to a specific type of value.
         Syntax: set_config (path) (value) [type]
         """
-        if len(args) not in [2, 3]:
-            print("Useage : set_config (path) (value) [type]")
-        t_path = args[0].lower().split("/")
-        key = t_path.pop(-1)
-        t_path = "/".join(t_path)
-        val = self._get_config(t_path)
-        if t_path == "":
-            t_path = "/"
-        if val is not None:
-            try:
-                orig = val[key]
-            except TypeError:
-                try:
-                    key = int(key)
-                    orig = val[key]
-                except ValueError:
-                    raise ConsoleCommandSyntaxError(f"{key} is not a valid integer")
-                except IndexError:
-                    if isinstance(val, list):
-                        print(f"Extending list {t_path}.")
-                        key = len(val)
-                        val.append(None)
-                        orig = None
-                    else:
-                        raise ConsoleCommandSyntaxError(f"Path {args[0].lower()} is invalid.")
-            except KeyError:
-                if isinstance(val, dict):
-                    print(f"Extending dict {t_path}.")
-                    val[key] = None
-                    orig = None
-                else:
-                    raise ConsoleCommandSyntaxError(f"Path {args[0].lower()} is invalid.")
+        conf_dict = self.config_manager.config.copy()
 
-            if len(args) == 3:
-                if args[2].lower() == "float":
-                    try:
-                        value = float(args[2])
-                        val[key] = value
-                    except ValueError:
-                        raise ConsoleCommandSyntaxError(f"{args[1]} is not a valid float")
-                elif args[2].lower() == "int":
-                    try:
-                        value = int(args[1])
-                        val[key] = value
-                    except ValueError:
-                        raise ConsoleCommandSyntaxError(f"{args[1]} is not a valid int")
-                elif args[2].lower() in ["str", "string"]:
-                    val[key] = args[1]
-                elif args[2].lower() in ["bool"]:
-                    if args[1].lower() == "true":
-                        val[key] = True
-                    elif args[1].lower() == "false":
-                        val[key] = False
-                    else:
-                        raise ConsoleCommandSyntaxError(f"{args[1]} is not a valid bool")
-                elif args[2].lower() in ["dict"]:
-                    val[key] = {}
-                elif args[2].lower() in ["list"]:
-                    val[key] = []
-                elif args[2].lower() == "yes, delete this":
-                    val.pop(key)
+        parser = RSArgumentParser()
+        parser.add_argument("path")
+        parser.add_argument("value", nargs="*")
+        parser.add_argument("-r", "--remove", action="store_true")
+        parser.add_argument("-a", "--append", action="store_true")
+        parser.add_argument("-k", "--addkey")
+        parser.add_argument("-t", "--type", choices=("null", "bool", "int", "float", "str", "list", "dict", "json"),
+                            type=str.lower)
+
+        args = parser.parse_args(args)
+
+        type_converters = {
+            "null": lambda x: None,
+            "bool": is_positive,
+            "int": int,
+            "float": float,
+            "str": str,
+            "list": json.loads,
+            "dict": json.loads,
+            "DotDict": json.loads,
+            "json": json.loads
+        }
+
+        if sum((args.remove, args.append, bool(args.addkey))) > 1:
+            raise ConsoleCommandSyntaxError("--remove, --append, and --addkey arguments are mutually exclusive.")
+
+        try:
+            path = args.path
+            if path.startswith("/"):
+                path = path[1:]
+            path_list = path.split("/")
+            final_key = path_list.pop()
+            value = " ".join(args.value)
+            if args.type:
+                try:
+                    value = type_converters[args.type](value)
+                except ValueError:
+                    raise ConsoleCommandSyntaxError(f"{value} cannot be converted to {args.type}!")
+            if value is None and not args.remove and args.type != "null":
+                raise ConsoleCommandSyntaxError("Missing new config value.")
+        except IndexError:
+            raise ConsoleCommandSyntaxError("Missing path to config value.")
+
+        conf_dict = self._get_config(path="/".join(path_list))
+
+        try:
+            orig = self._list_or_dict_subscript(conf_dict, final_key)
+        except KeyError:
+            raise ConsoleCommandSyntaxError(f"Key {final_key} does not exist.")
+        except IndexError:
+            raise ConsoleCommandSyntaxError(f"Index {final_key} does not exist.")
+        except ValueError:
+            raise ConsoleCommandSyntaxError(f"{final_key} is not a valid integer index.")
+        except TypeError:
+            raise ConsoleCommandSyntaxError(f"{args.path} is not a valid path!")
+
+        if args.remove:
+            if isinstance(conf_dict, dict):
+                del conf_dict[final_key]
+            elif isinstance(conf_dict, list):
+                conf_dict.pop(int(final_key))
             else:
-                if isinstance(orig, str):
-                    val[key] = args[1]
-                elif isinstance(orig, bool):
-                    if args[1].lower() == "true":
-                        val[key] = True
-                    elif args[1].lower() == "false":
-                        val[key] = False
-                    else:
-                        raise ConsoleCommandSyntaxError(f"{args[1]} is not a valid bool")
-                elif isinstance(orig, float):
-                    try:
-                        value = float(args[1])
-                        val[key] = value
-                    except ValueError:
-                        raise ConsoleCommandSyntaxError(f"{args[1]} is not a valid float")
-                elif isinstance(orig, int):
-                    try:
-                        value = int(args[1])
-                        val[key] = value
-                    except ValueError:
-                        raise ConsoleCommandSyntaxError(f"{args[1]} is not a valid int")
-            t_val = None
-            if isinstance(val, dict) and key in val:
-                t_val = val[key]
-            elif isinstance(val, list) and 0 <= key < len(val):
-                t_val = val[key]
-            if t_val and orig:
-                print(f"Value {key} of {t_path} successfully changed to {t_val} from {orig}")
-            elif t_val:
-                print(f"Value {key} of {t_path} successfully set to {t_val}")
+                raise ConsoleCommandSyntaxError("Path does not lead to a collection!")
+            print(f"Config value {args.path} deleted successfully.")
+
+        elif args.append:
+            if isinstance(conf_dict[final_key], list):
+                conf_dict[final_key].append(value)
+                print(f"{value} appended to {path} successfully.")
             else:
-                print(f"Value {key} of {t_path} successfully deleted")
-            self.config_manager.save_config()
+                raise ConsoleCommandSyntaxError("Path does not lead to a list!")
+
+        elif args.addkey:
+            if isinstance(conf_dict[final_key], dict):
+                conf_dict[final_key][args.addkey] = value
+                print(f"Key {args.addkey} with value {value} added to {path} successfully.")
+            else:
+                raise ConsoleCommandSyntaxError("Path does not lead to a dict!")
+
+        elif not args.type and type(value) is not type(orig) and orig is not None:
+            orig_type = type(orig).__name__
+            try:
+                conf_dict[final_key] = type_converters[orig_type](value)
+                print(f"Config value {path} edited to `{value}` successfully.")
+            except (KeyError, ValueError):
+                raise ConsoleCommandSyntaxError(f"Couldn't coerce {value} into type {orig_type}!")
+        else:
+            conf_dict[final_key] = value
+            print(f"Config value {path} edited to `{value}` successfully.")
+
+        self.config_manager.save_config()
 
     async def _guilds(self, _):
         """
@@ -428,3 +422,18 @@ class ConsoleListener(BasePlugin):
             print(f"Last error in context {args}:\n{excstr}")
         else:
             print(f"No error in context {args}.")
+
+    def _list_or_dict_subscript(self, obj, key):
+        """
+        Helper function to use key as a key if obj is a dict, or as an int index if list.
+
+        :param obj: The object to subscript.
+        :param key: The key to subscript with.
+        :return: The subscripted object.
+        """
+        if isinstance(obj, dict):
+            return obj[key]
+        elif isinstance(obj, list):
+            return obj[int(key)]
+        else:
+            raise TypeError

@@ -169,7 +169,6 @@ class BotManagement(BasePlugin):
         try:
             path = args[0]
         except IndexError:
-            # raise CommandSyntaxError("Missing path to config value.")
             path = ""
         path = path.replace("<server>", str(msg.guild.id))
         if path.startswith("/"):
@@ -191,7 +190,7 @@ class BotManagement(BasePlugin):
             except TypeError:
                 raise CommandSyntaxError(f"{args.path} is not a valid path!")
 
-        res = json.dumps(conf_dict, indent=2).split("\n")
+        res = json.dumps(conf_dict, indent=2, sort_keys=True).split("\n")
         await split_output(msg, f"**ANALYSIS: Contents of {path}:**", res, header="```JSON\n")
 
     @Command("SetConfig",
