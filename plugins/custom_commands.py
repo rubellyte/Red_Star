@@ -600,6 +600,8 @@ class CustomCommands(BasePlugin):
                 return self.validator_tags[tag](args, msg)
             else:
                 return self.tags[tag](args, msg)
+        elif tag.lower() in self.ccvars:
+            return self.ccvars[tag.lower()]
         else:
             raise CustomCommandSyntaxError(f"No such tag {tag}!")
 
