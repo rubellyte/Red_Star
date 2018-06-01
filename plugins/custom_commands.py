@@ -56,7 +56,8 @@ class CustomCommands(BasePlugin):
             "resub": self._resub,
             "rpn": self._rpn,
             "assert": self._assert,
-            "time": self._time
+            "time": self._time,
+            "roll": self._roll
         }
         v_tags = {
             "args": self._valid_args,
@@ -964,6 +965,43 @@ class CustomCommands(BasePlugin):
             return time.strftime(args[0])
         else:
             return time.strftime("%Y-%m-%d @ %H:%M:%S")
+
+    def _roll(self, args, _):
+        args = self._split_args(args)
+        verbose = ['v', 'verbose', 'list']
+
+        if args == ['']:
+            raise CustomCommandSyntaxError("<roll> requires at least one argument in dice notation.")
+        dice_data = re.search(r"(\d+|)d(\d+|f)(\+\d+|-\d+|)(a|d|)", args[0].lower())
+        if dice_data:
+            # checking for optional dice number
+            if dice_data.group(1):
+                num_dice = min(max(int(dice_data.group(1)), 1), 10000)
+            else:
+                num_dice = 1
+            # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
+            if dice_data.group(2) != 'f':
+                die_sides = min(max(int(dice_data.group(2)), 2), 10000)
+                def roll_function(): return random.randint(1, die_sides)
+            else:
+                die_sides = "F"
+                def roll_function(): return random.randint(1, 3) - 2
+            if dice_data.group(3):
+                modif = int(dice_data.group(3))
+            else:
+                modif = 0
+            t_adv = dice_data.group(4)
+            dice_set_a = [roll_function() for _ in range(num_dice)]
+            dice_set_b = [roll_function() for _ in range(num_dice)]
+            if t_adv == "a":
+                rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
+            elif t_adv == "d":
+                rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
+            else:
+                rolled_dice = dice_set_a
+            rolled_sum = sum(rolled_dice) + modif
+            v = args[1].lower() and args[1].lower() in verbose
+            return " ".join(map(str, rolled_dice)) if v else str(rolled_sum)
 
     # CC validator tag functions
 
