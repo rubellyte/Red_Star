@@ -172,19 +172,8 @@ class Roleplay(BasePlugin):
                                [f"{k[:16].ljust(16)} : {v['name']}" for k, v in self.bios[gid].items()])
 
     @Command("Bio",
-             doc="Adds, edits, prints, dumps or deletes character bios.\n"
-                 "Each character name must be unique.\n"
-                 "Fields: name/race/gender/height/age: limit 64 characters. theme/link: must be viable http(s) url. "
-                 "appearance/equipment/skills/personality/backstory/interests: limit 1024 characters.\n"
-                 "Setting 'race' to the same name as a registered character role will fetch the colour.\n"
-                 "Be aware that the total length of the bio must not exceed 6000 characters.",
-             syntax="\n"
-                    "`creating:` (name) create\n"
-                    "`editing :` (name) set (field) [value]\n"
-                    "`renaming:` (name) rename (new name)\n"
-                    "`printing:` (name)\n"
-                    "`dumping :` (name) dump\n"
-                    "`deleting:` (name) delete",
+             doc="Prints the specified character bio.",
+             syntax="(name)",
              category="role_play",
              run_anywhere=True)
     async def _bio(self, msg):
@@ -205,8 +194,7 @@ class Roleplay(BasePlugin):
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
             raise CommandSyntaxError(e)
-
-        if len(args) < 2:
+        except IndexError:
             raise CommandSyntaxError("Bio name required.")
 
         t_name = self._sanitise_name(args.lower())
@@ -214,7 +202,7 @@ class Roleplay(BasePlugin):
         if t_name in self.bios[gid]:
             await respond(msg, None, embed=self._print_bio(msg.guild, t_name))
         else:
-            raise CommandSyntaxError(f"No such character: {args[1]}.")
+            raise CommandSyntaxError(f"No such character: {args}.")
 
     @Command("EditBio",
              doc="Edits the specified bio field, or creates the bio if it doesn't exist.",
