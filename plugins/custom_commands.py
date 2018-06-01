@@ -981,15 +981,10 @@ class CustomCommands(BasePlugin):
                 num_dice = 1
             # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
             if dice_data.group(2) != 'f':
-                die_sides = min(max(int(dice_data.group(2)), 2), 10000)
-                def roll_function(): return random.randint(1, die_sides)
+                def roll_function(): return random.randint(1, min(max(int(dice_data.group(2)), 2), 10000))
             else:
-                die_sides = "F"
-                def roll_function(): return random.randint(1, 3) - 2
-            if dice_data.group(3):
-                modif = int(dice_data.group(3))
-            else:
-                modif = 0
+                def roll_function(): return random.randint(-1, 1)
+            modif = int(dice_data.group(3)) if dice_data.group(3) else 0
             t_adv = dice_data.group(4)
             dice_set_a = [roll_function() for _ in range(num_dice)]
             dice_set_b = [roll_function() for _ in range(num_dice)]
@@ -999,9 +994,8 @@ class CustomCommands(BasePlugin):
                 rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
             else:
                 rolled_dice = dice_set_a
-            rolled_sum = sum(rolled_dice) + modif
             v = args[1].lower() and args[1].lower() in verbose
-            return " ".join(map(str, rolled_dice)) if v else str(rolled_sum)
+            return " ".join(map(str, rolled_dice)) if v else str(sum(rolled_dice) + modif)
 
     # CC validator tag functions
 
