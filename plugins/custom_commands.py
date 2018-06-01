@@ -996,7 +996,7 @@ class CustomCommands(BasePlugin):
                 rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
             else:
                 rolled_dice = dice_set_a
-            v = args[1].lower() and args[1].lower() in verbose
+            v = len(args) > 1 and args[1].lower() in verbose
             return " ".join(map(str, rolled_dice)) if v else str(sum(rolled_dice) + modif)
 
     # CC validator tag functions
