@@ -555,32 +555,22 @@ class CustomCommands(BasePlugin):
         :return:
         """
         t_str = text[::-1]
-        t_lst = []  # temporary list for closing bracket positions
-        t_res = []  # final list for closing bracket positions
-        t_lvl = 0  # goes up every > and down every <
-        t_pos = 0  # counter for position of symbol in string
 
         # find all the closing brackets
         # the algorithm runs in reverse now to parse in the right direction.
-        for token in t_str:
-            if token == '>':
-                t_lvl += 1
-                t_lst.append(t_pos)
-            if token == '<':
-                t_lvl -= 1
-                if t_lvl < 0:
-                    # not enough closing brackets
-                    raise CustomCommandSyntaxError("Missing closing bracket!")
-                else:
-                    t_res.append(t_lst.pop())
-            t_pos += 1
 
-        if t_lvl > 0:
+        # check that the brackets match
+        c_o = t_str.count('<')
+        c_c = t_str.count('>')
+        if c_o > c_c:
+            # not enough closing brackets
+            raise CustomCommandSyntaxError("Missing closing bracket!")
+        elif c_c > c_o:
             # too many closing brackets
             raise CustomCommandSyntaxError("Missing opening bracket!")
 
-        # last tags first because otherwise positions will shift
-        t_res.sort(reverse=True)
+        # find all the positions of '>' and reverse the list
+        t_res = [p for p, t in enumerate(t_str) if t == '>'][::-1]
 
         for t_pos in t_res:
             # find closest opening bracket
@@ -1207,3 +1197,4 @@ class CustomCommands(BasePlugin):
             else:
                 stack.append(a)
         return [*out, *stack]
+
