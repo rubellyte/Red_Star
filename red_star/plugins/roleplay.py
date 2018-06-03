@@ -243,7 +243,7 @@ class Roleplay(BasePlugin):
                 if t_name in self.bios[gid]:
                     if self.bios[gid][t_name].get("author", 0) == msg.author.id or \
                             msg.author.permissions_in(msg.channel).manage_messages or \
-                            msg.author.id in self.config_manager.config.get("bot_maintainers", []):
+                                    msg.author.id in self.config_manager.config.get("bot_maintainers", []):
                         del self.bios[gid][t_name]
                         await respond(msg, f"**AFFIRMATIVE. Character bio {args[1]} was deleted.**")
                     else:
@@ -260,7 +260,7 @@ class Roleplay(BasePlugin):
                     t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
                     async with msg.channel.typing():
                         await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                                      file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name+".json"))
+                                      file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name + ".json"))
                 else:
                     raise CommandSyntaxError(f"No such character: {args[1]}.")
             elif args[2].lower() == "create":
