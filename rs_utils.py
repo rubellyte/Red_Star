@@ -8,6 +8,7 @@ from io import BytesIO
 from pickle import Pickler, Unpickler
 from rs_errors import CommandSyntaxError
 import argparse
+from random import randint
 
 
 class DotDict(dict):
@@ -389,3 +390,106 @@ def is_positive(string):
     else:
         raise CommandSyntaxError("Expected positive/negative input. Allowed inputs: off/disable/no/negative/false, "
                                  "on/enable/yes/affirmatie/true.")
+
+
+def parse_roll(dicestr, roll=None):
+    dice_data = re.search(r"^(\d*)d(\d+|f)([ad]?)", dicestr)
+    if dice_data:
+        # checking for optional dice number
+        if dice_data.group(1):
+            num_dice = min(max(int(dice_data.group(1)), 1), 10000)
+        else:
+            num_dice = 1
+        # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
+        if dice_data.group(2) != 'f':
+            def roll_function(): return randint(1, min(max(int(dice_data.group(2)), 2), 10000))
+        else:
+            def roll_function(): return randint(1, 3) - 2
+        t_adv = dice_data.group(3)
+        dice_set_a = [roll_function() for _ in range(num_dice)]
+        dice_set_b = [roll_function() for _ in range(num_dice)]
+        if t_adv == "a":
+            rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
+        elif t_adv == "d":
+            rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
+        else:
+            rolled_dice = dice_set_a
+        if roll is not None:
+            roll.append(f"{dice_data.string:5} - {sum(rolled_dice):2d} {rolled_dice} ")
+        return rolled_dice
+    else:
+        try:
+            return int(dicestr)
+        except ValueError:
+            return dicestr
+
+
+def parse_tokens(tokens, roll=None):
+    """
+    Function that runs over a list and processes tokens.
+    Runs repeatedly to support nested :dn expressions like d6:d6:d6 and 1:d6+1
+    No need to sanitize tokens inside here since the initial rollstring parse only grabs what fits the regexp.
+    :param tokens:
+    :param roll:
+    :return:
+    """
+    t_tokens = [sum(t) if type(t) == list else t for t in tokens]
+
+    # improved :dn support to allow repeated parsing (since the regex nature of :dn makes it hard to prioritize
+    rerun = True
+    while rerun:
+        rerun = False
+        for i in range(len(t_tokens))[::-1]:
+            try:
+                if t_tokens[i] == '*':
+                    t_tokens[i - 1:i + 2] = [t_tokens[i - 1] * t_tokens[i + 1]]
+                elif t_tokens[i] == "/":
+                    t_tokens[i - 1:i + 2] = [t_tokens[i - 1] / t_tokens[i + 1]]
+                elif t_tokens[i] == "+":
+                    t_tokens[i - 1:i + 2] = [t_tokens[i - 1] + t_tokens[i + 1]]
+                elif t_tokens[i] == "-":
+                    if type(t_tokens[i-1]) in [int, float]:  # it may just be denoting the number to be negative
+                        t_tokens[i - 1:i + 2] = [t_tokens[i - 1] - t_tokens[i + 1]]
+                    else:
+                        t_tokens[i:i+2] = [-t_tokens[i+1]]
+                elif type(t_tokens[i]) == str and re.match(':d[\df]+', t_tokens[i]):
+                    if type(t_tokens[i-1]) == int:
+                        t_tokens[i-1:i+1] = [sum(parse_roll(f"{t_tokens[i-1]}{t_tokens[i][1:]}", roll=roll))]
+                    else:
+                        rerun = True
+            except IndexError:
+                del t_tokens[i]
+            except TypeError:
+                rerun = True
+
+    return t_tokens
+
+
+def parse_roll_string(string):
+    """
+    Function to parse the roll notation string.
+    Splits the string into tokens with initial conversion of dice into results, then iterates over it.
+    To support brackets, the function finds all the opening brackets and evaluates the tokens until the closest
+    closing bracket, starting from the furthest opening bracket down the line.
+    :param string:
+    :return:
+    """
+    args = re.sub(r"\)([\dd])", ")*\1", string)
+    rolled_dice = []
+    tokens = list(map(lambda x: parse_roll(x, roll=rolled_dice),
+                      re.findall(r':d[\df]+|\d*d[\df]+[ad]?|[+\-*/()]|\d+', args)))
+    brackets = [p for p, t in enumerate(tokens) if t == '('][::-1]
+    for o_br in brackets:
+        try:
+            c_br = o_br + tokens[o_br:].index(')')
+            if c_br-o_br == 1:
+                del tokens[c_br]
+                del tokens[o_br]
+            else:
+                r = parse_tokens(tokens[o_br+1:c_br], roll=rolled_dice)
+                tokens[o_br:c_br+1] = [r[0]]
+
+        except ValueError:
+            tokens.pop(o_br)
+
+    return parse_tokens(tokens, roll=rolled_dice), rolled_dice

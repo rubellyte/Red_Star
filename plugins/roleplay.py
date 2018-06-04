@@ -3,7 +3,8 @@ import json
 import shlex
 from random import randint
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json
+from rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json, parse_roll_string, \
+    RSArgumentParser
 from command_dispatcher import Command
 from plugin_manager import BasePlugin
 from discord import Embed, File
@@ -36,52 +37,50 @@ class Roleplay(BasePlugin):
 
     @Command("Roll",
              doc="Rolls a specified amount of specified dice with specified bonus and advantage/disadvantage",
-             syntax="[number]D(die/F)[+/-bonus][A/D]",
+             syntax="[number]D(die/F)[A/D][+/-bonus]",
              category="role_play",
              run_anywhere=True)
     async def _roll(self, msg):
-        args = msg.content.split(" ", 1)
+        args = msg.content.split()
         if len(args) < 2:
             raise CommandSyntaxError("Requires one argument.")
-        dice_data = re.search(r"(\d+|)d(\d+|f)(\+\d+|-\d+|)(a|d|)", args[1].lower())
-        if dice_data:
-            # checking for optional dice number
-            if dice_data.group(1):
-                num_dice = min(max(int(dice_data.group(1)), 1), 10000)
+
+        parser = RSArgumentParser()
+
+        parser.add_argument('command')
+        parser.add_argument('rollstring', nargs='+')
+        parser.add_argument('-v', '--verbose', action='count', default=0)
+        args = parser.parse_args(args)
+
+        results, rolls = parse_roll_string(' '.join(args['rollstring']))
+
+        if args['verbose'] > 1:
+            await split_output(msg, f"**ANALYSIS: {msg.author.display_name} has attempted a "
+                                    f"{' '.join(args['rollstring']).upper()} "
+                                    f"roll, getting {sum(results)}.\nANALYSIS: Rolled dice:**", rolls)
+        elif args['verbose'] == 1:
+            t_string = f"{' '.join(args['rollstring'])}\n" + "\n\n".join(rolls)
+            await respond(msg, f"**ANALYSIS: {msg.author.display_name} has attempted a {' '.join(args['rollstring']).upper()} "
+                               f"roll, getting {sum(results)}.\nANALYSIS: Rolled dice:**\n",
+                          file=File(BytesIO(bytes(t_string, encoding="utf-8")), filename=f'ROLL.txt'))
+        else:
+            if rolls:
+                t_string = f"**ANALYSIS: {msg.author.display_name} has attempted a {' '.join(args['rollstring']).upper()}" \
+                           f" roll, getting {sum(results)}.\nANALYSIS: Rolled dice:** ```\n"
+                if len(rolls[0])+len(t_string) <= 1996:
+                    for r in rolls:
+                        if len(t_string) + len(r) > 1996:
+                            t_string += r[:1993-len(t_string)]+'...'
+                            break
+                        else:
+                            t_string += r + '\n'
+                    t_string += '```'
+                else:
+                    t_string += rolls[0][:1990-len(t_string)]+'...\n```'
+                await respond(msg, t_string)
             else:
-                num_dice = 1
-            # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
-            if dice_data.group(2) != 'f':
-                die_sides = min(max(int(dice_data.group(2)), 2), 10000)
-                def roll_function(): return randint(1, die_sides)
-            else:
-                die_sides = "F"
-                def roll_function(): return randint(1, 3) - 2
-            if dice_data.group(3):
-                modif = int(dice_data.group(3))
-                modif_str = f" with a {'+' if modif > 0 else ''}{modif} modifier"
-            else:
-                modif = 0
-                modif_str = ""
-            t_adv = dice_data.group(4)
-            dice_set_a = [roll_function() for _ in range(num_dice)]
-            dice_set_b = [roll_function() for _ in range(num_dice)]
-            if t_adv == "a":
-                rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
-                advstr = "an advantageous"
-            elif t_adv == "d":
-                rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
-                advstr = "a disadvantageous"
-            else:
-                rolled_dice = dice_set_a
-                advstr = "a"
-            rolled_sum = sum(rolled_dice) + modif
-            dicestr = "] [".join(map(str, rolled_dice))
-            dicestr = f"[{dicestr}]"
-            await respond(msg,
-                          f"**ANALYSIS: {msg.author.display_name} has attempted {advstr} "
-                          f"{num_dice}D{die_sides} roll{modif_str}, getting {rolled_sum}.**\n"
-                          f"**ANALYSIS: Rolled dice:** `{dicestr}`")
+                await respond(msg, f"**ANALYSIS: expression {' '.join(args['rollstring']).upper()} evaluated. "
+                                   f"Result: {results}**")
 
     @Command("RaceRole",
              doc="Adds or removes roles from the list of race roles that are searched by the bio command.",
@@ -507,7 +506,8 @@ class Roleplay(BasePlugin):
         with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
             json.dump(self.bios, f, indent=2, ensure_ascii=False)
 
-    def _sanitise_name(self, name):
+    @staticmethod
+    def _sanitise_name(name):
         # remove leading/trailing whitespace, inner whitespace limited to one character, no newlines
         # SPECIALISED FUNCTION, meant to handle the empty names
         name = re.sub(r"^\s+|\s+$|\n|\r", "", name)
