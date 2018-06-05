@@ -82,9 +82,11 @@ class MOTD(BasePlugin):
                 lines += motds.get(month, {}).get("Any", [])
                 lines += motds.get(month, {}).get(day, [])
                 lines += motds.get(month, {}).get(weekday, [])
-                line = choice(lines)
                 try:
+                    line = choice(lines)
                     line = today.strftime(line)
+                except IndexError:
+                    continue
                 except ValueError:
                     pass
                 await chan.send(line)
