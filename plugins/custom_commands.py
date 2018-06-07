@@ -590,8 +590,6 @@ class CustomCommands(BasePlugin):
         else:
             env = self._env(msg)
 
-            print(env)
-
             ccdat = self.ccs[gid][cmd]["content"]
             try:
                 res = lisp_eval(parse(ccdat), env)
