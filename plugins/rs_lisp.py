@@ -31,7 +31,7 @@ _access = '>>'
 _while = 'while'
 _print = 'print'
 
-escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\\n", "\uff02", "\n"))
+escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"))
 
 
 def l_escape(string: str) -> str:
@@ -47,7 +47,7 @@ def l_restore(string: str) -> str:
 
 
 def tokenize(string: str) -> list:
-    return re.findall(r"(?:\").*?(?:\")|\(|\)|[^()\" ]+", l_escape(string))
+    return re.findall(r"(?:\").*?(?:\")|\(|\)|[^()\" ]+", l_escape(string), re.DOTALL)
 
 
 def parse(program: str):
@@ -59,7 +59,7 @@ def read_from_tokens(tokens):
         raise CustomCommandSyntaxError('unexpected EOF while reading')
     token = tokens.pop(0)
 
-    if re.match(r'\".*\"', token):
+    if re.match(r'\".*\"', token, re.DOTALL):
         return ['quote', l_restore(token[1:-1])]
 
     elif '(' == token:
