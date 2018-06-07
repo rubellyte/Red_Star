@@ -178,7 +178,7 @@ class MusicPlayer(BasePlugin):
             t_loop = asyncio.get_event_loop()
             try:
                 t_entries, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
-                    "ytdl_options"], before_options=before_args)
+                    "ytdl_options"], before_options=before_args, options="-filter:a loudnorm")
             except youtube_dl.utils.DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
@@ -298,7 +298,7 @@ class MusicPlayer(BasePlugin):
                                                                                  "1 -reconnect_delay_max 30"
             try:
                 t_sources, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
-                    "ytdl_options"], before_options=before_args)
+                    "ytdl_options"], before_options=before_args, options="-filter:a loudnorm")
             except youtube_dl.utils.DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
