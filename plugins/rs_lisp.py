@@ -12,7 +12,6 @@ Symbol = str
 Number = (int, float)
 List = list
 
-
 _args = 'args'
 _quote = 'quote'
 _if = 'if'
@@ -30,6 +29,7 @@ _pass = 'pass'
 _access = '>>'
 _while = 'while'
 _print = 'print'
+_try = 'try'
 
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"))
 
@@ -211,7 +211,7 @@ def _assert(var, vartype, *opt):
             raise CustomCommandSyntaxError(f'assertion error: {var} is not a valid {vartype}')
 
 
-def transcode(string:str, *args):
+def transcode(string: str, *args):
     if len(args) == 0:
         return string
     elif len(args) == 1:
@@ -250,7 +250,7 @@ def transcode(string:str, *args):
             "sbancient": ""
         }
         if args[0].lower() == 'help':
-            return "```\nAVAILABLE TRANSCODINGS:\n" + "\n".join(alt_code.keys())+"```"
+            return "```\nAVAILABLE TRANSCODINGS:\n" + "\n".join(alt_code.keys()) + "```"
         elif args[0].lower() not in alt_code:
             raise CustomCommandSyntaxError(f"{args[0].lower()} is not a supported transcoding. Use (transcode "
                                            f"\"help\") to get a list of available transcodings.")
@@ -301,6 +301,9 @@ def standard_env():
         'symbol?': lambda x: isinstance(x, Symbol),
         'assert': _assert,
         'f': lambda *x: "".join(map(str, x)),
+
+        'int': int,
+        'float': float,
 
         'resub': re.sub,
         'rematch': re.match,
@@ -420,7 +423,7 @@ def lisp_eval(x, env=global_env):
             (_, test, conseq, alt) = x
             exp = (conseq if lisp_eval(test, env) else alt)
             return lisp_eval(exp, env)
-        elif x[0] in [_define,_def]:  # definition
+        elif x[0] in [_define, _def]:  # definition
             (_, var, exp) = x
             env[var] = lisp_eval(exp, env)
         elif x[0] == _set:  # assignment
@@ -450,11 +453,20 @@ def lisp_eval(x, env=global_env):
         elif x[0] == _while:  # while loop
             while lisp_eval(x[1], env):
                 lisp_eval(x[2], env)
-        elif x[0] == _print:
+        elif x[0] == _print:  # prints into "output" variable
             try:
                 env.find('output')['output'] += f'{" ".join(x[1:])}\n'
             except IndexError:
                 env.find('output')['output'] += '\n'
+        elif x[0] == _try:  # (try (body) (except)) - returns result of body if successful or evaluates except if not
+            expr, *args = x[1:]
+            try:
+                return lisp_eval(expr, env)
+            except Exception as e:
+                if len(args) >= 1:
+                    return lisp_eval(args[0], env)
+                else:
+                    return e
         else:  # procedure call
             proc = lisp_eval(x[0], env)
             if isinstance(x[0], str) and x[0].startswith('make-'):
