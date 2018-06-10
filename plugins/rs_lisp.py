@@ -5,6 +5,7 @@ import operator as op
 import re
 import random
 import datetime
+from collections import OrderedDict
 from rs_errors import CustomCommandSyntaxError, CommandSyntaxError
 from rs_utils import is_positive
 
@@ -150,7 +151,7 @@ def foldl(combine, acc, lst):
 
 def get_args(args: list) -> (list, dict):
     t_list = [*args]
-    t_dict = {}
+    t_dict = OrderedDict()
     for n, a in [*enumerate(t_list)][::-1]:
         if type(a) == str and a.startswith(':'):
             try:
@@ -158,7 +159,7 @@ def get_args(args: list) -> (list, dict):
             except IndexError:
                 raise CustomCommandSyntaxError(f"supplied argument {a} given without value")
             del t_list[n]
-    return t_list, t_dict
+    return t_list, OrderedDict(reversed(t_dict.items()))
 
 
 def _str(*args):
