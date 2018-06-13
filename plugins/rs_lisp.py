@@ -456,7 +456,7 @@ def lisp_eval(x, env=global_env):
                 lisp_eval(x[2], env)
         elif x[0] == _print:  # prints into "output" variable
             try:
-                env.find('output')['output'] += f'{" ".join(x[1:])}\n'
+                env.find('output')['output'] += f'{" ".join(map(lambda y: str(lisp_eval(y,env)), x[1:]))}\n'
             except IndexError:
                 env.find('output')['output'] += '\n'
         elif x[0] == _try:  # (try (body) (except)) - returns result of body if successful or evaluates except if not

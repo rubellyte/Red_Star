@@ -2,6 +2,7 @@ import random
 import json
 import datetime
 import math
+import re
 from asyncio import ensure_future, sleep
 from plugin_manager import BasePlugin
 import discord.utils
@@ -142,6 +143,9 @@ class CustomCommands(BasePlugin):
                             t_count >= self.plugin_config[gid].get("cc_limit", 100):
                 raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
             try:
+                if not re.match(r"^\s*\(.*\)\s*$", content):
+                    content = content.replace('"', '\\"')
+                    content = f'"{content}"'
                 parse(content)
             except Exception as err:
                 await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
@@ -486,10 +490,10 @@ class CustomCommands(BasePlugin):
         except Exception as e:
             await respond(msg, f"**WARNING: Runtime error in custom command:** {e}")
         else:
-            if result:
-                await respond(msg, str(result))
-            elif env['output']:
+            if env['output']:
                 await respond(msg, str(env['output']))
+            elif result:
+                await respond(msg, str(result))
 
     async def _rm_msg(self, msg):
         await sleep(1)
@@ -604,10 +608,10 @@ class CustomCommands(BasePlugin):
                 self.logger.exception("Exception occurred in custom command: ", exc_info=True)
                 await respond(msg, f"**WARNING: An error occurred while running the custom command: {err}**")
             else:
-                if res:
-                    await respond(msg, res)
-                elif env['output']:
+                if env['output']:
                     await respond(msg, env['output'])
+                elif res:
+                    await respond(msg, str(res))
                 self.ccs[gid][cmd]["times_run"] += 1
                 self._save_ccs()
 
