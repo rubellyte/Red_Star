@@ -19,6 +19,7 @@ class Voting(BasePlugin):
         _e_a = dict(zip(_emo, _abc))
 
         message = None  # message that contains the voting options
+        author = None  # author ID (we don't really need anything else)
         id = 0  # message.id, for speed
         hid = ""  # human-readable ID
         votes = None  # dict of lists of options voted for - member.id : ["a", "b", "c"]
@@ -29,13 +30,14 @@ class Voting(BasePlugin):
         active = False
         over = False
 
-        def __init__(self, msg, hid=None, vote_limit=1):
+        def __init__(self, msg, hid=None, vote_limit=1, author=None):
             """
             :type msg:discord.Message
             :param msg:
             :param hid:
             """
             self.message = msg
+            self.author = author
             self.id = msg.id
             self.hid = hid if hid else str(msg.id)
             self.votes = {}
@@ -110,10 +112,11 @@ class Voting(BasePlugin):
             self.polls[gid] = {}
 
         if len(args) == 1:
-            t_poll = self.Poll(await respond(msg, "**Generating poll message.**"))
+            t_poll = self.Poll(await respond(msg, "**Generating poll message.**"), author=msg.author.id)
             # self.polls[gid].append(self.Poll(await respond(msg, "**Generating poll message.**")))
         else:
-            t_poll = self.Poll(await respond(msg, "**Generating poll message.**"), args[1].lower())
+            t_poll = self.Poll(await respond(msg, "**Generating poll message.**"), args[1].lower(),
+                               author=msg.author.id)
             # self.polls[gid].append(self.Poll(await respond(msg, "**Generating poll message.**"), args[1].lower()))
         if len(args) > 2:
             t_poll.setquery(args[2])
@@ -136,6 +139,10 @@ class Voting(BasePlugin):
                           if c.hid == args[1].lower() or str(c.id) == args[1]]
             results = []
             for k, c in candidates:
+                if c.author != msg.author.id and \
+                                msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
+                        not msg.channel.permissions_for(msg.author).manage_messages:
+                    continue
                 max_votes = sorted(c.vote_count.items(), key=lambda x: x[1]).pop()[1]
                 winners = '\n'.join(c.options[k] for k, v in c.vote_count.items() if v == max_votes)
                 results.append(f'Query: {c.query}. With {max_votes} votes, leading results:\n{winners}')
