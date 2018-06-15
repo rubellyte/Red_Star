@@ -263,7 +263,7 @@ def standard_env(*_, **kwargs):
         'cdr': lambda x: x[1:],
         'cons': lambda x, y: [x] + y,
         'is': op.is_,
-        'in': lambda x, y: x in y,
+        'in': op.contains,
         'len': len,
         'list': lambda *x: list(x),
         'l': lambda *x: list(x),
