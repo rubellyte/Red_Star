@@ -102,6 +102,10 @@ class Voting(BasePlugin):
     @Command("StartVote",
              syntax="(HID) (Query) [Questions, up to 20] [-1/--question, up to 20] [-v/vote_limit, integer, "
                     "0 for no limit] [-n/--no_retracting, to disallow removing votes]",
+             doc="Starts a new vote, with provided Human-readableID, Query and Questions.\n"
+                 "Use -v to allow users to vote for more than one option and -n to prevent users from changing their mind.\n"
+                 "Uses shlex for splitting, so multiple words can be wrapped into \"\".\n"
+                 "HID is used to interact with the poll through other commands, keep it one word.",
              run_anywhere=True)
     async def _startvote(self, msg: Message):
         """
@@ -140,9 +144,12 @@ class Voting(BasePlugin):
         t_poll.active = True
         self.polls[gid][t_poll.message.id] = t_poll
 
-    @Command("EndVote", run_anywhere=True)
+    @Command("EndVote", run_anywhere=True,
+             syntax="(HID)",
+             doc="Ends the given vote. You must be the creator of the vote to end it.\n"
+                 "Alternatively, you must have manage_messages permission or be a bot maintainer.")
     async def _endvote(self, msg: Message):
-        args = shlex.split(msg.clean_content)
+        args = msg.clean_content.split(maxsplit=1)
         gid = str(msg.guild.id)
 
         if gid not in self.polls:
@@ -169,7 +176,10 @@ class Voting(BasePlugin):
         else:
             raise CommandSyntaxError("WARNING: Poll HID or ID required")
 
-    @Command("Vote", "UpVote", "DownVote", run_anywhere=True, delcall=True)
+    @Command("Vote", "UpVote", "DownVote", run_anywhere=True, delcall=True,
+             syntax="(hid) (option, single letter from a to t)",
+             doc="Allows users to vote without using reactions.\n"
+                 "Use \"DownVote\" variant to remove your vote, if possible.")
     async def _vote(self, msg: Message):
         args = shlex.split(msg.clean_content)
         gid = str(msg.guild.id)
