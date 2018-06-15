@@ -1,18 +1,20 @@
-import re
 import random
 import json
 import datetime
 import math
+import re
 from asyncio import ensure_future, sleep
 from plugin_manager import BasePlugin
 import discord.utils
 from io import BytesIO
 
 from rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from rs_utils import respond, DotDict, find_user, is_positive
+from rs_utils import respond, DotDict, find_user
 from command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
+
+from plugins.rs_lisp import lisp_eval, parse, standard_env, get_args
 
 
 class CustomCommands(BasePlugin):
@@ -22,55 +24,11 @@ class CustomCommands(BasePlugin):
         "default": {
             "cc_prefix": "!!",
             "cc_limit": 25
-        }
+        },
+        "rslisp_max_runtime": 5
     }
 
     async def activate(self):
-        self.tags = {
-            "args": self._args,
-            "username": self._username,
-            "usernick": self._usernick,
-            "usermention": self._usermention,
-            "authorname": self._authorname,
-            "authornick": self._authornick,
-            "if": self._if,
-            "not": self._not,
-            "getvar": self._getvar,
-            "setvar": self._setvar,
-            "equals": self._equals,
-            "match": self._match,
-            "choice": self._choice,
-            "contains": self._contains,
-            "isempty": self._isempty,
-            "hasrole": self._hasrole,
-            "upper": self._upper,
-            "lower": self._lower,
-            "random": self._random,
-            "wrandom": self._wrandom,
-            "randint": self._randint,
-            "delcall": self._delcall,
-            "embed": self._embed,
-            "noembed": self._noembed,
-            "transcode": self._transcode,
-            "replace": self._replace,
-            "resub": self._resub,
-            "rpn": self._rpn,
-            "assert": self._assert,
-            "time": self._time,
-            "roll": self._roll
-        }
-        v_tags = {
-            "args": self._valid_args,
-            "username": self._valid_username,
-            "usernick": self._valid_username,
-            "choice": self._valid_choice,
-            "random": self._valid_random,
-            "randint": self._valid_randint,
-            "embed": self._valid_embed
-        }
-        self.validator_tags = self.tags.copy()
-        self.validator_tags.update(v_tags)
-        self.ccvars = {}
         try:
             with open(self.plugin_config.cc_file, "r", encoding="utf8") as f:
                 self.ccs = json.load(f)
@@ -103,7 +61,9 @@ class CustomCommands(BasePlugin):
                                                          f" {msg.channel.mention} by: {msg.author.display_name}**",
                                                          log_type="cc_event")
                     return
+
                 cmd = cnt[len(deco):].split()[0].lower()
+
                 if gid not in self.ccs:
                     self.ccs[gid] = {}
                 if cmd in self.ccs[gid]:
@@ -181,10 +141,14 @@ class CustomCommands(BasePlugin):
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
                     not msg.author.permissions_in(msg.channel).manage_messages and \
-                    t_count >= self.plugin_config[gid].get("cc_limit", 100):
+                            t_count >= self.plugin_config[gid].get("cc_limit", 100):
                 raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
-            valid, err = self.validate_cc(content, msg)
-            if not valid:
+            try:
+                if not re.match(r"^\s*\(.*\)\s*$", content):
+                    content = content.replace('"', '\\"')
+                    content = f'"{content}"'
+                parse(content)
+            except Exception as err:
                 await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
                 return
             newcc = {
@@ -262,8 +226,9 @@ class CustomCommands(BasePlugin):
         if name in self.ccs[gid]:
             ccdata = self.ccs[gid][name]
             if ccdata["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
-                valid, err = self.validate_cc(content, msg)
-                if not valid:
+                try:
+                    parse(content)
+                except Exception as err:
                     await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
                     return
                 ccdata["content"] = content
@@ -494,7 +459,7 @@ class CustomCommands(BasePlugin):
                 t_string = "```" + t_s
         await respond(msg, t_string + "```")
 
-    @Command("rpn",
+    @Command("RPN",
              doc="Calculates an expression in extended reverse polish notation.\n"
                  "Binary operators: +, -, *, /, ^ (power), % (modulo), // (integer division), atan2, swap (swaps "
                  "two numbers in stack), log.\n"
@@ -504,611 +469,32 @@ class CustomCommands(BasePlugin):
              run_anywhere=True)
     async def _rpncmd(self, msg):
         t_str = " | ".join([str(x) for x in self._parse_rpn(msg.content)])
-        await respond(msg, "**Result : [ "+t_str+" ]**")
+        await respond(msg, "**Result : [ " + t_str + " ]**")
 
-    # Custom command machinery
+        # Custom command machinery
 
-    def validate_cc(self, cc, msg):
+    @Command("EvalCC",
+             doc="Evaluates the given string through RSLisp cc parser.",
+             syntax="(custom command)",
+             run_anywhere=True,
+             category="custom_commands",
+             perms={"manage_messages"})
+    async def _evalcc(self, msg):
+        program = msg.content.split(None, 1)[1]
         try:
-            res = self._find_tags(cc, msg, validate=True)
-        except CustomCommandSyntaxError as e:
-            return False, str(e)
-        if len(res) > 2000:
-            return False, "Custom command output exceeds 2000 characters."
-        return True, ""
-
-    async def run_cc(self, cmd, msg):
-        gid = str(msg.guild.id)
-        if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
-            await respond(msg, f"**WARNING: Custom command {cmd} is locked.**")
-        else:
-            ccdat = self.ccs[gid][cmd]["content"]
-            try:
-                res = self._find_tags(ccdat, msg)
-            except CustomCommandSyntaxError as e:
-                err = e if e else "Syntax error."
-                await respond(msg, f"**WARNING: Author made syntax error: {err}**")
-            except CommandSyntaxError as e:
-                err = e if e else "Syntax error."
-                await respond(msg, f"**WARNING: {err}**")
-            except Exception:
-                self.logger.exception("Exception occurred in custom command: ", exc_info=True)
-                await respond(msg, "**WARNING: An error occurred while running the custom command.**")
-            else:
-                if res:
-                    await respond(msg, res)
-                else:
-                    self.logger.warning(f"CC {cmd} of {str(msg.guild)} returns nothing!")
-                self.ccvars = {}
-                self.ccs[gid][cmd]["times_run"] += 1
-                self._save_ccs()
-
-    def _save_ccs(self):
-        with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
-            json.dump(self.ccs, f, indent=2, ensure_ascii=False)
-
-    def _find_tags(self, text, msg, validate=False):
-        """
-        Finds and processes tags, right-to-left, starting from the deepest ones.
-        :param text: text of the custom command
-        :param msg: message that summoned the custom command
-        :return:
-        """
-        t_str = text[::-1]
-
-        # find all the closing brackets
-        # the algorithm runs in reverse now to parse in the right direction.
-
-        # check that the brackets match
-        c_o = t_str.count('<')
-        c_c = t_str.count('>')
-        if c_o > c_c:
-            # not enough closing brackets
-            raise CustomCommandSyntaxError("Missing closing bracket!")
-        elif c_c > c_o:
-            # too many closing brackets
-            raise CustomCommandSyntaxError("Missing opening bracket!")
-
-        # find all the positions of '>' and reverse the list
-        t_res = [p for p, t in enumerate(t_str) if t == '>'][::-1]
-
-        for t_pos in t_res:
-            # find closest opening bracket
-            e_pos = t_str[t_pos:].find("<") + t_pos
-            # replace chunk of text with the parsed result
-            t_str = t_str[:t_pos] + self._parse_tag(t_str[t_pos + 1:e_pos][::-1], msg, validate)[::-1]\
-                + t_str[e_pos + 1:]
-
-        return t_str[::-1]
-
-    def _parse_tag(self, tag, msg, validate=False):
-        args = tag.split(":", 1)
-        tag = args.pop(0)
-        args = " ".join(args)
-        if tag.lower() in self.tags:
-            if validate:
-                return self.validator_tags[tag](args, msg)
-            else:
-                return self.tags[tag](args, msg)
-        elif tag.lower() in self.ccvars:
-            return self.ccvars[tag.lower()]
-        else:
-            raise CustomCommandSyntaxError(f"No such tag {tag}!")
-
-    def _split_args(self, argstr):
-        args = re.split(r"(?<!\\);", argstr.replace('\\\\', '\uff0f'))
-        return [x.replace("\\;", ";").replace('\uff0f', '\\') for x in args]
-
-    # CC argument tag functions
-
-    def _args(self, args, msg):
-        split_args = msg.clean_content.split(" ")[1:]
-        if args.isdecimal():
-            try:
-                i = int(args) - 1
-                return split_args[i]
-            except ValueError:
-                raise CustomCommandSyntaxError("<args> argument is not an integer, slice or wildcard!")
-            except IndexError:
-                return ""
-        elif args == "*":
-            return " ".join(split_args)
-        elif args.startswith("*"):
-            try:
-                i = int(args[1:])
-            except ValueError:
-                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
-            return " ".join(split_args[:i])
-        elif args.endswith("*"):
-            try:
-                i = int(args[:-1]) - 1
-            except ValueError:
-                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
-            return " ".join(split_args[i:])
-        else:
-            raise CustomCommandSyntaxError("<args> argument is not a number or *!")
-
-    def _username(self, _, msg):
-        return msg.author.name
-
-    def _usernick(self, _, msg):
-        return msg.author.display_name
-
-    def _usermention(self, _, msg):
-        return msg.author.mention
-
-    def _authorname(self, _, msg):
-        gid = str(msg.guild.id)
-        author = self.ccs[gid][msg.clean_content.split()[0][len(self.plugin_config[gid].cc_prefix):]]["author"]
+            program = parse(program)
+        except Exception as e:
+            await respond(msg, f"**WARNING: Syntax error in custom command:** {e}")
         try:
-            return discord.utils.get(msg.guild.members, id=author).name
-        except AttributeError:
-            return "<Unknown user>"
-
-    def _authornick(self, _, msg):
-        gid = str(msg.guild.id)
-        author = self.ccs[gid][msg.clean_content.split()[0][len(self.plugin_config[gid].cc_prefix):]]["author"]
-        try:
-            return discord.utils.get(msg.guild.members, id=author).display_name
-        except AttributeError:
-            return "<Unknown user>"
-
-    def _if(self, args, _):
-        args = self._split_args(args)
-        if args[0] == "true":
-            return args[1]
+            env = self._env(msg)
+            result = lisp_eval(program, env)
+        except Exception as e:
+            await respond(msg, f"**WARNING: Runtime error in custom command:** {e}")
         else:
-            return args[2]
-
-    def _equals(self, args, _):
-        args = self._split_args(args)
-        return str(all(i == args[0] for i in args[1:])).lower()
-
-    def _match(self, args, _):
-        args = self._split_args(args)
-        return str(any(i == args[0] for i in args[1:])).lower()
-
-    def _not(self, args, _):
-        if args == "true":
-            return "false"
-        else:
-            return "true"
-
-    def _getvar(self, args, _):
-        if args.lower() in self.ccvars:
-            return self.ccvars[args.lower()]
-        else:
-            raise CustomCommandSyntaxError(f"No such variable {args.lower()}.")
-
-    def _setvar(self, args, _):
-        var, val = self._split_args(args)[0:2]
-        self.ccvars[var.lower()] = val
-        return ""
-
-    def _contains(self, args, _):
-        args = self._split_args(args)
-        for test in args[1:]:
-            if test in args[0]:
-                return "true"
-        return "false"
-
-    def _choice(self, args, _):
-        args = self._split_args(args)
-        try:
-            index = int(args[0])
-        except ValueError:
-            raise CommandSyntaxError("First argument to <choice> must be integer.")
-        except IndexError:
-            raise CustomCommandSyntaxError("<choice> requires at least one argument!")
-        try:
-            return args[index]
-        except IndexError:
-            raise CommandSyntaxError(f"<choice> does not have an argument at index {index}")
-
-    def _isempty(self, args, _):
-        if len(args) == 0:
-            return "true"
-        else:
-            return "false"
-
-    def _hasrole(self, args, msg):
-        args = self._split_args(args)
-        roles = [x.name.lower() for x in msg.author.roles]
-        for r in args:
-            if r.lower() in roles:
-                return "true"
-        return "false"
-
-    def _upper(self, args, _):
-        return args.upper()
-
-    def _lower(self, args, _):
-        return args.lower()
-
-    def _random(self, args, _):
-        return random.choice(self._split_args(args))
-
-    def _wrandom(self, args, _):
-        """
-        Weighted random .choice implementation.
-        """
-        args = self._split_args(args)
-        choices = []
-        for arg in args:
-            t_arg = list(map(lambda x: x.replace("\uffff", "="), arg.replace("\\=", "\uffff").split("=")))
-            if len(t_arg) > 1:
-                try:
-                    choices.append((t_arg[0], int(t_arg[1])))
-                except ValueError:
-                    raise CustomCommandSyntaxError(f"<wrandom> weight of item \"{t_arg[0]}\" not an integer.")
-            else:
-                raise CustomCommandSyntaxError(f"<wrandom> invalid item=weight pair \"{arg}\".")
-        total = sum(w for c, w in choices)
-        r = random.uniform(0, total)
-        for c, w in choices:
-            if r <= w:
-                return c
-            else:
-                r -= w
-        else:
-            raise CustomCommandSyntaxError("<wrandom> something went horribly wrong")
-
-    def _randint(self, args, _):
-        args = self._split_args(args)
-        try:
-            a = int(args[0])
-        except IndexError:
-            raise CustomCommandSyntaxError("<randint> requires at least one argument.")
-        except ValueError:
-            raise CommandSyntaxError("Arguments to <randint> must be integers.")
-        try:
-            b = int(args[1])
-        except IndexError:
-            b = 0
-        except ValueError:
-            raise CommandSyntaxError("Arguments to <randint> must be integers.")
-        if a > b:
-            a, b = b, a
-        return str(random.randint(a, b))
-
-    def _replace(self, args, _):
-        args = self._split_args(args)
-        if len(args) < 3:
-            raise CustomCommandSyntaxError(f"<replace> tag needs three arguments: text, from, to. Current arguments: "
-                                           f"{args}")
-        if len(args) > 3:
-            try:
-                t_int = max(int(args[3]), -1)
-            except ValueError:
-                raise CustomCommandSyntaxError("Fourth argument, limit, is supposed to be an integer.")
-        else:
-            t_int = -1
-        return args[0].replace(args[1], args[2], t_int)
-
-    def _resub(self, args, _):
-        args = self._split_args(args)
-        if len(args) < 3:
-            raise CustomCommandSyntaxError("<resub> tag needs three arguments: text, pattern, replace.")
-        return re.sub(args[1], args[2], args[0])
-
-    def _transcode(self, args, _):
-        def_code = "ABCDEFGHIJKLMabcdefghijklmNOPQRSTUVWXYZnopqrstuvwxyz"
-        alt_code = {
-            "rot13": "NOPQRSTUVWXYZnopqrstuvwxyzABCDEFGHIJKLMabcdefghijklm",
-            "circled": "ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ",
-            "circled_neg": "🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅐🅑🅒🅓🅔🅕🅖🅗🅘🅙🅚🅛🅜🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩🅝🅞🅟🅠🅡🅢🅣🅤🅥🅦🅧🅨🅩",
-            "fwidth": "ＡＢＣＤＥＦＧＨＩＪＫＬＭａｂｃｄｅｆｇｈｉｊｋｌｍＮＯＰＱＲＳＴＵＶＷＸＹＺｎｏｐｑｒｓｔｕｖｗｘｙｚ",
-            "mbold": "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳",
-            "mbolditalic": "𝑨𝑩𝑪𝑫𝑬𝑭𝑮𝑯𝑰𝑱𝑲𝑳𝑴𝒂𝒃𝒄𝒅𝒆𝒇𝒈𝒉𝒊𝒋𝒌𝒍𝒎𝑵𝑶𝑷𝑸𝑹𝑺𝑻𝑼𝑽𝑾𝑿𝒀𝒁𝒏𝒐𝒑𝒒𝒓𝒔𝒕𝒖𝒗𝒘𝒙𝒚𝒛",
-            "frakturbold": "𝕬𝕭𝕮𝕯𝕰𝕱𝕲𝕳𝕴𝕵𝕶𝕷𝕸𝖆𝖇𝖈𝖉𝖊𝖋𝖌𝖍𝖎𝖏𝖐𝖑𝖒𝕹𝕺𝕻𝕼𝕽𝕾𝕿𝖀𝖁𝖂𝖃𝖄𝖅𝖓𝖔𝖕𝖖𝖗𝖘𝖙𝖚𝖛𝖜𝖝𝖞𝖟",
-            "fraktur": "𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷",
-            "scriptbold": "𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃",
-            "script": "𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏",
-            "sans": "𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓",
-            "sansbold": "𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇",
-            "sansbolditalic": "𝘼𝘽𝘾𝘿𝙀𝙁𝙂𝙃𝙄𝙅𝙆𝙇𝙈𝙖𝙗𝙘𝙙𝙚𝙛𝙜𝙝𝙞𝙟𝙠𝙡𝙢𝙉𝙊𝙋𝙌𝙍𝙎𝙏𝙐𝙑𝙒𝙓𝙔𝙕𝙣𝙤𝙥𝙦𝙧𝙨𝙩𝙪𝙫𝙬𝙭𝙮𝙯",
-            "sansitalic": "𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻",
-            "parenthesized": "⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒜⒝⒞⒟⒠⒡⒢⒣⒤⒥⒦⒧⒨⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵⒩⒪⒫⒬⒭⒮⒯⒰⒱⒲⒳⒴⒵",
-            "doublestruck": "𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫",
-            "region": "🇦🇧🇨🇩🇪🇫🇬🇭🇮🇯🇰🇱🇲🇦🇧🇨🇩🇪🇫🇬🇭🇮🇯🇰🇱🇲🇳🇴🇵🇶🇷🇸🇹🇺🇻🇼🇽🇾🇿🇳🇴🇵🇶🇷🇸🇹🇺🇻🇼🇽🇾🇿",
-            "squared": "🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄰🄱🄲🄳🄴🄵🄶🄷🄸🄹🄺🄻🄼🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉🄽🄾🄿🅀🅁🅂🅃🅄🅅🅆🅇🅈🅉",
-            "squared_neg": "🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅰🅱🅲🅳🅴🅵🅶🅷🅸🅹🅺🅻🅼🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉🅽🅾🅿🆀🆁🆂🆃🆄🆅🆆🆇🆈🆉",
-            "subscript": "ₐBCDₑFGₕᵢⱼₖₗₘₐbcdₑfgₕᵢⱼₖₗₘₙₒₚQᵣₛₜᵤᵥWₓYZₙₒₚqᵣₛₜᵤᵥwₓyz",
-            "superscript": "ᴬᴮᶜᴰᴱᶠᴳᴴᴵᴶᴷᴸᴹᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᴺᴼᴾQᴿˢᵀᵁⱽᵂˣʸᶻⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻ",
-            "inverted": "ɐqɔpǝɟƃɥıɾʞןɯɐqɔpǝɟƃɥıɾʞןɯuodbɹsʇn𐌡ʍxʎzuodbɹsʇnʌʍxʎz",
-            "reversed": "AdↃbƎꟻGHIJK⅃MAdↄbɘꟻgHijklmᴎOꟼpᴙꙄTUVWXYZᴎoqpᴙꙅTUvwxYz",
-            "smallcaps": "ABCDEFGHIJKLMᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍNOPQRSTUVWXYZɴᴏᴩqʀꜱᴛᴜᴠᴡxyᴢ",
-            "weird1": "ልጌርዕቿቻኗዘጎጋጕረጠልጌርዕቿቻኗዘጎጋጕረጠክዐየዒዪነፕሁሀሠሸሃጊክዐየዒዪነፕሁሀሠሸሃጊ",
-            "weird2": "ДБҀↁЄFБНІЈЌLМаъсↁэfБЂіјкlмИФРQЯЅГЦVЩЖЧZиорqѓѕтцvшхЎz",
-            "weird3": "ค๒ƈɗﻉिﻭɦٱﻝᛕɭ๓ค๒ƈɗﻉिﻭɦٱﻝᛕɭ๓กѻρ۹ɼรՇપ۷ฝซץչกѻρ۹ɼรՇપ۷ฝซץչ",
-            "weird4": "αв¢∂єƒﻭнιנкℓмαв¢∂єƒﻭнιנкℓмησρ۹яѕтυνωχуչησρ۹яѕтυνωχуչ",
-            "weird5": "ค๒ς๔єŦﻮђเןкɭ๓ค๒ς๔єŦﻮђเןкɭ๓ภ๏קợгรՇยשฬאץչภ๏קợгรՇยשฬאץչ",
-            "weird6": "ﾑ乃cd乇ｷgんﾉﾌズﾚﾶﾑ乃cd乇ｷgんﾉﾌズﾚﾶ刀oｱq尺丂ｲu√wﾒﾘ乙刀oｱq尺丂ｲu√wﾒﾘ乙",
-            "sbancient": ""
-        }
-        t_args = self._split_args(args)
-        if t_args == [''] or len(t_args) < 2:
-            raise CustomCommandSyntaxError("<transcode> tag needs at least two arguments.")
-        t_str = t_args[0]
-        if len(t_args) == 2:
-            t_name = t_args[1].lower()
-            if t_name in alt_code:
-                tcode = str.maketrans(def_code, alt_code[t_name])
-                return t_str.translate(tcode)
-            else:
-                raise CustomCommandSyntaxError(f"{t_name} is not a supported transcoding.")
-        else:
-            if len(t_args[1]) == len(t_args[2]):
-                tcode = str.maketrans(t_args[1], t_args[2])
-                return t_str.translate(tcode)
-            else:
-                raise CustomCommandSyntaxError("To and From transcoding patterns must be the same length.")
-
-    def _delcall(self, _, msg):
-        ensure_future(self._rm_msg(msg))
-        return ""
-
-    def _embed(self, args, msg):
-        t_args = self._split_args(args)
-        if t_args == ['']:
-            raise CustomCommandSyntaxError("<embed> tag needs arguments in arg=val format.")
-        t_embed = Embed(type="rich", colour=16711680)
-        t_post = False
-        for arg in t_args:
-            t_arg = list(map(lambda x: x.replace("═", "="), arg.replace("\\=", "═").split("=")))
-            if len(t_arg) < 2:
-                continue
-            t_post = True
-            if t_arg[0].lower() == "!title":
-                t_embed.title = t_arg[1]
-            elif t_arg[0].lower() in ["!color", "!colour"]:
-                try:
-                    t_embed.colour = discord.Colour(int(t_arg[1], 16))
-                except ValueError:
-                    pass
-            elif t_arg[0].lower() == "!url":
-                t_embed.url = t_arg[1]
-            elif t_arg[0].lower() == "!thumbnail":
-                t_embed.set_thumbnail(url=t_arg[1])
-            elif t_arg[0].lower() == "!image":
-                t_embed.set_image(url=t_arg[1])
-            elif t_arg[0].lower() in ["!desc", "!description"]:
-                t_embed.description = t_arg[1]
-            elif t_arg[0].lower() == "!footer":
-                t_embed.set_footer(text=t_arg[1])
-            else:
-                t_name = t_arg[0]
-                t_val = t_arg[1]
-                if len(t_arg) > 2:
-                    t_inline = is_positive(t_arg[2])
-                else:
-                    t_inline = False
-                t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
-        if t_post:
-            ensure_future(respond(msg, None, embed=t_embed))
-        return ""
-
-    def _noembed(self, args, _):
-        return f"<{args}>"
-
-    def _rpn(self, args, _):
-        t_str = " ".join([str(x) for x in self._parse_rpn(args)])
-        return t_str
-
-    def _assert(self, args, _):
-        args = self._split_args(args)
-        if len(args) < 2:
-            raise CustomCommandSyntaxError("<assert> requires at least two arguments - type and input.")
-
-        default = None if len(args) < 3 else args[2]
-
-        args[0] = args[0].lower()
-
-        if args[0] == "int":
-            try:
-                int(args[1])
-            except ValueError:
-                if default:
-                    return default
-                else:
-                    raise CustomCommandSyntaxError(f"<assert> {args[1]} not a valid int.")
-            else:
-                return args[1]
-        elif args[0] == "float":
-            try:
-                float(args[1])
-            except ValueError:
-                if default:
-                    return default
-                else:
-                    raise CustomCommandSyntaxError(f"<assert> {args[1]} not a valid float.")
-            else:
-                return args[1]
-        elif args[0] == "tag":
-            if args[1].lower() in self.tags:
-                return args[1].lower()
-            elif default:
-                return default
-            else:
-                raise CustomCommandSyntaxError(f"<assert> {args[1]} not a valid tag.")
-        else:
-            raise CustomCommandSyntaxError(f"<assert> unsupported type {args[0]}.")
-
-    def _time(self, args, _):
-        args = self._split_args(args)
-        time = datetime.datetime.utcnow()
-
-        if args != ['']:
-            if not args[0]:
-                args[0] = "%Y-%m-%d @ %H:%M:%S"
-            if len(args) > 1:
-                o_time = re.match(r"(?P<h>-?\d*):(?P<m>-?\d*):(?P<s>-?\d*)", args[1])
-                if o_time:
-                    o_time = o_time.groupdict()
-                    delta = datetime.timedelta(hours=int(o_time['h']) if o_time['h'] else 0,
-                                               minutes=int(o_time['m']) if o_time['m'] else 0,
-                                               seconds=int(o_time['s']) if o_time['s'] else 0)
-                else:
-                    raise CustomCommandSyntaxError(f"<time> invalid offset string \"{args[1]}\". "
-                                                   f"Please use H:M:S format.")
-            else:
-                delta = datetime.timedelta()
-            time = time + delta
-            return time.strftime(args[0])
-        else:
-            return time.strftime("%Y-%m-%d @ %H:%M:%S")
-
-    def _roll(self, args, _):
-        args = self._split_args(args)
-        verbose = ['v', 'verbose', 'list']
-
-        if args == ['']:
-            raise CustomCommandSyntaxError("<roll> requires at least one argument in dice notation.")
-        dice_data = re.search(r"(\d+|)d(\d+|f)(\+\d+|-\d+|)(a|d|)", args[0].lower())
-        if dice_data:
-            # checking for optional dice number
-            if dice_data.group(1):
-                num_dice = min(max(int(dice_data.group(1)), 1), 10000)
-            else:
-                num_dice = 1
-            # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
-            if dice_data.group(2) != 'f':
-                def roll_function(): return random.randint(1, min(max(int(dice_data.group(2)), 2), 10000))
-            else:
-                def roll_function(): return random.randint(-1, 1)
-            modif = int(dice_data.group(3)) if dice_data.group(3) else 0
-            t_adv = dice_data.group(4)
-            dice_set_a = [roll_function() for _ in range(num_dice)]
-            dice_set_b = [roll_function() for _ in range(num_dice)]
-            if t_adv == "a":
-                rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
-            elif t_adv == "d":
-                rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
-            else:
-                rolled_dice = dice_set_a
-            v = len(args) > 1 and args[1].lower() in verbose
-            return " ".join(map(str, rolled_dice)) if v else str(sum(rolled_dice) + modif)
-
-    # CC validator tag functions
-
-    def _valid_args(self, args, _):
-        split_args = ["Teststring"] * 10
-        if args.isdecimal():
-            try:
-                i = int(args) - 1
-                return split_args[i]
-            except ValueError:
-                raise CustomCommandSyntaxError("<args> argument is not an integer, slice or wildcard!")
-            except IndexError:
-                return ""
-        elif args == "*":
-            return " ".join(split_args)
-        elif args.startswith("*"):
-            try:
-                i = int(args[1:])
-            except ValueError:
-                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
-            return " ".join(split_args[:i])
-        elif args.endswith("*"):
-            try:
-                i = int(args[:-1]) - 1
-            except ValueError:
-                raise CustomCommandSyntaxError("<args> slice argument is not a valid integer!")
-            return " ".join(split_args[i:])
-        else:
-            raise CustomCommandSyntaxError("<args> argument is not a number or *!")
-
-    def _valid_username(self, _, __):
-        return "12345678901234567890123456789012"
-
-    def _valid_choice(self, args, _):
-        args = self._split_args(args)
-        try:
-            index = int(args.pop(0))
-        except ValueError:
-            raise CommandSyntaxError("First argument to <choice> must be integer.")
-        except IndexError:
-            raise CustomCommandSyntaxError("<choice> requires at least one argument!")
-        return max(args, key=len)
-
-    def _valid_random(self, args, _):
-        args = self._split_args(args)
-        return max(args, key=len)
-
-    def _valid_randint(self, args, _):
-        args = self._split_args(args)
-        try:
-            a = int(args[0])
-        except IndexError:
-            raise CustomCommandSyntaxError("<randint> requires at least one argument.")
-        except ValueError:
-            raise CommandSyntaxError("Arguments to <randint> must be integers.")
-        try:
-            b = int(args[1])
-        except IndexError:
-            b = 0
-        except ValueError:
-            raise CommandSyntaxError("Arguments to <randint> must be integers.")
-        return max(str(a), str(b), key=len)
-
-    def _valid_embed(self, args, _):
-        t_args = self._split_args(args)
-        if t_args == ['']:
-            raise CustomCommandSyntaxError("<embed> tag needs arguments in arg=val format.")
-        t_embed = Embed(type="rich", colour=16711680)
-        t_post = False
-        total_len = 0
-        for arg in t_args:
-            t_arg = list(map(lambda x: x.replace("═", "="), arg.replace("\\=", "═").split("=")))
-            if len(t_arg) < 2:
-                continue
-            t_post = True
-            if t_arg[0].lower() == "!title":
-                t_embed.title = t_arg[1]
-                if len(t_arg[1]) > 256:
-                    raise CustomCommandSyntaxError("<embed> !title argument exceeds 256 characters.")
-                total_len += len(t_arg[1])
-            elif t_arg[0].lower() in ["!color", "!colour"]:
-                try:
-                    t_embed.colour = discord.Colour(int(t_arg[1], 16))
-                except ValueError:
-                    pass
-            elif t_arg[0].lower() == "!url":
-                t_embed.url = t_arg[1]
-                total_len += len(t_arg[1])
-            elif t_arg[0].lower() == "!thumbnail":
-                t_embed.set_thumbnail(url=t_arg[1])
-            elif t_arg[0].lower() == "!image":
-                t_embed.set_image(url=t_arg[1])
-            elif t_arg[0].lower() in ["!desc", "!description"]:
-                t_embed.description = t_arg[1]
-                if len(t_arg[1]) > 2048:
-                    raise CustomCommandSyntaxError("<embed> !description argument exceeds 2048 characters.")
-                total_len += len(t_arg[1])
-            elif t_arg[0].lower() == "!footer":
-                t_embed.set_footer(text=t_arg[1])
-                if len(t_arg[1]) > 2048:
-                    raise CustomCommandSyntaxError("<embed> !footer argument exceeds 2048 characters.")
-                total_len += len(t_arg[1])
-            else:
-                t_name = t_arg[0]
-                t_val = t_arg[1]
-                if len(t_arg) > 2:
-                    t_inline = is_positive(t_arg[2])
-                else:
-                    t_inline = False
-                if len(t_name) > 256:
-                    raise CustomCommandSyntaxError(f"<embed> {t_name} field name exceeds 256 characters.")
-                elif len(t_val) > 1024:
-                    raise CustomCommandSyntaxError(f"<embed> {t_name} field text exceeds 1024 characters.")
-                total_len += len(t_name) + len(t_val)
-                t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
-        if t_post:
-            if total_len > 6000:
-                raise CustomCommandSyntaxError("<embed> tag total text length exceeds 6000 characters.")
-        return ""
-
-    # util functions
+            if env['output']:
+                await respond(msg, str(env['output']))
+            elif result:
+                await respond(msg, str(result))
 
     async def _rm_msg(self, msg):
         await sleep(1)
@@ -1198,3 +584,98 @@ class CustomCommands(BasePlugin):
                 stack.append(a)
         return [*out, *stack]
 
+    def _save_ccs(self):
+        with open(self.plugin_config.cc_file, "w", encoding="utf8") as f:
+            json.dump(self.ccs, f, indent=2, ensure_ascii=False)
+
+    async def run_cc(self, cmd, msg):
+        gid = str(msg.guild.id)
+        if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
+            await respond(msg, f"**WARNING: Custom command {cmd} is locked.**")
+        else:
+            env = self._env(msg)
+
+            ccdat = self.ccs[gid][cmd]["content"]
+            try:
+                res = lisp_eval(parse(ccdat), env)
+            except CustomCommandSyntaxError as e:
+                err = e if e else "Syntax error."
+                await respond(msg, f"**WARNING: Author made syntax error: {err}**")
+            except CommandSyntaxError as e:
+                err = e if e else "Syntax error."
+                await respond(msg, f"**WARNING: {err}**")
+            except Exception as e:
+                err = e if e else "Syntax error."
+                self.logger.exception("Exception occurred in custom command: ", exc_info=True)
+                await respond(msg, f"**WARNING: An error occurred while running the custom command: {err}**")
+            else:
+                if env['output']:
+                    await respond(msg, env['output'])
+                elif res:
+                    await respond(msg, str(res))
+                self.ccs[gid][cmd]["times_run"] += 1
+                self._save_ccs()
+
+    #  tag functions that *require* the discord machinery
+
+    def _env(self, msg):
+        gid = str(msg.guild.id)
+        cmd = msg.content[len(self.plugin_config[gid].cc_prefix):].split()[0].lower()
+        env = standard_env(max_runtime=self.plugin_config.get('rslisp_max_runtime', 0))
+
+        env['username'] = msg.author.name
+        env['usernick'] = msg.author.display_name
+        env['usermention'] = msg.author.mention
+        try:
+            author = discord.utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
+            env['authorname'] = author.name
+            env['authornick'] = author.display_name
+        except:
+            env['authorname'] = env['authornick'] = '<Unknown user>'
+        a = msg.clean_content.split(" ", 1)
+        env['argstring'] = a[1] if len(a) > 1 else ''
+        env['args'] = a[1].split(" ") if len(a) > 1 else []
+
+        env['hasrole'] = lambda *x: self._hasrole(msg, *x)
+        env['delcall'] = lambda: ensure_future(self._rm_msg(msg))
+        env['embed']   = lambda *x: self._embed(msg, *get_args(x))
+
+        return env
+
+    def _hasrole(self, msg, *args):
+        roles = [x.name.lower() for x in msg.author.roles]
+        return len([True for r in args if r.lower() in roles]) > 0
+
+    def _embed(self, msg, _, kwargs):
+        t_embed = Embed(type="rich", colour=16711680)
+        t_post = False
+        for name, value in kwargs.items():
+            t_post = True
+            if name.lower() == "!title":
+                t_embed.title = value
+            elif name.lower() in ["!color", "!colour"]:
+                try:
+                    t_embed.colour = discord.Colour(int(value, 16))
+                except ValueError:
+                    pass
+            elif name.lower() == "!url":
+                t_embed.url = value
+            elif name.lower() == "!thumbnail":
+                t_embed.set_thumbnail(url=value)
+            elif name.lower() == "!image":
+                t_embed.set_image(url=value)
+            elif name.lower() in ["!desc", "!description"]:
+                t_embed.description = value
+            elif name.lower() == "!footer":
+                t_embed.set_footer(text=value)
+            else:
+                t_name = name
+                if type(value) == list:
+                    t_val = value[0]
+                    t_inline = value[1]
+                else:
+                    t_val = value
+                    t_inline = False
+                t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
+        if t_post:
+            ensure_future(respond(msg, None, embed=t_embed))
