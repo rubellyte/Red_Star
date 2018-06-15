@@ -8,6 +8,7 @@ import datetime
 from collections import OrderedDict
 from rs_errors import CustomCommandSyntaxError, CommandSyntaxError
 from rs_utils import is_positive
+from functools import reduce
 
 Symbol = str
 Number = (int, float)
@@ -126,27 +127,6 @@ class Env(dict):
             return self.outer.find(var)
         else:
             raise CustomCommandSyntaxError(f'undefined var {var}')
-
-
-# Manual definition of foldr
-def foldr(combine, base, lst):
-    if len(lst) == 0:
-        return base
-    else:
-        value = combine(lst[0], foldr(combine, base, lst[1:]))
-        return value
-
-
-# Manual definition of foldl
-def foldl(combine, acc, lst):
-    if len(lst) == 0:
-        return acc
-    else:
-        return foldl(
-                combine,
-                combine(acc, lst[0]),
-                lst[1:]
-        )
 
 
 def get_args(args: list) -> (list, dict):
@@ -291,8 +271,9 @@ def standard_env():
         'sum': sum,
         'max': max,
         'filter': filter,
-        'foldr': foldr,
-        'foldl': foldl,
+        'reduce': reduce,
+        'sort': sorted,
+        'reverse': lambda x: x[::-1],
         'min': min,
         'not': op.not_,
         'null?': lambda x: x == [],
