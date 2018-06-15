@@ -5,6 +5,7 @@ import operator as op
 import re
 import random
 import datetime
+from time import time
 from collections import OrderedDict
 from rs_errors import CustomCommandSyntaxError, CommandSyntaxError
 from rs_utils import is_positive
@@ -27,7 +28,6 @@ _checkexpect = 'check-expect'
 _checkwithin = 'check-within'
 _member = 'member?'
 _struct = 'struct'
-_pass = 'pass'
 _access = '>>'
 _while = 'while'
 _print = 'print'
@@ -115,9 +115,11 @@ class Procedure(object):
 
 
 class Env(dict):
-    def __init__(self, parms=(), args=(), outer=None):
+    def __init__(self, parms=(), args=(), outer=None, max_runtime=0):
         self.update(zip(parms, args))
         self.outer = outer
+        self.timestamp = time()
+        self.max_runtime = max_runtime
 
     # Find the innermost Env where var appears.
     def find(self, var):
@@ -245,8 +247,8 @@ def transcode(string: str, *args):
     return string.translate(str.maketrans(def_code, alt_code))
 
 
-def standard_env():
-    env = Env()
+def standard_env(*_, **kwargs):
+    env = Env(**kwargs)
     env.update(vars(math))
     env.update({
         '+': op.add, '-': op.sub, '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
@@ -274,6 +276,7 @@ def standard_env():
         'reduce': reduce,
         'sort': sorted,
         'reverse': lambda x: x[::-1],
+        'pass': lambda *x: None,
         'min': min,
         'not': op.not_,
         'null?': lambda x: x == [],
@@ -299,6 +302,7 @@ def standard_env():
         'choice': lambda *x: random.choices(*x).pop(),
 
         'eztime': eztime,
+        'time': time,
         'ezchoice': lambda *x: random.choice(x),
 
         # to be overriden by the cc function
@@ -360,6 +364,8 @@ def _lget(lst, *indexes):
 
 # Evaluate an expression in an environment.f
 def lisp_eval(x, env=global_env):
+    if env.max_runtime != 0 and time() - env.timestamp > env.max_runtime:
+        raise CustomCommandSyntaxError("The command ran too long.")
     try:
         if isinstance(x, Symbol):  # variable reference
             l, *ind = x.split(':')
@@ -390,8 +396,6 @@ def lisp_eval(x, env=global_env):
                         return arglist[x[1]:x[2]]
                 except IndexError:
                     return []
-        elif x[0] == _pass:
-            return
         elif x[0] == _quote:  # quotation
             (_, exp) = x
             return exp
@@ -450,6 +454,8 @@ def lisp_eval(x, env=global_env):
                     return lisp_eval(args[0], env)
                 else:
                     return e
+        elif x[0] == _unquote:
+            return lisp_eval(lisp_eval(x[1], env), env)
         else:  # procedure call
             proc = lisp_eval(x[0], env)
             if isinstance(x[0], str) and x[0].startswith('make-'):

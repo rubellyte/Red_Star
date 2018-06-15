@@ -24,7 +24,8 @@ class CustomCommands(BasePlugin):
         "default": {
             "cc_prefix": "!!",
             "cc_limit": 25
-        }
+        },
+        "rslisp_max_runtime": 5
     }
 
     async def activate(self):
@@ -620,7 +621,7 @@ class CustomCommands(BasePlugin):
     def _env(self, msg):
         gid = str(msg.guild.id)
         cmd = msg.content[len(self.plugin_config[gid].cc_prefix):].split()[0].lower()
-        env = standard_env()
+        env = standard_env(max_runtime=self.plugin_config.get('rslisp_max_runtime', 0))
 
         env['username'] = msg.author.name
         env['usernick'] = msg.author.display_name
