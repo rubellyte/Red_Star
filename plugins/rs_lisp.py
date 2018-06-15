@@ -305,6 +305,7 @@ def standard_env():
 
         'int': int,
         'float': float,
+        'zip': zip,
 
         'resub': re.sub,
         'rematch': re.match,
