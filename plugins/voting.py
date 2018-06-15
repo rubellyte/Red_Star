@@ -1,6 +1,6 @@
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond
+from rs_utils import respond, RSArgumentParser
 from command_dispatcher import Command
 import shlex
 from discord import Embed, Message
@@ -15,8 +15,8 @@ class Voting(BasePlugin):
 
         _abc = "abcdefghijklmnopqrst"
         _emo = "🇦🇧🇨🇩🇪🇫🇬🇭🇮🇯🇰🇱🇲🇳🇴🇵🇶🇷🇸🇹"
-        _a_e = dict(zip(_abc, _emo))
-        _e_a = dict(zip(_emo, _abc))
+        _a_e = dict(zip(_abc, _emo))  # easy letter to emote conversion
+        _e_a = dict(zip(_emo, _abc))  # easy emote to letter conversion
 
         message = None  # message that contains the voting options
         author = None  # author ID (we don't really need anything else)
@@ -28,9 +28,9 @@ class Voting(BasePlugin):
         query = ""  # the question
         options = None  # dict of strings to vote for {"a":"thing", "b":"other thing"} limit 20 (by the reaction limit)
         active = False
-        over = False
+        allow_retracting = True
 
-        def __init__(self, msg, hid=None, vote_limit=1, author=None):
+        def __init__(self, msg, hid=None, vote_limit=1, author=None, allow_retracting=True):
             """
             :type msg:discord.Message
             :param msg:
@@ -43,6 +43,7 @@ class Voting(BasePlugin):
             self.votes = {}
             self.vote_count = {}
             self.vote_limit = vote_limit
+            self.allow_retracting = allow_retracting
             self.options = {}
 
         def setquery(self, query):
@@ -64,7 +65,7 @@ class Voting(BasePlugin):
         def _buildembed(self):
             t_embed = Embed(type="rich", colour=16711680)
             t_embed.title = f"\"{self.hid}\""
-            t_embed.description = self.query
+            t_embed.description = f"{self.query}\n\nBy <@{self.author}>"
             for k, v in self.options.items():
                 t_embed.add_field(name=f"{self._a_e[k]}", value=f"{v} : {self.vote_count[k]}")
             return t_embed
@@ -90,14 +91,17 @@ class Voting(BasePlugin):
                         return True
                     else:
                         return False
-            elif option in self.votes[user.id]:
+            elif option in self.votes[user.id] and self.allow_retracting:
                 self.votes[user.id].remove(option)
                 self.vote_count[option] -= 1
                 await self.update()
                 return True
+            else:
+                return False
 
     @Command("StartVote",
-             syntax="[Vote ID] [Vote Query] [Vote Questions, up to 20]",
+             syntax="(HID) (Query) [Questions, up to 20] [-1/--question, up to 20] [-v/vote_limit, integer, "
+                    "0 for no limit] [-n/--no_retracting, to disallow removing votes]",
              run_anywhere=True)
     async def _startvote(self, msg: Message):
         """
@@ -108,20 +112,30 @@ class Voting(BasePlugin):
         """
         args = shlex.split(msg.clean_content)
         gid = str(msg.guild.id)
+
         if gid not in self.polls:
             self.polls[gid] = {}
 
-        if len(args) == 1:
-            t_poll = self.Poll(await respond(msg, "**Generating poll message.**"), author=msg.author.id)
-            # self.polls[gid].append(self.Poll(await respond(msg, "**Generating poll message.**")))
-        else:
-            t_poll = self.Poll(await respond(msg, "**Generating poll message.**"), args[1].lower(),
-                               author=msg.author.id)
-            # self.polls[gid].append(self.Poll(await respond(msg, "**Generating poll message.**"), args[1].lower()))
-        if len(args) > 2:
-            t_poll.setquery(args[2])
-        for arg in args[3:]:
-            await t_poll.addoption(arg)
+        parser = RSArgumentParser()
+        parser.add_argument("command")
+        parser.add_argument("poll_hid")
+        parser.add_argument("query")
+        parser.add_argument("questions", default=[], nargs='*')
+        parser.add_argument("--question", "-q", default=[], action="append")
+        parser.add_argument("--vote_limit", "-v", default=1, type=int)
+        parser.add_argument("--no_retracting", "-n", action="store_false")
+
+        args = parser.parse_args(args)
+
+        t_poll = self.Poll(await respond(msg, "**Generating poll message.**"),
+                           hid=args['poll_hid'].lower(),
+                           author=msg.author.id,
+                           vote_limit=args['vote_limit'],
+                           allow_retracting=args['no_retracting'])
+        t_poll.setquery(args['query'])
+        for opt in [*args['questions'], *args['question']]:
+            await t_poll.addoption(opt)
+
         await t_poll.update()
         t_poll.active = True
         self.polls[gid][t_poll.message.id] = t_poll
@@ -147,6 +161,8 @@ class Voting(BasePlugin):
                 winners = '\n'.join(c.options[k] for k, v in c.vote_count.items() if v == max_votes)
                 results.append(f'Query: {c.query}. With {max_votes} votes, leading results:\n{winners}')
                 del self.polls[gid][k]
+            if not results:
+                raise UserPermissionError
             results = '\n\n'.join(results)
             await respond(msg,
                           f"**AFFIRMATIVE. ANALYSIS: {len(candidates)} polls terminated with results:**```{results}```")
@@ -168,7 +184,10 @@ class Voting(BasePlugin):
                 if len(args[2]) == 1 and args[2].lower() in "abcdefghijklmnopqrst":
                     result = await p.vote(args[2].lower(), msg.author, up)
                     if not result:
-                        raise CommandSyntaxError("Out of votes")
+                        if up:
+                            await respond(msg, "**NEGATIVE: Out of votes.**", delete_after=5)
+                        else:
+                            await respond(msg, "**NEGATIVE: Could not remove vote.**", delete_after=5)
                 else:
                     raise CommandSyntaxError(f"Incorrect voting option {args[2]}")
 
