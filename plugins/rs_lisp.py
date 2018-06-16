@@ -291,6 +291,9 @@ def standard_env(*_, **kwargs):
         'assert': _assert,
         'f': lambda *x: "".join(map(str, x)),
 
+        'chr': chr,
+        'ord': ord,
+
         'int': int,
         'float': float,
         'zip': zip,
