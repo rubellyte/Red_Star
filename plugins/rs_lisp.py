@@ -267,15 +267,19 @@ def standard_env(*_, **kwargs):
         'len': len,
         'list': lambda *x: list(x),
         'l': lambda *x: list(x),
+        'tolist': list,
+        '2l': list,
         'range': range,
         'list?': lambda x: isinstance(x, list),
         'map': lambda *x: list(map(*x)),
+        'imap': map,
         'sum': sum,
         'max': max,
         'filter': filter,
         'reduce': reduce,
         'sort': sorted,
         'reverse': lambda x: x[::-1],
+        'ireverse': reversed,
         'pass': lambda *x: None,
         'min': min,
         'not': op.not_,
@@ -402,7 +406,7 @@ def lisp_eval(x, env=global_env):
         elif x[0] == _access:  # attempt using an object method
             a = list(map(lambda i: lisp_eval(i, env), x[1:]))
             try:
-                ar, kw = get_args(*a[2:])
+                ar, kw = get_args(a[2:])
                 return getattr(a[1], a[0])(*ar, **kw)
             except AttributeError:
                 raise CustomCommandSyntaxError(f'{type(a[1])} has no method {a[0]}')
@@ -469,4 +473,9 @@ def lisp_eval(x, env=global_env):
                 args = [lisp_eval(arg, env) for arg in x[1:]]
             return proc(*args)
     except Exception as e:
-        raise CustomCommandSyntaxError(e)
+        if len(str(e)) > 1500:
+            e = "..." + re.match(r"(?:.+)(\(.+?\): .+?$)", str(e)).group(1)
+        try:
+            raise CustomCommandSyntaxError(f"({x[0]}): {e}")
+        except IndexError:
+            raise CustomCommandSyntaxError(e)
