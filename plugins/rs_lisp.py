@@ -279,6 +279,8 @@ def standard_env(*_, **kwargs):
         'sum': sum,
         'max': max,
         'min': min,
+        'all': all,
+        'any': any,
         'filter': filter,
         'reduce': reduce,
         'sort': sorted,
@@ -286,6 +288,8 @@ def standard_env(*_, **kwargs):
         'ireverse': reversed,
         'pass': lambda *x: None,
         'not': op.not_,
+        'and': op.and_,
+        'or': op.or_,
         'null?': lambda x: x == [],
         'number?': lambda x: isinstance(x, Number),
         'procedure?': callable,
@@ -372,6 +376,13 @@ def _lget(lst, *indexes):
         return _lget(lst[indexes[0]], *indexes[1:])
 
 
+def isnum(test):
+    try:
+        int(test)
+        return True
+    except:
+        return False
+
 # Evaluate an expression in an environment.f
 def lisp_eval(x, env=global_env):
     if env.max_runtime != 0 and time() - env.timestamp > env.max_runtime:
@@ -379,7 +390,7 @@ def lisp_eval(x, env=global_env):
     try:
         if isinstance(x, Symbol):  # variable reference
             l, *ind = x.split(':')
-            ind = [int(x) if x.isdigit() else lisp_eval(x, env) for x in ind]
+            ind = [int(x) if isnum(x) else lisp_eval(x, env) for x in ind]
             return _lget(env.find(l)[l], *ind)
         elif not isinstance(x, list):  # constant literal
             return x
@@ -427,7 +438,7 @@ def lisp_eval(x, env=global_env):
             (_, var, exp) = x
             if ':' in var:
                 l, *ind = var.split(':')
-                ind = [int(x) if x.isdigit() else lisp_eval(x, env) for x in ind]
+                ind = [int(x) if isnum(x) else lisp_eval(x, env) for x in ind]
                 _lset(env.find(l)[l], lisp_eval(exp, env), *ind)
             else:
                 env.find(var)[var] = lisp_eval(exp, env)
