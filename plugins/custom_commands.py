@@ -144,7 +144,7 @@ class CustomCommands(BasePlugin):
                             t_count >= self.plugin_config[gid].get("cc_limit", 100):
                 raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
             try:
-                if not re.match(r"^\s*\(.*\)\s*$", content):
+                if not re.match(r"^\s*\(.*\)\s*$", content, re.DOTALL):
                     content = content.replace('"', '\\"')
                     content = f'"{content}"'
                 parse(content)
