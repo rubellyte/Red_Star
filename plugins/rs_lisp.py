@@ -251,7 +251,9 @@ def standard_env(*_, **kwargs):
     env = Env(**kwargs)
     env.update(vars(math))
     env.update({
-        '+': op.add, '-': op.sub, '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
+        '+': op.add,
+        '-': lambda *x: op.sub(*x) if len(x) > 1 else -x[0],
+        '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
         '>': op.gt, '<': op.lt, '>=': op.ge, '<=': op.le, '==': op.eq, '<>': op.xor,
         '!=': lambda *x: op.not_(op.eq(*x)),
         '#': lambda x, y: y[x],
