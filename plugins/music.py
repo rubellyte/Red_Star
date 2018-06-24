@@ -22,6 +22,7 @@ class MusicPlayer(BasePlugin):
             'max_video_length': 1800,
             'max_queue_length': 30,
             'default_volume': 15,
+            'normalize': False,
             'allow_pause': True,
             'allow_playlists': True,
             'idle_time': 30,  # seconds/10
@@ -163,7 +164,7 @@ class MusicPlayer(BasePlugin):
                                                                 f"**WARNING: Leaving voice chat due to inactivity.**",
                                                                 log_type="musicbot_event")
                 if self.idle_count >= self.config["idle_terminate"] and (self.queue or self.cycle != 'none' or
-                                                                         self.shuffle):
+                                                                             self.shuffle):
                     self.stop_song()
                     self.parent.logger.info(f"Terminating queue on {self.guild.name} due to inactivity.")
                     await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
@@ -177,8 +178,12 @@ class MusicPlayer(BasePlugin):
                                                                                  "1 -reconnect_delay_max 30"
             t_loop = asyncio.get_event_loop()
             try:
+                if self.parent.plugin_config[str(self.guild.id)].get('normalize', False):
+                    d_opt = dict(options="-filter:a loudnorm")
+                else:
+                    d_opt = dict()
                 t_entries, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
-                    "ytdl_options"], before_options=before_args, options="-filter:a loudnorm")
+                    "ytdl_options"], before_options=before_args, **d_opt)
             except youtube_dl.utils.DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
@@ -251,9 +256,9 @@ class MusicPlayer(BasePlugin):
 
                 if self.shuffle and self.cycle != "one" and t_len > 1:
                     if self.cycle == "all":
-                        song_to_play = randint(0, max(t_len-2, 0))
+                        song_to_play = randint(0, max(t_len - 2, 0))
                     else:
-                        song_to_play = randint(0, t_len-1)
+                        song_to_play = randint(0, t_len - 1)
                 else:
                     song_to_play = 0
 
@@ -297,8 +302,12 @@ class MusicPlayer(BasePlugin):
             before_args = "" if self.parent.plugin_config["download_songs"] else " -reconnect 1 -reconnect_streamed " \
                                                                                  "1 -reconnect_delay_max 30"
             try:
+                if self.parent.plugin_config[str(self.guild.id)].get('normalize', False):
+                    d_opt = dict(options="-filter:a loudnorm")
+                else:
+                    d_opt = dict()
                 t_sources, t_id = await self.parent.fetch_song_data(vid, ytdl_options=self.parent.plugin_config[
-                    "ytdl_options"], before_options=before_args, options="-filter:a loudnorm")
+                    "ytdl_options"], before_options=before_args, **d_opt)
             except youtube_dl.utils.DownloadError as e:
                 self.parent.logger.info(f"Error loading songs. {e}")
                 return False
@@ -318,13 +327,15 @@ class MusicPlayer(BasePlugin):
                 await respond(data, "**AFFIRMATIVE. Forcing next song in queue.**")
                 return
             self.vote_set.add(data.author.id)
-            override = data.author.permissions_in(self.vc.channel).mute_members
+            override = data.author.permissions_in(self.vc.channel).mute_members or data.author.id in \
+                                                                                   self.parent.config_manager.config.get(
+                                                                                       "bot_maintainers", [])
             votes = len(self.vote_set)
             m_votes = (len(self.vc.channel.members) - 1) / 2
             if votes >= m_votes or override:
                 await self.play_next(self, None)
                 await respond(data, "**AFFIRMATIVE. Skipping current song.**"
-                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+                if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
             else:
                 await respond(data, f"**Skip vote: ACCEPTED. {votes} "
                                     f"out of required {ceil(m_votes)}**")
@@ -376,7 +387,8 @@ class MusicPlayer(BasePlugin):
         def check_perm(self, data):
             return (self.check_in(data) and self.vc.channel.permissions_for(data.author).mute_members) or \
                    data.author.guild_permissions.mute_members or data.author.id in \
-                   self.parent.config_manager.config.get("bot_maintainers", [])
+                                                                 self.parent.config_manager.config.get(
+                                                                         "bot_maintainers", [])
 
         def play_length(self):
             """
@@ -389,7 +401,7 @@ class MusicPlayer(BasePlugin):
                 if self.time_pause > 0:
                     t_skip = time.time() - self.time_pause
                 t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.vc.source.duration if
-                        self.vc.source.duration else self.config["max_video_length"])
+                self.vc.source.duration else self.config["max_video_length"])
             return t
 
         def queue_length(self, queue):
@@ -549,8 +561,8 @@ class MusicPlayer(BasePlugin):
 
     @Command("Volume",
              category="music",
-             syntax="[volume from 0 to 200]",
-             doc="Adjusts volume, from 0 to 200%.",
+             syntax="[volume from 0 to 100]",
+             doc="Adjusts volume, from 0 to 100%.",
              delcall=True)
     async def _volvc(self, data):
         """

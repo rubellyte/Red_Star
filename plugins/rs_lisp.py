@@ -251,7 +251,9 @@ def standard_env(*_, **kwargs):
     env = Env(**kwargs)
     env.update(vars(math))
     env.update({
-        '+': op.add, '-': op.sub, '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
+        '+': op.add,
+        '-': lambda *x: op.sub(*x) if len(x) > 1 else -x[0],
+        '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
         '>': op.gt, '<': op.lt, '>=': op.ge, '<=': op.le, '==': op.eq, '<>': op.xor,
         '!=': lambda *x: op.not_(op.eq(*x)),
         '#': lambda x, y: y[x],
@@ -267,18 +269,27 @@ def standard_env(*_, **kwargs):
         'len': len,
         'list': lambda *x: list(x),
         'l': lambda *x: list(x),
+        'tolist': list,
+        '2l': list,
+        'slice': slice,
         'range': range,
         'list?': lambda x: isinstance(x, list),
         'map': lambda *x: list(map(*x)),
+        'imap': map,
         'sum': sum,
         'max': max,
+        'min': min,
+        'all': all,
+        'any': any,
         'filter': filter,
         'reduce': reduce,
         'sort': sorted,
         'reverse': lambda x: x[::-1],
+        'ireverse': reversed,
         'pass': lambda *x: None,
-        'min': min,
         'not': op.not_,
+        'and': op.and_,
+        'or': op.or_,
         'null?': lambda x: x == [],
         'number?': lambda x: isinstance(x, Number),
         'procedure?': callable,
@@ -286,6 +297,9 @@ def standard_env(*_, **kwargs):
         'symbol?': lambda x: isinstance(x, Symbol),
         'assert': _assert,
         'f': lambda *x: "".join(map(str, x)),
+
+        'chr': chr,
+        'ord': ord,
 
         'int': int,
         'float': float,
@@ -362,6 +376,13 @@ def _lget(lst, *indexes):
         return _lget(lst[indexes[0]], *indexes[1:])
 
 
+def isnum(test):
+    try:
+        int(test)
+        return True
+    except:
+        return False
+
 # Evaluate an expression in an environment.f
 def lisp_eval(x, env=global_env):
     if env.max_runtime != 0 and time() - env.timestamp > env.max_runtime:
@@ -369,7 +390,7 @@ def lisp_eval(x, env=global_env):
     try:
         if isinstance(x, Symbol):  # variable reference
             l, *ind = x.split(':')
-            ind = [int(x) if x.isdigit() else lisp_eval(x, env) for x in ind]
+            ind = [int(x) if isnum(x) else lisp_eval(x, env) for x in ind]
             return _lget(env.find(l)[l], *ind)
         elif not isinstance(x, list):  # constant literal
             return x
@@ -402,7 +423,7 @@ def lisp_eval(x, env=global_env):
         elif x[0] == _access:  # attempt using an object method
             a = list(map(lambda i: lisp_eval(i, env), x[1:]))
             try:
-                ar, kw = get_args(*a[2:])
+                ar, kw = get_args(a[2:])
                 return getattr(a[1], a[0])(*ar, **kw)
             except AttributeError:
                 raise CustomCommandSyntaxError(f'{type(a[1])} has no method {a[0]}')
@@ -417,7 +438,7 @@ def lisp_eval(x, env=global_env):
             (_, var, exp) = x
             if ':' in var:
                 l, *ind = var.split(':')
-                ind = [int(x) if x.isdigit() else lisp_eval(x, env) for x in ind]
+                ind = [int(x) if isnum(x) else lisp_eval(x, env) for x in ind]
                 _lset(env.find(l)[l], lisp_eval(exp, env), *ind)
             else:
                 env.find(var)[var] = lisp_eval(exp, env)
@@ -469,4 +490,9 @@ def lisp_eval(x, env=global_env):
                 args = [lisp_eval(arg, env) for arg in x[1:]]
             return proc(*args)
     except Exception as e:
-        raise CustomCommandSyntaxError(e)
+        if len(str(e)) > 1500:
+            e = "..." + re.match(r"(?:.+)(\(.+?\): .+?$)", str(e)).group(1)
+        try:
+            raise CustomCommandSyntaxError(f"({x[0]}): {e}")
+        except IndexError:
+            raise CustomCommandSyntaxError(e)
