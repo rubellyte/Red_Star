@@ -194,6 +194,16 @@ def _assert(var, vartype, *opt):
             raise CustomCommandSyntaxError(f'assertion error: {var} is not a valid {vartype}')
 
 
+def _sorted(iterable, *args):  # (sort iterable key reversed)
+    kwargs = dict()
+    if args:
+        if len(args) > 0 and args[0]:
+            kwargs['key'] = args[0]
+        if len(args) > 1:
+            kwargs['reverse'] = bool(args[1])
+    return sorted(iterable, **kwargs)
+
+
 def transcode(string: str, *args):
     if len(args) == 0:
         return string
@@ -255,7 +265,7 @@ def standard_env(*_, **kwargs):
         '-': lambda *x: op.sub(*x) if len(x) > 1 else -x[0],
         '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod, '**': op.pow,
         '>': op.gt, '<': op.lt, '>=': op.ge, '<=': op.le, '==': op.eq, '<>': op.xor,
-        '!=': lambda *x: op.not_(op.eq(*x)),
+        '!=': op.ne,
         '#': lambda x, y: y[x],
         'abs': abs,
         'append': lambda x, y: x.append(y) if type(x) == list else x + y,
@@ -283,7 +293,7 @@ def standard_env(*_, **kwargs):
         'any': any,
         'filter': filter,
         'reduce': reduce,
-        'sort': sorted,
+        'sort': _sorted,
         'reverse': lambda x: x[::-1],
         'ireverse': reversed,
         'pass': lambda *x: None,
