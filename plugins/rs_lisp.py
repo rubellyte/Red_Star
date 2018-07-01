@@ -253,7 +253,7 @@ def standard_env(*_, **kwargs):
     env.update({
         '+': op.add,
         '-': lambda *x: op.sub(*x) if len(x) > 1 else -x[0],
-        '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
+        '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod, '**': op.pow,
         '>': op.gt, '<': op.lt, '>=': op.ge, '<=': op.le, '==': op.eq, '<>': op.xor,
         '!=': lambda *x: op.not_(op.eq(*x)),
         '#': lambda x, y: y[x],
@@ -328,7 +328,7 @@ def standard_env(*_, **kwargs):
         "argstring": "",
         "args": [],
 
-        "output": ""
+        "_rsoutput": ""
     })
     return env
 
@@ -461,11 +461,11 @@ def lisp_eval(x, env=global_env):
         elif x[0] == _while:  # while loop
             while lisp_eval(x[1], env):
                 lisp_eval(x[2], env)
-        elif x[0] == _print:  # prints into "output" variable
+        elif x[0] == _print:  # prints into "_rsoutput" variable
             try:
-                env.find('output')['output'] += f'{" ".join(map(lambda y: str(lisp_eval(y,env)), x[1:]))}\n'
+                env.find('_rsoutput')['_rsoutput'] += f'{" ".join(map(lambda y: str(lisp_eval(y,env)), x[1:]))}\n'
             except IndexError:
-                env.find('output')['output'] += '\n'
+                env.find('_rsoutput')['_rsoutput'] += '\n'
         elif x[0] == _try:  # (try (body) (except)) - returns result of body if successful or evaluates except if not
             expr, *args = x[1:]
             try:

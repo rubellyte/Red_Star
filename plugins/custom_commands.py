@@ -491,8 +491,8 @@ class CustomCommands(BasePlugin):
         except Exception as e:
             await respond(msg, f"**WARNING: Runtime error in custom command:** {e}")
         else:
-            if env['output']:
-                await respond(msg, str(env['output']))
+            if env['_rsoutput']:
+                await respond(msg, str(env['_rsoutput']))
             elif result:
                 await respond(msg, str(result))
 
@@ -609,8 +609,8 @@ class CustomCommands(BasePlugin):
                 self.logger.exception("Exception occurred in custom command: ", exc_info=True)
                 await respond(msg, f"**WARNING: An error occurred while running the custom command: {err}**")
             else:
-                if env['output']:
-                    await respond(msg, env['output'])
+                if env['_rsoutput']:
+                    await respond(msg, env['_rsoutput'])
                 elif res:
                     await respond(msg, str(res))
                 self.ccs[gid][cmd]["times_run"] += 1
