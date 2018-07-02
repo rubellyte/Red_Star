@@ -24,10 +24,6 @@ _def = 'def'
 _lambda = 'lambda'
 _begin = 'do'
 _unquote = 'unquote'
-_checkexpect = 'check-expect'
-_checkwithin = 'check-within'
-_member = 'member?'
-_struct = 'struct'
 _access = '>>'
 _while = 'while'
 _print = 'print'
@@ -346,28 +342,6 @@ def standard_env(*_, **kwargs):
 global_env = standard_env()
 
 
-# Make predicates and field functions of a user defined struct
-def make_functions(name, param, env=global_env):
-    create = 'make-' + name
-    check = name + '?'
-    index_array = []
-    key_array = []
-    i = 0
-    for par in param:
-        index_array.append(i)
-        i += 1
-
-    for par in param:
-        key_array.append(name + '-' + par + '-pos')
-
-    env.update(zip(key_array, index_array))
-
-    env[name + '-pos'] = lambda arr, index: arr[index]
-
-    env[check] = lambda arr: len(arr) == lisp_eval(create)
-    env[create] = len(param)
-
-
 # recursively access the list and set the last item
 def _lset(lst, val, *indexes):
     if len(indexes) == 1:
@@ -455,19 +429,6 @@ def lisp_eval(x, env=global_env):
         elif x[0] == _lambda:  # procedure
             (_, parms, body) = x
             return Procedure(parms, body, env)
-        elif x[0] == _checkexpect:  # test exact
-            (_, var, exp) = x
-            return lisp_eval(var, env) == lisp_eval(exp, env)
-        elif x[0] == _checkwithin:  # test range
-            (_, var, lower_bound, upper_bound) = x
-            return ((lisp_eval(var, env) <= lisp_eval(upper_bound, env) and
-                     (lisp_eval(var, env) >= lisp_eval(lower_bound, env))))
-        elif x[0] == _member:  # member?
-            (_, var, lst) = x
-            return lisp_eval(var, env) in lisp_eval(lst, env)
-        elif x[0] == _struct:  # struct definition
-            (_, name, params) = x
-            make_functions(name, params, env)
         elif x[0] == _while:  # while loop
             while lisp_eval(x[1], env):
                 lisp_eval(x[2], env)
@@ -489,15 +450,7 @@ def lisp_eval(x, env=global_env):
             return lisp_eval(lisp_eval(x[1], env), env)
         else:  # procedure call
             proc = lisp_eval(x[0], env)
-            if isinstance(x[0], str) and x[0].startswith('make-'):
-                args = [lisp_eval(arg, env) for arg in x[2:]]
-                if len(args) != proc:
-                    print(f'TypeError: {x[0]} requires {proc}%d values, given {len(args)}')
-                else:
-                    env[x[1]] = args
-                return
-            else:
-                args = [lisp_eval(arg, env) for arg in x[1:]]
+            args = [lisp_eval(arg, env) for arg in x[1:]]
             return proc(*args)
     except Exception as e:
         if len(str(e)) > 1500:
