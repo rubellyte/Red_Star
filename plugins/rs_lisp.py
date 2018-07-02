@@ -149,7 +149,7 @@ def _str(*args):
         try:
             return getattr(str, args[0])(*args[1:])
         except AttributeError:
-            raise CustomCommandSyntaxError(f'str does not have method {args[1]}')
+            raise CustomCommandSyntaxError(f'str does not have method {args[0]}')
 
 
 def eztime(*args):
