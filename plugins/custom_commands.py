@@ -107,7 +107,7 @@ class CustomCommands(BasePlugin):
                  "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content)",
              category="custom_commands")
-    async def _createcc(self, msg):
+    async def _createcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.author.id in self.storage[gid]["cc_create_ban"]:
@@ -115,13 +115,18 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            self.logger.debug(fp.getvalue())
-            try:
-                jsdata = json.loads(fp.getvalue().decode())
-            except json.JSONDecodeError:
-                raise CommandSyntaxError("Uploaded file is not valid JSON!")
-            name = jsdata["name"].lower()
-            content = jsdata["content"]
+            # self.logger.debug(fp.getvalue())
+            args = msg.clean_content.split()[1:]
+            if args and args[0].lower() in ("-s", "--source"):
+                name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
+                content = fp.getvalue().decode()
+            else:
+                try:
+                    jsdata = json.loads(fp.getvalue().decode())
+                except json.JSONDecodeError:
+                    raise CommandSyntaxError("Uploaded file is not valid JSON!")
+                name = jsdata["name"].lower()
+                content = jsdata["content"]
         else:
             try:
                 args = msg.clean_content.split(None, 2)[1:]
@@ -144,7 +149,7 @@ class CustomCommands(BasePlugin):
                             t_count >= self.plugin_config[gid].get("cc_limit", 100):
                 raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
             try:
-                if not re.match(r"^\s*\(.*\)\s*$", content):
+                if not re.match(r"^\s*\(.*\)\s*$", content, re.DOTALL):
                     content = content.replace('"', '\\"')
                     content = f'"{content}"'
                 parse(content)
@@ -491,8 +496,8 @@ class CustomCommands(BasePlugin):
         except Exception as e:
             await respond(msg, f"**WARNING: Runtime error in custom command:** {e}")
         else:
-            if env['output']:
-                await respond(msg, str(env['output']))
+            if env['_rsoutput']:
+                await respond(msg, str(env['_rsoutput']))
             elif result:
                 await respond(msg, str(result))
 
@@ -609,8 +614,8 @@ class CustomCommands(BasePlugin):
                 self.logger.exception("Exception occurred in custom command: ", exc_info=True)
                 await respond(msg, f"**WARNING: An error occurred while running the custom command: {err}**")
             else:
-                if env['output']:
-                    await respond(msg, env['output'])
+                if env['_rsoutput']:
+                    await respond(msg, env['_rsoutput'])
                 elif res:
                     await respond(msg, str(res))
                 self.ccs[gid][cmd]["times_run"] += 1

@@ -24,10 +24,6 @@ _def = 'def'
 _lambda = 'lambda'
 _begin = 'do'
 _unquote = 'unquote'
-_checkexpect = 'check-expect'
-_checkwithin = 'check-within'
-_member = 'member?'
-_struct = 'struct'
 _access = '>>'
 _while = 'while'
 _print = 'print'
@@ -153,7 +149,7 @@ def _str(*args):
         try:
             return getattr(str, args[0])(*args[1:])
         except AttributeError:
-            raise CustomCommandSyntaxError(f'str does not have method {args[1]}')
+            raise CustomCommandSyntaxError(f'str does not have method {args[0]}')
 
 
 def eztime(*args):
@@ -192,6 +188,16 @@ def _assert(var, vartype, *opt):
             return opt[0]
         else:
             raise CustomCommandSyntaxError(f'assertion error: {var} is not a valid {vartype}')
+
+
+def _sorted(iterable, *args):  # (sort iterable key reversed)
+    kwargs = dict()
+    if args:
+        if len(args) > 0 and args[0]:
+            kwargs['key'] = args[0]
+        if len(args) > 1:
+            kwargs['reverse'] = bool(args[1])
+    return sorted(iterable, **kwargs)
 
 
 def transcode(string: str, *args):
@@ -253,9 +259,9 @@ def standard_env(*_, **kwargs):
     env.update({
         '+': op.add,
         '-': lambda *x: op.sub(*x) if len(x) > 1 else -x[0],
-        '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod,
+        '*': op.mul, '/': op.truediv, '//': op.floordiv, '%': op.mod, '**': op.pow,
         '>': op.gt, '<': op.lt, '>=': op.ge, '<=': op.le, '==': op.eq, '<>': op.xor,
-        '!=': lambda *x: op.not_(op.eq(*x)),
+        '!=': op.ne,
         '#': lambda x, y: y[x],
         'abs': abs,
         'append': lambda x, y: x.append(y) if type(x) == list else x + y,
@@ -283,7 +289,7 @@ def standard_env(*_, **kwargs):
         'any': any,
         'filter': filter,
         'reduce': reduce,
-        'sort': sorted,
+        'sort': _sorted,
         'reverse': lambda x: x[::-1],
         'ireverse': reversed,
         'pass': lambda *x: None,
@@ -303,6 +309,7 @@ def standard_env(*_, **kwargs):
 
         'int': int,
         'float': float,
+        'dict': dict,
         'zip': zip,
 
         'resub': re.sub,
@@ -312,6 +319,7 @@ def standard_env(*_, **kwargs):
         'str': _str,
         'transcode': transcode,
 
+        'random': random.random,
         'randint': random.randint,
         'choice': lambda *x: random.choices(*x).pop(),
 
@@ -328,34 +336,12 @@ def standard_env(*_, **kwargs):
         "argstring": "",
         "args": [],
 
-        "output": ""
+        "_rsoutput": ""
     })
     return env
 
 
 global_env = standard_env()
-
-
-# Make predicates and field functions of a user defined struct
-def make_functions(name, param, env=global_env):
-    create = 'make-' + name
-    check = name + '?'
-    index_array = []
-    key_array = []
-    i = 0
-    for par in param:
-        index_array.append(i)
-        i += 1
-
-    for par in param:
-        key_array.append(name + '-' + par + '-pos')
-
-    env.update(zip(key_array, index_array))
-
-    env[name + '-pos'] = lambda arr, index: arr[index]
-
-    env[check] = lambda arr: len(arr) == lisp_eval(create)
-    env[create] = len(param)
 
 
 # recursively access the list and set the last item
@@ -445,27 +431,14 @@ def lisp_eval(x, env=global_env):
         elif x[0] == _lambda:  # procedure
             (_, parms, body) = x
             return Procedure(parms, body, env)
-        elif x[0] == _checkexpect:  # test exact
-            (_, var, exp) = x
-            return lisp_eval(var, env) == lisp_eval(exp, env)
-        elif x[0] == _checkwithin:  # test range
-            (_, var, lower_bound, upper_bound) = x
-            return ((lisp_eval(var, env) <= lisp_eval(upper_bound, env) and
-                     (lisp_eval(var, env) >= lisp_eval(lower_bound, env))))
-        elif x[0] == _member:  # member?
-            (_, var, lst) = x
-            return lisp_eval(var, env) in lisp_eval(lst, env)
-        elif x[0] == _struct:  # struct definition
-            (_, name, params) = x
-            make_functions(name, params, env)
         elif x[0] == _while:  # while loop
             while lisp_eval(x[1], env):
                 lisp_eval(x[2], env)
-        elif x[0] == _print:  # prints into "output" variable
+        elif x[0] == _print:  # prints into "_rsoutput" variable
             try:
-                env.find('output')['output'] += f'{" ".join(map(lambda y: str(lisp_eval(y,env)), x[1:]))}\n'
+                env.find('_rsoutput')['_rsoutput'] += f'{" ".join(map(lambda y: str(lisp_eval(y,env)), x[1:]))}\n'
             except IndexError:
-                env.find('output')['output'] += '\n'
+                env.find('_rsoutput')['_rsoutput'] += '\n'
         elif x[0] == _try:  # (try (body) (except)) - returns result of body if successful or evaluates except if not
             expr, *args = x[1:]
             try:
@@ -479,15 +452,7 @@ def lisp_eval(x, env=global_env):
             return lisp_eval(lisp_eval(x[1], env), env)
         else:  # procedure call
             proc = lisp_eval(x[0], env)
-            if isinstance(x[0], str) and x[0].startswith('make-'):
-                args = [lisp_eval(arg, env) for arg in x[2:]]
-                if len(args) != proc:
-                    print(f'TypeError: {x[0]} requires {proc}%d values, given {len(args)}')
-                else:
-                    env[x[1]] = args
-                return
-            else:
-                args = [lisp_eval(arg, env) for arg in x[1:]]
+            args = [lisp_eval(arg, env) for arg in x[1:]]
             return proc(*args)
     except Exception as e:
         if len(str(e)) > 1500:
