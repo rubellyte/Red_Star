@@ -309,6 +309,7 @@ def standard_env(*_, **kwargs):
 
         'int': int,
         'float': float,
+        'dict': dict,
         'zip': zip,
 
         'resub': re.sub,
@@ -318,6 +319,7 @@ def standard_env(*_, **kwargs):
         'str': _str,
         'transcode': transcode,
 
+        'random': random.random,
         'randint': random.randint,
         'choice': lambda *x: random.choices(*x).pop(),
 
