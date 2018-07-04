@@ -16,23 +16,21 @@ class ConfigManager:
         self.config = DotDict({})
         self._path = None
 
-    def load_config(self, config_path):
+    def load_config(self, config_path, base_dir):
         if not isinstance(config_path, Path):
             config_path = Path(config_path)
         try:
             with config_path.open(encoding="utf-8") as f:
                 self.raw_config = f.read()
         except FileNotFoundError:
-            self.logger.warning("Couldn't open config.json! Copying "
-                                "config.json.default...")
-            default_path = Path(str(config_path) + ".default")
+            self.logger.warning(f"Couldn't find {config_path}! Copying config.json.default...")
+            default_path = Path(base_dir / "config/config.json.default")
             try:
                 copyfile(str(default_path), str(config_path))
-                with config_path.open("w", encoding="utf-8") as f:
+                with config_path.open(encoding="utf-8") as f:
                     self.raw_config = f.read()
             except FileNotFoundError:
-                self.logger.error("Couldn't open config.json.default! Please "
-                                  "verify config files.")
+                self.logger.error("Couldn't find config/config.json.default! Please verify config files.")
                 sys.exit(1)
         self._path = config_path
         try:

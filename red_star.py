@@ -1,8 +1,10 @@
-import discord
 import asyncio
 import logging
+from argparse import ArgumentParser
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from discord import AutoShardedClient
+from discord.errors import ConnectionClosed
 from channel_manager import ChannelManager
 from command_dispatcher import CommandDispatcher
 from config_manager import ConfigManager
@@ -10,24 +12,30 @@ from plugin_manager import PluginManager
 from sys import exc_info
 
 
-class RedStar(discord.AutoShardedClient):
+class RedStar(AutoShardedClient):
 
-    def __init__(self):
+    def __init__(self, base_dir, config_path, debug, **kwargs):
         super().__init__()
         self.logger = logging.getLogger("red_star")
-        if DEBUG:
+        if debug:
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)
         self.logger.debug("Initializing...")
+
+        self.base_dir = base_dir
+
         self.config_manager = ConfigManager()
-        self.config_manager.load_config(path / "config" / "config.json")
+        self.config_manager.load_config(config_path, base_dir=base_dir)
         self.config = self.config_manager.config
+
         self.channel_manager = ChannelManager(self)
         self.command_dispatcher = CommandDispatcher(self)
+
         self.plugin_manager = PluginManager(self)
-        self.plugin_manager.load_from_path(path / self.config.plugin_path)
+        self.plugin_manager.load_from_path(base_dir / self.config.plugin_path)
         self.plugin_manager.final_load()
+
         self.logged_in = False
         self.server_ready = False
         self.last_error = None
@@ -51,7 +59,7 @@ class RedStar(discord.AutoShardedClient):
         self.logger.info("Logging out.")
         try:
             await self.logout()
-        except discord.errors.ConnectionClosed:
+        except ConnectionClosed:
             pass
         raise SystemExit
 
@@ -186,26 +194,38 @@ class RedStar(discord.AutoShardedClient):
 
 
 if __name__ == "__main__":
-    path = Path(__file__).parent
-    DEBUG = True
-    if DEBUG:
+    base_dir = Path.cwd()
+
+    parser = ArgumentParser(description="General-purpose Discord bot with administration and entertainment functions.")
+    parser.add_argument("-v", "--verbose", "-d", "--debug", action="store_true", help="Enables debug output.")
+    parser.add_argument("-c", "--config", type=Path, default=Path("config/config.json"), help="Sets the path to the "
+                                                                                              "configuration file.")
+    parser.add_argument("-l", "--logfile", type=Path, default=Path("red_star.log"), help="Sets the path to the log "
+                                                                                         "file.")
+    args = parser.parse_args()
+
+    if args.verbose:
         loglevel = logging.DEBUG
     else:
         loglevel = logging.INFO
 
-    formatter = logging.Formatter(
-        '%(asctime)s - %(levelname)s - %(name)s # %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
-    logger = logging.getLogger()
-    ch = logging.StreamHandler()
-    ch.setLevel(loglevel)
-    ch.setFormatter(formatter)
-    fl = RotatingFileHandler("red_star.log", maxBytes=10485760, backupCount=3, encoding="utf-8")
-    fl.setLevel(loglevel)
-    fl.setFormatter(formatter)
-    logger.addHandler(ch)
-    logger.addHandler(fl)
-    bot = RedStar()
+    if not args.config.is_absolute():
+        args.config = base_dir / args.config
+
+    if not args.logfile.is_absolute():
+        args.logfile = base_dir / args.logfile
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s # %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    base_logger = logging.getLogger()
+    stream_logger = logging.StreamHandler()
+    stream_logger.setLevel(loglevel)
+    stream_logger.setFormatter(formatter)
+    file_logger = RotatingFileHandler(args.logfile, maxBytes=1048576, backupCount=5, encoding="utf-8")
+    file_logger.setLevel(loglevel)
+    file_logger.setFormatter(formatter)
+    base_logger.addHandler(stream_logger)
+    base_logger.addHandler(file_logger)
+    bot = RedStar(base_dir=base_dir, debug=args.verbose, config_path=args.config)
     loop = asyncio.get_event_loop()
     task = loop.create_task(bot.start(bot.config.token))
     try:
