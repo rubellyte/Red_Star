@@ -61,22 +61,21 @@ def read_from_tokens(tokens):
         return ['quote', l_restore(token[1:-1])]
 
     elif '(' == token:
-        l = []
+        token_list = []
         while tokens[0] != ')':
             t = read_from_tokens(tokens)
             if t != '':
-                l.append(t)
+                token_list.append(t)
         tokens.pop(0)
-        return l
+        return token_list
 
     elif ';' == token:
-        l = []
-        l.append(token)
+        token_list = [token]
         while tokens[0] != '\n':
-            l.append(read_from_tokens(tokens))
+            token_list.append(read_from_tokens(tokens))
         new_line = tokens.pop(0)
-        l.append(new_line)
-        string = l_restore(" ".join(l))
+        token_list.append(new_line)
+        string = l_restore(" ".join(token_list))
         return ['quote', string]
 
     elif ')' == token:
@@ -112,6 +111,7 @@ class Procedure(object):
 
 class Env(dict):
     def __init__(self, parms=(), args=(), outer=None, max_runtime=0):
+        super().__init__()
         self.update(zip(parms, args))
         self.outer = outer
         self.timestamp = time()
@@ -137,6 +137,7 @@ def get_args(args: list) -> (list, dict):
             except IndexError:
                 raise CustomCommandSyntaxError(f"supplied argument {a} given without value")
             del t_list[n]
+    # noinspection PyTypeChecker
     return t_list, OrderedDict(reversed(t_dict.items()))
 
 
@@ -153,7 +154,7 @@ def _str(*args):
 
 
 def eztime(*args):
-    time = datetime.datetime.utcnow()
+    now = datetime.datetime.utcnow()
 
     if args:
         strf = args[0] if args[0] else "%Y-%m-%d @ %H:%M:%S"
@@ -169,10 +170,10 @@ def eztime(*args):
                                                f"Please use H:M:S format.")
         else:
             delta = datetime.timedelta()
-        time = time + delta
-        return time.strftime(strf)
+        now = now + delta
+        return now.strftime(strf)
     else:
-        return time.strftime("%Y-%m-%d @ %H:%M:%S")
+        return now.strftime("%Y-%m-%d @ %H:%M:%S")
 
 
 def _assert(var, vartype, *opt):
@@ -366,8 +367,9 @@ def isnum(test):
     try:
         int(test)
         return True
-    except:
+    except ValueError:
         return False
+
 
 # Evaluate an expression in an environment.f
 def lisp_eval(x, env=global_env):

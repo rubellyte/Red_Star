@@ -17,8 +17,8 @@ class PluginManager:
         self.channel_manager = client.channel_manager
         self.command_dispatcher = client.command_dispatcher
         self.modules = {}
-        self.plugins = DotDict({})
-        self.active_plugins = DotDict({})
+        self.plugins = DotDict()
+        self.active_plugins = DotDict()
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.shelve_path = self.config_manager.config.shelve_path
         self.shelve = None
@@ -47,6 +47,7 @@ class PluginManager:
                 except FileNotFoundError:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
 
+    # noinspection PyMethodMayBeStatic
     def _load_module(self, module_path):
         if module_path.is_dir():
             module_path /= "__init__.py"
@@ -101,6 +102,7 @@ class PluginManager:
         for n, plugin in self.plugins.items():
             if n not in self.active_plugins and n not in to_load:
                 self.logger.info("Activating " + plugin.name)
+                # noinspection PyBroadException
                 try:
                     await plugin.activate()
                     self.active_plugins[n] = plugin
@@ -114,6 +116,7 @@ class PluginManager:
         for n, plugin in self.plugins.items():
             if n in self.active_plugins:
                 self.logger.info("Deactivating " + plugin.name)
+                # noinspection PyBroadException
                 try:
                     await plugin.deactivate()
                 except Exception:
@@ -127,6 +130,7 @@ class PluginManager:
             plg = self.plugins[name]
             if name not in self.active_plugins:
                 self.logger.info(f"Activating plugin {name}.")
+                # noinspection PyBroadException
                 try:
                     await plg.activate()
                     self.active_plugins[name] = plg
@@ -144,6 +148,7 @@ class PluginManager:
             plg = self.plugins[name]
             if name in self.active_plugins:
                 self.logger.info(f"Deactivating plugin {name}.")
+                # noinspection PyBroadException
                 try:
                     await plg.deactivate()
                 except Exception:
@@ -158,7 +163,6 @@ class PluginManager:
 
     async def reload_plugin(self, name):
         try:
-            plg = self.plugins[name]
             self.logger.info(f"Reloading plugin module {name}.")
             was_active = False
             if name in self.active_plugins:
@@ -173,8 +177,6 @@ class PluginManager:
         except KeyError:
             self.logger.error(f"Attempted to reload non-existent plugin module {name}.")
 
-
-
     async def hook_event(self, event, *args, **kwargs):
         """
         Dispatches an event, with its data, to all plugins.
@@ -186,6 +188,7 @@ class PluginManager:
         for plugin in plugins:
             hook = getattr(plugin, event, False)
             if hook:
+                # noinspection PyBroadException
                 try:
                     await hook(*args, **kwargs)
                 except Exception:
@@ -204,6 +207,7 @@ class PluginManager:
             time = 60
         while not self.shutting_down:
             self.logger.debug("Writing to shelve...")
+            # noinspection PyBroadException
             try:
                 self.shelve.sync()
             except Exception:
@@ -221,7 +225,7 @@ class BasePlugin:
     description = "This is a template class for plugins. Name *must* be"
     "filled, other meta-fields are optional."
     version = "1.0"
-    default_config = DotDict({})
+    default_config = DotDict()
     plugins = set()
     client = None
     config_manager = None

@@ -1,7 +1,6 @@
 import re
 import json
 import shlex
-from random import randint
 from rs_errors import CommandSyntaxError, UserPermissionError
 from rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json, parse_roll_string, \
     RSArgumentParser
@@ -60,13 +59,15 @@ class Roleplay(BasePlugin):
                                     f"roll, getting {sum(results)}.\nANALYSIS: Rolled dice:**", rolls)
         elif args['verbose'] == 1:
             t_string = f"{' '.join(args['rollstring'])}\n" + "\n\n".join(rolls)
-            await respond(msg, f"**ANALYSIS: {msg.author.display_name} has attempted a {' '.join(args['rollstring']).upper()} "
-                               f"roll, getting {sum(results)}.\nANALYSIS: Rolled dice:**\n",
+            await respond(msg, f"**ANALYSIS: {msg.author.display_name} has attempted a "
+                               f"{' '.join(args['rollstring']).upper()} roll, getting {sum(results)}.\n"
+                               f"ANALYSIS: Rolled dice:**\n",
                           file=File(BytesIO(bytes(t_string, encoding="utf-8")), filename=f'ROLL.txt'))
         else:
             if rolls:
-                t_string = f"**ANALYSIS: {msg.author.display_name} has attempted a {' '.join(args['rollstring']).upper()}" \
-                           f" roll, getting {sum(results)}.\nANALYSIS: Rolled dice:** ```\n"
+                t_string = f"**ANALYSIS: {msg.author.display_name} has attempted a" \
+                           f"{' '.join(args['rollstring']).upper()} roll, getting {sum(results)}.\n" \
+                           f"ANALYSIS: Rolled dice:** ```\n"
                 if len(rolls[0])+len(t_string) <= 1996:
                     for r in rolls:
                         if len(t_string) + len(r) > 1996:

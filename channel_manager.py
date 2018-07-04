@@ -9,7 +9,7 @@ class ChannelManager:
         try:
             self.conf = self.config_manager.config.channel_manager
         except AttributeError:
-            self.config_manager.config.channel_manager = DotDict({})
+            self.config_manager.config.channel_manager = DotDict()
             self.conf = self.config_manager.config.channel_manager
         self.default_config = {
             "channels": {},

@@ -67,6 +67,7 @@ class ConsoleListener(BasePlugin):
         self.eof = not data
         return data
 
+    # noinspection PyBroadException
     async def _listen(self):
         while self.run_loop:
             try:
@@ -155,8 +156,6 @@ class ConsoleListener(BasePlugin):
         Valid --types: bool, int, float, str, list, dict, json
         Syntax: (path/to/edit) (value or -r/--remove) [-a/--append] [-k/--addkey key_name] [-t/--type type]
         """
-        conf_dict = self.config_manager.config.copy()
-
         parser = RSArgumentParser()
         parser.add_argument("path")
         parser.add_argument("value", nargs="*")
@@ -394,7 +393,8 @@ class ConsoleListener(BasePlugin):
             cmds = ", ".join(self.con_commands.keys())
             print(f"Available commands:\n{cmds}")
 
-    async def _exec(self, args):
+    @staticmethod
+    async def _exec(args):
         """
         Executes a code snippet in the plugin's context. This is *not* a function; return cannot be used.
         Be careful with this, you can break things pretty badly!
@@ -425,7 +425,8 @@ class ConsoleListener(BasePlugin):
         else:
             print(f"No error in context {args}.")
 
-    def _list_or_dict_subscript(self, obj, key):
+    @staticmethod
+    def _list_or_dict_subscript(obj, key):
         """
         Helper function to use key as a key if obj is a dict, or as an int index if list.
 

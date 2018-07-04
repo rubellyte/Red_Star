@@ -89,9 +89,11 @@ class MOTD(BasePlugin):
                     continue
                 except ValueError:
                     pass
+                # noinspection PyUnboundLocalVariable
                 await chan.send(line)
 
-    def _get_holiday(self, motds, month, day, weekday):
+    @staticmethod
+    def _get_holiday(motds, month, day, weekday):
         holidays = motds.get("holidays", [])
         if f"{month}/{day}" in holidays:
             return motds[month][day]

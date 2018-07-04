@@ -103,8 +103,8 @@ class Voting(BasePlugin):
              syntax="(HID) (Query) [Questions, up to 20] [-1/--question, up to 20] [-v/vote_limit, integer, "
                     "0 for no limit] [-n/--no_retracting, to disallow removing votes]",
              doc="Starts a new vote, with provided Human-readableID, Query and Questions.\n"
-                 "Use -v to allow users to vote for more than one option and -n to prevent users from changing their mind.\n"
-                 "Uses shlex for splitting, so multiple words can be wrapped into \"\".\n"
+                 "Use -v to allow users to vote for more than one option and -n to prevent users from changing their"
+                 "mind.\nUses shlex for splitting, so multiple words can be wrapped into \"\".\n"
                  "HID is used to interact with the poll through other commands, keep it one word.",
              run_anywhere=True)
     async def _startvote(self, msg: Message):
@@ -171,8 +171,8 @@ class Voting(BasePlugin):
             if not results:
                 raise UserPermissionError
             results = '\n\n'.join(results)
-            await respond(msg,
-                          f"**AFFIRMATIVE. ANALYSIS: {len(candidates)} polls terminated with results:**```{results}```")
+            await respond(msg, f"**AFFIRMATIVE. ANALYSIS: {len(candidates)} polls terminated with results:**"
+                               f"```{results}```")
         else:
             raise CommandSyntaxError("WARNING: Poll HID or ID required")
 

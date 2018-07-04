@@ -1,13 +1,13 @@
 # Miscellaneous utility functions and classes found here.
-import collections
+import argparse
 import dbm
 import re
 import shelve
 import json
+from collections import Mapping
 from io import BytesIO
 from pickle import Pickler, Unpickler
 from rs_errors import CommandSyntaxError
-import argparse
 from random import randint
 
 
@@ -17,12 +17,13 @@ class DotDict(dict):
     eg - dict.key.subkey
     """
 
-    def __init__(self, d, **kwargs):
+    def __init__(self, orig_dict=None, **kwargs):
         super().__init__(**kwargs)
-        for k, v in d.items():
-            if isinstance(v, collections.Mapping):
-                v = DotDict(v)
-            self[k] = v
+        if isinstance(orig_dict, Mapping):
+            for k, v in orig_dict.items():
+                if isinstance(v, Mapping):
+                    v = DotDict(v)
+                self[k] = v
 
     def __getattr__(self, item):
         try:
@@ -31,7 +32,7 @@ class DotDict(dict):
             raise AttributeError(str(e)) from None
 
     def __setattr__(self, key, value):
-        if isinstance(value, collections.Mapping):
+        if isinstance(value, Mapping):
             value = DotDict(value)
         super().__setitem__(key, value)
 
@@ -79,7 +80,9 @@ class Cupboard(shelve.Shelf):
         try:
             self.sync()
         finally:
+            # noinspection PyBroadException
             try:
+                # noinspection PyProtectedMember
                 self.dict = shelve._ClosedDict()
             except Exception:
                 self.dict = None
@@ -118,24 +121,6 @@ class RSArgumentParser(argparse.ArgumentParser):
         if namespace is None:
             namespace = RSNamespace()
         return super().parse_known_args(args=args, namespace=namespace)
-
-
-def dict_merge(d, u):
-    """
-    Given two dictionaries, update the first one with new values provided by
-    the second. Works for nested dictionary sets.
-
-    :param d: First Dictionary, to base off of.
-    :param u: Second Dictionary, to provide updated values.
-    :return: Dictionary. Merged dictionary with bias towards the second.
-    """
-    for k, v in u.items():
-        if isinstance(v, collections.Mapping):
-            r = dict_merge(d.get(k, {}), v)
-            d[k] = r
-        else:
-            d[k] = u[k]
-    return d
 
 
 def get_guild_config(cls, gid, key):

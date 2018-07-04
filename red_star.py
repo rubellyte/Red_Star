@@ -14,7 +14,7 @@ from sys import exc_info
 
 class RedStar(AutoShardedClient):
 
-    def __init__(self, base_dir, config_path, debug, **kwargs):
+    def __init__(self, base_dir, config_path, debug):
         super().__init__()
         self.logger = logging.getLogger("red_star")
         if debug:
@@ -63,7 +63,7 @@ class RedStar(AutoShardedClient):
             pass
         raise SystemExit
 
-    async def on_error(self, event_method, *args, **kwargs):
+    async def on_error(self, event_method, *pargs, **kwargs):
         exc = exc_info()
         self.last_error = exc
         self.logger.exception(f"Unhandled {exc[0].__name__} occurred in {event_method}: ", exc_info=True)
@@ -194,7 +194,7 @@ class RedStar(AutoShardedClient):
 
 
 if __name__ == "__main__":
-    base_dir = Path.cwd()
+    working_dir = Path.cwd()
 
     parser = ArgumentParser(description="General-purpose Discord bot with administration and entertainment functions.")
     parser.add_argument("-v", "--verbose", "-d", "--debug", action="store_true", help="Enables debug output.")
@@ -210,10 +210,10 @@ if __name__ == "__main__":
         loglevel = logging.INFO
 
     if not args.config.is_absolute():
-        args.config = base_dir / args.config
+        args.config = working_dir / args.config
 
     if not args.logfile.is_absolute():
-        args.logfile = base_dir / args.logfile
+        args.logfile = working_dir / args.logfile
 
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s # %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     base_logger = logging.getLogger()
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     file_logger.setFormatter(formatter)
     base_logger.addHandler(stream_logger)
     base_logger.addHandler(file_logger)
-    bot = RedStar(base_dir=base_dir, debug=args.verbose, config_path=args.config)
+    bot = RedStar(base_dir=working_dir, debug=args.verbose, config_path=args.config)
     loop = asyncio.get_event_loop()
     task = loop.create_task(bot.start(bot.config.token))
     try:

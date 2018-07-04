@@ -164,7 +164,7 @@ class MusicPlayer(BasePlugin):
                                                                 f"**WARNING: Leaving voice chat due to inactivity.**",
                                                                 log_type="musicbot_event")
                 if self.idle_count >= self.config["idle_terminate"] and (self.queue or self.cycle != 'none' or
-                                                                             self.shuffle):
+                                                                         self.shuffle):
                     self.stop_song()
                     self.parent.logger.info(f"Terminating queue on {self.guild.name} due to inactivity.")
                     await self.parent.plugin_manager.hook_event("on_log_event", self.guild,
@@ -200,6 +200,7 @@ class MusicPlayer(BasePlugin):
 
                 def p_next(err):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
+                    # noinspection PyBroadException
                     try:
                         t_future.result()
                     except Exception:
@@ -244,6 +245,7 @@ class MusicPlayer(BasePlugin):
 
                 def p_next(err):
                     t_future = asyncio.run_coroutine_threadsafe(self.play_next(data, err), t_loop)
+                    # noinspection PyBroadException
                     try:
                         t_future.result()
                     except Exception as e:
@@ -314,6 +316,7 @@ class MusicPlayer(BasePlugin):
             for t_entry in t_sources:
                 if index is not None:
                     self.parent.logger.info(f"Adding {t_entry['title']} to music queue.")
+                    # noinspection PyUnboundLocalVariable
                     self.queue.insert(t_i, t_entry)
                     t_i += 1
                 else:
@@ -328,14 +331,13 @@ class MusicPlayer(BasePlugin):
                 return
             self.vote_set.add(data.author.id)
             override = data.author.permissions_in(self.vc.channel).mute_members or data.author.id in \
-                                                                                   self.parent.config_manager.config.get(
-                                                                                       "bot_maintainers", [])
+                self.parent.config_manager.config.get("bot_maintainers", [])
             votes = len(self.vote_set)
             m_votes = (len(self.vc.channel.members) - 1) / 2
             if votes >= m_votes or override:
                 await self.play_next(self, None)
                 await respond(data, "**AFFIRMATIVE. Skipping current song.**"
-                if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
+                              if not override else "**AFFIRMATIVE. Override accepted. Skipping current song.**")
             else:
                 await respond(data, f"**Skip vote: ACCEPTED. {votes} "
                                     f"out of required {ceil(m_votes)}**")
@@ -387,8 +389,7 @@ class MusicPlayer(BasePlugin):
         def check_perm(self, data):
             return (self.check_in(data) and self.vc.channel.permissions_for(data.author).mute_members) or \
                    data.author.guild_permissions.mute_members or data.author.id in \
-                                                                 self.parent.config_manager.config.get(
-                                                                         "bot_maintainers", [])
+                   self.parent.config_manager.config.get("bot_maintainers", [])
 
         def play_length(self):
             """
@@ -401,7 +402,7 @@ class MusicPlayer(BasePlugin):
                 if self.time_pause > 0:
                     t_skip = time.time() - self.time_pause
                 t = min(ceil(time.time() - self.time_started - self.time_skip - t_skip), self.vc.source.duration if
-                self.vc.source.duration else self.config["max_video_length"])
+                        self.vc.source.duration else self.config["max_video_length"])
             return t
 
         def queue_length(self, queue):
@@ -609,7 +610,7 @@ class MusicPlayer(BasePlugin):
                 for song, _ in self.storage["stored_songs"].items():
                     try:
                         os.remove(song)
-                    except Exception:
+                    except OSError:
                         self.logger.exception("Error pruning song cache. ", exc_info=True)
         await respond(data, "**AFFIRMATIVE. Ceasing the rhythmical noise.**")
 
@@ -848,6 +849,7 @@ class MusicPlayer(BasePlugin):
                         continue
                     await t_play.add_song(arg)
                 if t_i is not None:
+                    # noinspection PyUnboundLocalVariable
                     t_play.queue += t_queue
                 await respond(data, f"**ANALYSIS: Current queue:**")
                 for s in split_message(t_play.build_queue(), "\n"):
@@ -921,7 +923,7 @@ class MusicPlayer(BasePlugin):
         :param entry: request data
         :return: dictionary of parameters
         """
-        t_dict = DotDict({})
+        t_dict = DotDict()
         self.logger.info(f'processing URL {entry["title"]}')
         if self.plugin_config["download_songs"]:
             filename = ydl.prepare_filename(entry)
@@ -1106,6 +1108,7 @@ class MusicPlayer(BasePlugin):
 
     def start_timer(self, loop, t_loop):
         asyncio.set_event_loop(loop)
+        # noinspection PyBroadException
         try:
             loop.run_until_complete(self.display_time(t_loop))
         except Exception:
@@ -1116,8 +1119,6 @@ class MusicPlayer(BasePlugin):
         Updates client status every ten seconds based on music status.
         Also runs the every-few-second stuff
         """
-
-        playing = True
         while self.run_timer:
             await asyncio.sleep(10)
 
@@ -1138,8 +1139,6 @@ class MusicPlayer(BasePlugin):
                     except OSError:
                         self.storage["stored_songs"].pop(song)
                         self.logger.warning(f"File {song} is invalid. Removing reference.")
-                    except Exception:
-                        self.logger.exception("Error pruning song cache. ", exc_info=True)
 
             # check that people are still listening
             for _, t_player in self.players.items():

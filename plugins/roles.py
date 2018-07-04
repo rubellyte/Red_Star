@@ -1,4 +1,4 @@
-from discord import InvalidArgument, HTTPException, Forbidden, Colour
+from discord import InvalidArgument, HTTPException, Colour
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError
 from rs_utils import respond, is_positive, find_role, split_output, RSArgumentParser
@@ -112,7 +112,8 @@ class RoleCommands(BasePlugin):
                         "permissions": role.permissions,
                         "colour": Colour(int(p_args['colour'], 16)) if p_args['colour'] else role.colour,
                         "hoist": is_positive(p_args['hoist']) if p_args['hoist'] else role.hoist,
-                        "mentionable": is_positive(p_args['mentionable']) if p_args['mentionable'] else role.mentionable
+                        "mentionable": is_positive(p_args['mentionable'])
+                        if p_args['mentionable'] else role.mentionable
                     }
                 except ValueError:
                     raise CommandSyntaxError("Colour must be in web-colour hexadecimal format.")

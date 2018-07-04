@@ -15,7 +15,7 @@ class CommandDispatcher:
         try:
             self.conf = client.config_manager.config.command_dispatcher
         except AttributeError:
-            client.config_manager.config.command_dispatcher = DotDict({})
+            client.config_manager.config.command_dispatcher = DotDict()
             self.conf = client.config_manager.config.command_dispatcher
         self.default_config = {
             "command_prefix": "!"
@@ -83,6 +83,7 @@ class CommandDispatcher:
             for alias in fn.aliases:
                 self.deregister(fn, alias, is_alias=True)
 
+    # noinspection PyBroadException
     async def run_command(self, command, msg):
         try:
             fn = self.commands[command]

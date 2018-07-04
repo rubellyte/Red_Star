@@ -17,6 +17,7 @@ from discord.errors import Forbidden
 from plugins.rs_lisp import lisp_eval, parse, standard_env, get_args
 
 
+# noinspection PyBroadException
 class CustomCommands(BasePlugin):
     name = "custom_commands"
     default_config = {
@@ -146,7 +147,7 @@ class CustomCommands(BasePlugin):
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
                     not msg.author.permissions_in(msg.channel).manage_messages and \
-                            t_count >= self.plugin_config[gid].get("cc_limit", 100):
+                    t_count >= self.plugin_config[gid].get("cc_limit", 100):
                 raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
             try:
                 if not re.match(r"^\s*\(.*\)\s*$", content, re.DOTALL):
@@ -501,7 +502,8 @@ class CustomCommands(BasePlugin):
             elif result:
                 await respond(msg, str(result))
 
-    async def _rm_msg(self, msg):
+    @staticmethod
+    async def _rm_msg(msg):
         await sleep(1)
         await msg.delete()
 
@@ -515,7 +517,8 @@ class CustomCommands(BasePlugin):
                 "cc_use_ban": []
             }
 
-    def _parse_rpn(self, args):
+    @staticmethod
+    def _parse_rpn(args):
         t_args = args.lower().split()
         if len(t_args) == 0:
             raise CustomCommandSyntaxError("<rpn> tag requires arguments")
@@ -635,7 +638,7 @@ class CustomCommands(BasePlugin):
             author = discord.utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
             env['authorname'] = author.name
             env['authornick'] = author.display_name
-        except:
+        except AttributeError:
             env['authorname'] = env['authornick'] = '<Unknown user>'
         a = msg.clean_content.split(" ", 1)
         env['argstring'] = a[1] if len(a) > 1 else ''
@@ -643,15 +646,17 @@ class CustomCommands(BasePlugin):
 
         env['hasrole'] = lambda *x: self._hasrole(msg, *x)
         env['delcall'] = lambda: ensure_future(self._rm_msg(msg))
-        env['embed']   = lambda *x: self._embed(msg, *get_args(x))
+        env['embed'] = lambda *x: self._embed(msg, *get_args(x))
 
         return env
 
-    def _hasrole(self, msg, *args):
+    @staticmethod
+    def _hasrole(msg, *args):
         roles = [x.name.lower() for x in msg.author.roles]
         return len([True for r in args if r.lower() in roles]) > 0
 
-    def _embed(self, msg, _, kwargs):
+    @staticmethod
+    def _embed(msg, _, kwargs):
         t_embed = Embed(type="rich", colour=16711680)
         t_post = False
         for name, value in kwargs.items():

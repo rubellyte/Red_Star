@@ -1,8 +1,8 @@
-import urllib
-import re
 import asyncio
-import shlex
 import json
+import re
+import shlex
+import urllib.request
 from plugin_manager import BasePlugin
 from rs_errors import CommandSyntaxError, UserPermissionError
 from rs_utils import respond, is_positive, RSArgumentParser, split_output
@@ -351,6 +351,7 @@ class BotManagement(BasePlugin):
         # Convenience variables for printing results and ensure_future
         aef = asyncio.ensure_future
         self.res = None
+        # noinspection PyBroadException
         try:
             exec(code, globals(), locals())
         except Exception:
@@ -360,7 +361,8 @@ class BotManagement(BasePlugin):
             await respond(msg, f"**ANALYSIS: Result: {self.res}**")
             self.res = None
 
-    def _list_or_dict_subscript(self, obj, key):
+    @staticmethod
+    def _list_or_dict_subscript(obj, key):
         """
         Helper function to use key as a key if obj is a dict, or as an int index if list.
 
