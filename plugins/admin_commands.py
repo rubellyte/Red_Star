@@ -1,9 +1,11 @@
 import re
+import shlex
 from asyncio import sleep
+from discord import NotFound
 from plugin_manager import BasePlugin
 from rs_utils import respond, find_user, RSArgumentParser
+from rs_errors import CommandSyntaxError
 from command_dispatcher import Command
-import shlex
 
 
 class AdminCommands(BasePlugin):
@@ -15,9 +17,10 @@ class AdminCommands(BasePlugin):
                  "into quotation marks instead.",
              syntax="(count) [match] [-u/--user mention/ID/Name] [-r/--regex] [-v/--verbose] [-e/--emulate/--dryrun]",
              run_anywhere=True,
+             delcall=True,
              perms={"manage_messages"},
              category="admin")
-    async def _tpurge(self, msg):
+    async def _purge(self, msg):
 
         parser = RSArgumentParser()
         parser.add_argument("command")
@@ -27,6 +30,8 @@ class AdminCommands(BasePlugin):
         parser.add_argument("-u", "--user", action="append")
         parser.add_argument("-v", "--verbose", action="store_true")
         parser.add_argument("-e", "--emulate", "--dryrun", action="store_true")
+        parser.add_argument("-b", "--before", type=int, default=None)
+        parser.add_argument("-a", "--after", type=int, default=None)
 
         args = parser.parse_args(shlex.split(msg.content))
 
@@ -44,11 +49,25 @@ class AdminCommands(BasePlugin):
                 if u:
                     members.append(u.id)
 
-        await msg.delete()
+        if args['before']:
+            try:
+                before_msg = await msg.channel.get_message(args['before'])
+            except NotFound:
+                raise CommandSyntaxError(f"No message in channel with ID {args['before']}.")
+        else:
+            before_msg = msg
+
+        if args['after']:
+            try:
+                after_msg = await msg.channel.get_message(args['after'])
+            except NotFound:
+                raise CommandSyntaxError(f"No message in channel with ID {args['before']}.")
+        else:
+            after_msg = None
 
         if not args['emulate']:
             # actual purging
-            deleted = await msg.channel.purge(limit=args['count'],
+            deleted = await msg.channel.purge(limit=args['count'], before=before_msg, after=after_msg,
                                               check=((lambda x: self.rsearch(x, args['match'], members)) if
                                                      args['regex'] else
                                                      (lambda x: self.search(x, args['match'], members))))
@@ -57,7 +76,7 @@ class AdminCommands(BasePlugin):
             deleted = []
             check = ((lambda x: self.rsearch(x, args['match'], members)) if args['regex'] else
                      (lambda x: self.search(x, args['match'], members)))
-            async for m in msg.channel.history(limit=args['count']):
+            async for m in msg.channel.history(limit=args['count'], before=before_msg, after=after_msg):
                 if check(m):
                     deleted.append(m)
 
@@ -75,9 +94,7 @@ class AdminCommands(BasePlugin):
                                                  log_type="purge_event")
 
         fb = await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**" +
-                           (f"\n**Purge query: **{args['match']}" if args['match'] else ""))
-        await sleep(5)
-        await fb.delete()
+                           (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
 
     @staticmethod
     def search(msg, searchstr, members=list()):
