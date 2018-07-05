@@ -13,7 +13,6 @@ from sys import exc_info
 
 
 class RedStar(AutoShardedClient):
-
     def __init__(self, base_dir, config_path, debug):
         self.logger = logging.getLogger("red_star")
         dpy_logger = logging.getLogger("discord")

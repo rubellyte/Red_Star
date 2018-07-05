@@ -1,6 +1,5 @@
 import re
 import shlex
-from asyncio import sleep
 from discord import NotFound
 from plugin_manager import BasePlugin
 from rs_utils import respond, find_user, RSArgumentParser
@@ -93,8 +92,8 @@ class AdminCommands(BasePlugin):
                                                  "**Verbose purge dump complete.**",
                                                  log_type="purge_event")
 
-        fb = await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**" +
-                           (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
+        await respond(msg, f"**PURGE COMPLETE: {len(deleted)} messages purged.**" +
+                      (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
 
     @staticmethod
     def search(msg, searchstr, members=list()):

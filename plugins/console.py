@@ -54,6 +54,7 @@ class ConsoleListener(BasePlugin):
         try:
             self.task.cancel()
             if self.read_task:
+                # noinspection PyUnresolvedReferences
                 self.read_task.cancel()
         except CancelledError:
             pass

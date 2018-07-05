@@ -3,6 +3,7 @@ from string import capwords
 from plugin_manager import BasePlugin
 from rs_errors import UserPermissionError
 from rs_utils import respond
+from rs_version import version
 from command_dispatcher import Command
 from discord import Embed
 
@@ -82,8 +83,10 @@ class Info(BasePlugin):
              category="info")
     async def _about(self, msg):
         deco = self.client.command_dispatcher.conf[str(msg.guild.id)].command_prefix
-        desc = f"Red Star: General purpose command AI for Discord.\nUse {deco}help for command information."
+        desc = f"Red Star: General purpose command AI for Discord.\n" \
+               f"Use {deco}help for command information."
         em = Embed(title="About Red Star", color=0xFF0000, description=desc)
         em.set_thumbnail(url="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png")
         em.add_field(name="GitHub", value="https://github.com/medeor413/Red_Star")
+        em.add_field(name="Version", value=version)
         await respond(msg, None, embed=em)
