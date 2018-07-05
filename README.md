@@ -1,5 +1,5 @@
 # Red Star Bot
-![PyPI](https://img.shields.io/badge/Python-3.6-blue.svg)
+![PyPI](https://img.shields.io/badge/Python-3.6--3.7-blue.svg)
 
 A general-purpose Discord bot with administration and entertainment functions. Now with added **shouting.**
 
@@ -16,7 +16,7 @@ A general-purpose Discord bot with administration and entertainment functions. N
 - Message purging by content (regex supported) and author
 
 # Installation
-- Install [Python 3.6.x](https://www.python.org/) (note that Python 3.7 **is not supported** at this time!
+- Install [Python 3.6+](https://www.python.org/)
 - Install [discord.py](https://github.com/Rapptz/discord.py), rewrite branch
 - For music playing:
   - Install discord.py\[voice]
