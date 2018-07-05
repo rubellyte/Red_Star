@@ -17,13 +17,13 @@ class RedStar(AutoShardedClient):
     def __init__(self, base_dir, config_path, debug):
         self.logger = logging.getLogger("red_star")
         dpy_logger = logging.getLogger("discord")
-        if debug:
+        if debug > 0:
             self.logger.setLevel(logging.DEBUG)
-            dpy_logger.setLevel(logging.DEBUG)
+            dpy_logger.setLevel(logging.DEBUG if debug >= 2 else logging.INFO)
         else:
             self.logger.setLevel(logging.INFO)
             dpy_logger.setLevel(logging.INFO)
-        self.logger.debug("Initializing...")
+        self.logger.info("Initializing...")
 
         super().__init__()
 
@@ -200,15 +200,17 @@ class RedStar(AutoShardedClient):
 if __name__ == "__main__":
     working_dir = Path.cwd()
 
+    verbose_docstr = "Enables debug output. Calling multiple times increases verbosity; two calls enables discord.py" \
+                     " debug output, and three calls enables asyncio's debug mode."
     parser = ArgumentParser(description="General-purpose Discord bot with administration and entertainment functions.")
-    parser.add_argument("-v", "--verbose", "-d", "--debug", action="store_true", help="Enables debug output.")
+    parser.add_argument("-v", "--verbose", "-d", "--debug", action="count", help=verbose_docstr)
     parser.add_argument("-c", "--config", type=Path, default=Path("config/config.json"), help="Sets the path to the "
                                                                                               "configuration file.")
     parser.add_argument("-l", "--logfile", type=Path, default=Path("red_star.log"), help="Sets the path to the log "
                                                                                          "file.")
     args = parser.parse_args()
 
-    if args.verbose:
+    if args.verbose > 0:
         loglevel = logging.DEBUG
     else:
         loglevel = logging.INFO
@@ -228,10 +230,14 @@ if __name__ == "__main__":
     file_logger.setLevel(loglevel)
     file_logger.setFormatter(formatter)
     base_logger.addHandler(stream_logger)
-    base_logger.addHandler(stream_logger)
     base_logger.addHandler(file_logger)
-    bot = RedStar(base_dir=working_dir, debug=args.verbose, config_path=args.config)
+
     loop = asyncio.get_event_loop()
+
+    if args.verbose >= 3:
+        loop.set_debug(True)
+
+    bot = RedStar(base_dir=working_dir, debug=args.verbose, config_path=args.config)
     task = loop.create_task(bot.start(bot.config.token))
     try:
         loop.run_until_complete(task)
