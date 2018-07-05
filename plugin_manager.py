@@ -20,6 +20,7 @@ class PluginManager:
         self.plugins = DotDict()
         self.active_plugins = DotDict()
         self.logger = logging.getLogger("red_star.plugin_manager")
+        self.logger.debug("Initialized plugin manager.")
         self.shelve_path = self.config_manager.config.shelve_path
         self.shelve = None
         self.shutting_down = False
@@ -47,7 +48,6 @@ class PluginManager:
                 except FileNotFoundError:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
 
-    # noinspection PyMethodMayBeStatic
     def _load_module(self, module_path):
         if module_path.is_dir():
             module_path /= "__init__.py"
@@ -55,6 +55,7 @@ class PluginManager:
             raise FileNotFoundError(f"{module_path} does not exist.")
         name = "plugins." + module_path.stem
         modul = importlib.import_module(name)
+        self.logger.debug(f"Imported module {name}.")
         return modul
 
     def _get_plugin_class(self, modul):
@@ -74,8 +75,10 @@ class PluginManager:
         for i in classes:
             self.plugins[i.name] = i()
             self.modules[i.name] = modul
+            self.logger.debug(f"Loaded plugin {i.name}")
 
     def final_load(self):
+        self.logger.debug("Performing final plugin load pass...")
         try:
             self.shelve = Cupboard(self.shelve_path)
         except OSError:

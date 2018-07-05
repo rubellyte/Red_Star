@@ -15,13 +15,17 @@ from sys import exc_info
 class RedStar(AutoShardedClient):
 
     def __init__(self, base_dir, config_path, debug):
-        super().__init__()
         self.logger = logging.getLogger("red_star")
+        dpy_logger = logging.getLogger("discord")
         if debug:
             self.logger.setLevel(logging.DEBUG)
+            dpy_logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)
+            dpy_logger.setLevel(logging.INFO)
         self.logger.debug("Initializing...")
+
+        super().__init__()
 
         self.base_dir = base_dir
 
@@ -223,6 +227,7 @@ if __name__ == "__main__":
     file_logger = RotatingFileHandler(args.logfile, maxBytes=1048576, backupCount=5, encoding="utf-8")
     file_logger.setLevel(loglevel)
     file_logger.setFormatter(formatter)
+    base_logger.addHandler(stream_logger)
     base_logger.addHandler(stream_logger)
     base_logger.addHandler(file_logger)
     bot = RedStar(base_dir=working_dir, debug=args.verbose, config_path=args.config)

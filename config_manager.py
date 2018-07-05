@@ -12,11 +12,13 @@ class ConfigManager:
     """
     def __init__(self):
         self.logger = logging.getLogger("red_star.config_manager")
+        self.logger.debug("Initialized config manager.")
         self.raw_config = None
         self.config = DotDict()
         self._path = None
 
     def load_config(self, config_path, base_dir):
+        self.logger.debug("Loading configuration...")
         if not isinstance(config_path, Path):
             config_path = Path(config_path)
         try:
