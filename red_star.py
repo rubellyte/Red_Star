@@ -203,7 +203,7 @@ if __name__ == "__main__":
     verbose_docstr = "Enables debug output. Calling multiple times increases verbosity; two calls enables discord.py" \
                      " debug output, and three calls enables asyncio's debug mode."
     parser = ArgumentParser(description="General-purpose Discord bot with administration and entertainment functions.")
-    parser.add_argument("-v", "--verbose", "-d", "--debug", action="count", help=verbose_docstr)
+    parser.add_argument("-v", "--verbose", "-d", "--debug", action="count", help=verbose_docstr, default=0)
     parser.add_argument("-c", "--config", type=Path, default=Path("config/config.json"), help="Sets the path to the "
                                                                                               "configuration file.")
     parser.add_argument("-l", "--logfile", type=Path, default=Path("red_star.log"), help="Sets the path to the log "
@@ -236,6 +236,9 @@ if __name__ == "__main__":
 
     if args.verbose >= 3:
         loop.set_debug(True)
+        logging.getLogger("asyncio").setLevel(logging.DEBUG)
+    else:
+        logging.getLogger("asyncio").setLevel(logging.INFO)
 
     bot = RedStar(base_dir=working_dir, debug=args.verbose, config_path=args.config)
     task = loop.create_task(bot.start(bot.config.token))
