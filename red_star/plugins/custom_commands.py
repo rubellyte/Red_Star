@@ -204,13 +204,18 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            self.logger.debug(fp.getvalue())
-            try:
-                jsdata = json.loads(fp.getvalue().decode())
-            except json.JSONDecodeError:
-                raise CommandSyntaxError("Uploaded file is not valid JSON!")
-            name = jsdata["name"].lower()
-            content = jsdata["content"]
+            # self.logger.debug(fp.getvalue())
+            args = msg.clean_content.split()[1:]
+            if args and args[0].lower() in ("-s", "--source"):
+                name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
+                content = fp.getvalue().decode()
+            else:
+                try:
+                    jsdata = json.loads(fp.getvalue().decode())
+                except json.JSONDecodeError:
+                    raise CommandSyntaxError("Uploaded file is not valid JSON!")
+                name = jsdata["name"].lower()
+                content = jsdata["content"]
         else:
             try:
                 args = msg.clean_content.split(" ")[1:]
