@@ -1,4 +1,4 @@
 https://github.com/Rapptz/discord.py/archive/rewrite.zip#egg=discord.py
-https://github.com/aaugustin/websockets/archive/master.zip#egg=aiohttp
+https://github.com/aaugustin/websockets/archive/master.zip#egg=websockets
 PyNaCl==1.2.1
 youtube-dl
