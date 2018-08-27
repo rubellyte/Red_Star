@@ -1,8 +1,8 @@
 import asyncio
-from plugin_manager import BasePlugin
-from rs_errors import ChannelNotFoundError, CommandSyntaxError
-from rs_utils import split_message, respond
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
+from red_star.rs_utils import split_message, respond
+from red_star.command_dispatcher import Command
 from discord import AuditLogAction
 from datetime import datetime, timedelta
 

@@ -1,8 +1,8 @@
 from discord import InvalidArgument, HTTPException, Colour
-from plugin_manager import BasePlugin
-from rs_errors import CommandSyntaxError
-from rs_utils import respond, is_positive, find_role, split_output, RSArgumentParser
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import CommandSyntaxError
+from red_star.rs_utils import respond, is_positive, find_role, split_output, RSArgumentParser
+from red_star.command_dispatcher import Command
 from string import capwords
 import shlex
 from argparse import SUPPRESS

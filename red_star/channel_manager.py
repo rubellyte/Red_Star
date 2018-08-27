@@ -1,5 +1,5 @@
-from rs_utils import DotDict
-from rs_errors import ChannelNotFoundError
+from red_star.rs_utils import DotDict
+from red_star.rs_errors import ChannelNotFoundError
 
 
 class ChannelManager:

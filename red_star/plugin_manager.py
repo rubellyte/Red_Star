@@ -1,9 +1,10 @@
 import inspect
 import logging
 import importlib
+import importlib.util
 import asyncio
 from sys import exc_info
-from rs_utils import DotDict, Cupboard
+from red_star.rs_utils import DotDict, Cupboard
 
 
 class PluginManager:
@@ -21,7 +22,7 @@ class PluginManager:
         self.active_plugins = DotDict()
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.logger.debug("Initialized plugin manager.")
-        self.shelve_path = self.config_manager.config.shelve_path
+        self.shelve_path = client.base_dir / "storage"
         self.shelve = None
         self.shutting_down = False
         self.last_error = None
@@ -44,7 +45,7 @@ class PluginManager:
                     self.load_plugin(modul)
                     loaded.add(str(file))
                 except (SyntaxError, ImportError):
-                    self.logger.exception(f"Exception encounter loading plugin {file.stem}: ", exc_info=True)
+                    self.logger.exception(f"Exception encountered loading plugin {file.stem}: ", exc_info=True)
                 except FileNotFoundError:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
 
@@ -54,9 +55,12 @@ class PluginManager:
         if not module_path.exists():
             raise FileNotFoundError(f"{module_path} does not exist.")
         name = "plugins." + module_path.stem
-        modul = importlib.import_module(name)
+        spec = importlib.util.spec_from_file_location(name, module_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        self.logger.debug(mod)
         self.logger.debug(f"Imported module {name}.")
-        return modul
+        return mod
 
     def _get_plugin_class(self, modul):
         class_list = set()
@@ -80,12 +84,9 @@ class PluginManager:
     def final_load(self):
         self.logger.debug("Performing final plugin load pass...")
         try:
-            self.shelve = Cupboard(self.shelve_path)
+            self.shelve = Cupboard(str(self.shelve_path))
         except OSError:
             self.logger.exception("Exception occurred while opening shelve! ", exc_info=True)
-            raise SystemExit
-        except AttributeError:
-            self.logger.error("shelve_path not defined in config!")
             raise SystemExit
         for plugin in self.plugins.values():
             plugin.plugins = self.active_plugins

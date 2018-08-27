@@ -2,9 +2,9 @@ import inspect
 import logging
 from asyncio import sleep
 from sys import exc_info
-from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
+from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
-from rs_utils import respond, DotDict
+from red_star.rs_utils import respond, DotDict
 
 
 class CommandDispatcher:

@@ -1,6 +1,6 @@
-from plugin_manager import BasePlugin
-from rs_errors import ChannelNotFoundError
-from rs_utils import sub_user_data, respond, get_guild_config
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import ChannelNotFoundError
+from red_star.rs_utils import sub_user_data, respond, get_guild_config
 from random import choice
 
 

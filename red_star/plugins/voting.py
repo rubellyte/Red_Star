@@ -1,7 +1,7 @@
-from plugin_manager import BasePlugin
-from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, RSArgumentParser
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import CommandSyntaxError, UserPermissionError
+from red_star.rs_utils import respond, RSArgumentParser
+from red_star.command_dispatcher import Command
 import shlex
 from discord import Embed, Message
 

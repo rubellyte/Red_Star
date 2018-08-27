@@ -3,7 +3,7 @@ import logging
 import sys
 from pathlib import Path
 from shutil import copyfile
-from rs_utils import DotDict
+from red_star.rs_utils import DotDict
 
 
 class ConfigManager:
@@ -17,25 +17,21 @@ class ConfigManager:
         self.config = DotDict()
         self._path = None
 
-    def load_config(self, config_path, base_dir):
+    def load_config(self, config_path):
         self.logger.debug("Loading configuration...")
-        if not isinstance(config_path, Path):
-            config_path = Path(config_path)
         try:
             with config_path.open(encoding="utf-8") as f:
                 self.raw_config = f.read()
         except FileNotFoundError:
-            self.logger.warning(f"Couldn't find {config_path}! Copying config.json.default...")
-            default_path = Path(base_dir / "config/config.json.default")
-            try:
-                copyfile(str(default_path), str(config_path))
-                with config_path.open(encoding="utf-8") as f:
-                    self.raw_config = f.read()
-            except FileNotFoundError:
-                self.logger.error("Couldn't find config/config.json.default! Please verify config files.")
-                sys.exit(1)
-            except json.decoder.JSONDecodeError:
-                self.logger.exception("Exception encountered while parsing config.json: ", exc_info=True)
+            self.logger.warning(f"Couldn't find {config_path}! Copying default configuration...")
+            default_path = Path.cwd() / "_default_files/config.json.default"
+            copyfile(str(default_path), str(config_path))
+            self.logger.info(f"A default configuration has been copied to {config_path}. Please configure the bot "
+                             f"before continuing.")
+            sys.exit(1)
+        except json.decoder.JSONDecodeError:
+            self.logger.exception(f"The configuration file located at {config_path} is invalid!\n", exc_info=True)
+            sys.exit(1)
 
         self._path = config_path
         try:

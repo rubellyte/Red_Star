@@ -2,34 +2,36 @@ import asyncio
 import datetime
 import json
 from random import choice
-from plugin_manager import BasePlugin
-from rs_errors import CommandSyntaxError, ChannelNotFoundError
-from rs_utils import respond, get_guild_config
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
+from red_star.rs_utils import respond, get_guild_config
+from red_star.command_dispatcher import Command
 
 
 class MOTD(BasePlugin):
     name = "motd"
     default_config = {
         "default": {
-            "motd_file": "config/motds.json"
+            "motd_file": "motds.json"
         }
     }
 
     async def activate(self):
         self.run_timer = True
         self.motds = {}
+        self.motds_folder = self.client.base_dir / "motds"
         for guild in self.client.guilds:
-            motd_path = get_guild_config(self, str(guild.id), "motd_file")
-            if motd_path not in self.motds:
+            motd_file = get_guild_config(self, str(guild.id), "motd_file")
+            if motd_file not in self.motds:
                 try:
-                    with open(motd_path) as fp:
-                        self.motds[motd_path] = json.load(fp)
+                    file_path = self.motds_folder / motd_file
+                    with file_path.open() as fp:
+                        self.motds[motd_file] = json.load(fp)
                 except FileNotFoundError:
-                    self.logger.error(f"MotD file {motd_path} for guild {guild.name} not found! Skipping...")
+                    self.logger.error(f"MotD file {motd_file} for guild {guild.name} not found! Skipping...")
                     continue
                 except json.decoder.JSONDecodeError:
-                    self.logger.error(f"MotD file {motd_path} for guild {guild.name} couldn't be decoded! Skipping...")
+                    self.logger.error(f"MotD file {motd_file} for guild {guild.name} couldn't be decoded! Skipping...")
                     continue
         asyncio.ensure_future(self._run_motd())
         self.valid_months = {
@@ -124,15 +126,16 @@ class MOTD(BasePlugin):
         if month not in self.valid_months or day not in self.valid_days:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         try:
-            motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
-            motds = self.motds[motd_path]
+            motd_file = get_guild_config(self, str(msg.guild.id), "motd_file")
+            motds = self.motds[motd_file]
+            motd_file = self.motds_folder / motd_file
             if month not in motds:
                 motds[month] = {}
             if day not in motds[month]:
                 motds[month][day] = []
             motds[month][day].append(newmotd)
-            with open(motd_path, "w", encoding="utf8") as fp:
-                json.dump(motds, fp, indent=2, ensure_ascii=False)
+            with motd_file.open("w", encoding="utf8") as fd:
+                json.dump(motds, fd, indent=2, ensure_ascii=False)
             await respond(msg, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
         except KeyError:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
@@ -152,12 +155,13 @@ class MOTD(BasePlugin):
         if month not in self.valid_months or day not in self.valid_days:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         holidaystr = month + "/" + day
-        motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
-        motds = self.motds[motd_path]
+        motd_file = get_guild_config(self, str(msg.guild.id), "motd_file")
+        motds = self.motds[motd_file]
+        motd_file = self.motds_folder / motd_file
         if holidaystr not in motds["holidays"]:
             motds["holidays"].append(holidaystr)
-            with open(motd_path, "w", encoding="utf8") as fp:
-                json.dump(motds, fp, indent=2, ensure_ascii=False)
+            with motd_file.open("w", encoding="utf8") as fd:
+                json.dump(motds, fd, indent=2, ensure_ascii=False)
             await respond(msg, f"**ANALYSIS: Holiday {holidaystr} added successfully.**")
         else:
             await respond(msg, f"**ANALYSIS: {holidaystr} is already a holiday.**")

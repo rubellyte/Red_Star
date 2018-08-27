@@ -1,10 +1,10 @@
 import asyncio
 from string import capwords
-from plugin_manager import BasePlugin
-from rs_errors import UserPermissionError
-from rs_utils import respond
-from rs_version import version
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import UserPermissionError
+from red_star.rs_utils import respond
+from red_star.rs_version import version
+from red_star.command_dispatcher import Command
 from discord import Embed
 
 

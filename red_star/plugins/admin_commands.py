@@ -1,10 +1,10 @@
 import re
 import shlex
 from discord import NotFound
-from plugin_manager import BasePlugin
-from rs_utils import respond, find_user, RSArgumentParser
-from rs_errors import CommandSyntaxError
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_utils import respond, find_user, RSArgumentParser
+from red_star.rs_errors import CommandSyntaxError
+from red_star.command_dispatcher import Command
 
 
 class AdminCommands(BasePlugin):

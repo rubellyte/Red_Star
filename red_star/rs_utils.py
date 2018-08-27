@@ -7,7 +7,7 @@ import json
 from collections import Mapping
 from io import BytesIO
 from pickle import Pickler, Unpickler
-from rs_errors import CommandSyntaxError
+from red_star.rs_errors import CommandSyntaxError
 from random import randint
 
 

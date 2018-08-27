@@ -3,10 +3,10 @@ import shlex
 import re
 import json
 import logging
-from plugin_manager import BasePlugin
+from red_star.plugin_manager import BasePlugin
 from concurrent.futures import CancelledError
-from rs_errors import ConsoleCommandSyntaxError
-from rs_utils import RSArgumentParser, is_positive
+from red_star.rs_errors import ConsoleCommandSyntaxError
+from red_star.rs_utils import RSArgumentParser, is_positive
 from discord import NotFound, Forbidden
 from traceback import format_exception
 
@@ -403,7 +403,7 @@ class ConsoleListener(BasePlugin):
         """
         cmd = " ".join(args)
         try:
-            exec(cmd)
+            exec(cmd, globals(), locals())
         except Exception as e:
             raise ConsoleCommandSyntaxError(e)
 

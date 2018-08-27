@@ -7,8 +7,8 @@ import random
 import datetime
 from time import time
 from collections import OrderedDict
-from rs_errors import CustomCommandSyntaxError, CommandSyntaxError
-from rs_utils import is_positive
+from red_star.rs_errors import CustomCommandSyntaxError, CommandSyntaxError
+from red_star.rs_utils import is_positive
 from functools import reduce
 
 Symbol = str

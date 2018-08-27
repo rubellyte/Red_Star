@@ -4,8 +4,6 @@
     "BOT OWNER IDS HERE",
     "AS NUMBER, NOT STRING"
   ],
-  "plugin_path": "./plugins",
-  "shelve_path": "config/storage",
   "shelve_save_interval": 600,
   "disabled_plugins": [],
   "channel_manager": {},
@@ -16,7 +14,23 @@
         "greeting_enabled": true,
         "greeting_message": "Sample message to be broadcasted on bot load.",
         "new_member_announce_enabled": true,
-        "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention."
+        "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention.",
+        "ping_message_options": [
+          "**STOP**",
+          "***STOP THIS AT ONCE!***",
+          "**CEASE**",
+          "***CEASE THIS AT ONCE!***",
+          "**DO NOT**",
+          "**HOW** ***DARE*** **YOU!**",
+          "**`soft crying`**",
+          "**DO NOT PING THE ROBOT!**",
+          "**STOP PINGING ME!**",
+          "**`INTERNAL SCREAMING`**",
+          "**`EXTERNAL SCREAMING`**",
+          "**`INTERNAL AND EXTERNAL SCREAMING`**"
+        ],
+        "ping_messages": true,
+        "ping_messages_on_everyone": false
       }
     },
     "console": {
@@ -24,11 +38,11 @@
       "allow_stdout_logging": false
     },
     "custom_commands": {
-      "cc_file": "config/ccs.json",
       "default": {
         "cc_prefix": "!!",
         "cc_limit": 25
-      }
+      },
+      "rslisp_max_runtime": 5
     },
     "levelling": {
       "default": {
@@ -49,7 +63,7 @@
     },
     "motd": {
       "default": {
-        "motd_file": "config/motds.json"
+        "motd_file": "motds.json"
       }
     },
     "music_player": {
@@ -90,7 +104,6 @@
     },
     "roleplay": {
       "allow_race_requesting": false,
-      "bio_file": "config/bios.json",
       "default": {
         "race_roles": []
       }

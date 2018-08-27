@@ -3,10 +3,10 @@ import json
 import re
 import shlex
 import urllib.request
-from plugin_manager import BasePlugin
-from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, is_positive, RSArgumentParser, split_output
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_errors import CommandSyntaxError, UserPermissionError
+from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_output
+from red_star.command_dispatcher import Command
 from discord import InvalidArgument
 from traceback import format_exception, format_exc
 

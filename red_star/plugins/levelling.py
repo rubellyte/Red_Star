@@ -1,7 +1,7 @@
-from plugin_manager import BasePlugin
-from rs_utils import respond, DotDict, find_user, is_positive
-from command_dispatcher import Command
-from rs_errors import CommandSyntaxError
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_utils import respond, DotDict, find_user, is_positive
+from red_star.command_dispatcher import Command
+from red_star.rs_errors import CommandSyntaxError
 
 
 class Levelling(BasePlugin):

@@ -1,11 +1,11 @@
 import re
 import json
 import shlex
-from rs_errors import CommandSyntaxError, UserPermissionError
-from rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json, parse_roll_string, \
+from red_star.rs_errors import CommandSyntaxError, UserPermissionError
+from red_star.rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json, parse_roll_string, \
     RSArgumentParser
-from command_dispatcher import Command
-from plugin_manager import BasePlugin
+from red_star.command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
 from discord import Embed, File
 from io import BytesIO
 
@@ -16,7 +16,6 @@ class Roleplay(BasePlugin):
               "personality", "backstory", "interests"]
     mandatory_fields = ["name", "race", "gender", "appearance", "backstory"]
     default_config = {
-        "bio_file": "config/bios.json",
         "allow_race_requesting": False,
         "default": {
             "race_roles": []
@@ -24,15 +23,18 @@ class Roleplay(BasePlugin):
     }
 
     async def activate(self):
+        self.bios_file_path = self.client.base_dir / "bios.json"
+
+    def _load_bios(self):
         try:
-            with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
-                self.bios = json.load(f)
+            with self.bios_file_path.open(encoding="utf8") as fd:
+                self.bios = json.load(fd)
         except FileNotFoundError:
             self.bios = {}
-            with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
+            with self.bios_file_path.open("w", encoding="utf8") as f:
                 f.write("{}")
         except json.decoder.JSONDecodeError:
-            self.logger.exception("Could not decode bios.json! ", exc_info=True)
+            self.logger.exception("Could not decode bios.json!\n", exc_info=True)
 
     @Command("Roll",
              doc="Rolls a specified amount of specified dice with specified bonus and advantage/disadvantage",
@@ -440,16 +442,7 @@ class Roleplay(BasePlugin):
              category="role_play",
              bot_maintainers_only=True)
     async def _reloadbios(self, msg):
-        try:
-            with open(self.plugin_config.bio_file, "r", encoding="utf8") as f:
-                self.bios = json.load(f)
-        except FileNotFoundError:
-            self.bios = {}
-            with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
-                f.write("{}")
-        except json.decoder.JSONDecodeError:
-            self.logger.exception("Could not decode bios.json! ", exc_info=True)
-            raise CommandSyntaxError("Bios.json is not a valid JSON file.")
+        self._load_bios()
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
     # util commands
@@ -504,8 +497,8 @@ class Roleplay(BasePlugin):
             return None
 
     def _save_bios(self):
-        with open(self.plugin_config.bio_file, "w", encoding="utf8") as f:
-            json.dump(self.bios, f, indent=2, ensure_ascii=False)
+        with self.bios_file_path.open("w", encoding="utf8") as fd:
+            json.dump(self.bios, fd, indent=2, ensure_ascii=False)
 
     @staticmethod
     def _sanitise_name(name):

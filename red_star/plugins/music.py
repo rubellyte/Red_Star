@@ -1,8 +1,8 @@
-from plugin_manager import BasePlugin
-from rs_utils import respond, split_message, find_user, DotDict, is_positive
-from command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
+from red_star.rs_utils import respond, split_message, find_user, DotDict, is_positive
+from red_star.command_dispatcher import Command
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
-from rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
+from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from random import choice, randint
 from math import ceil
 import asyncio
