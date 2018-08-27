@@ -423,11 +423,11 @@ class Roleplay(BasePlugin):
         self._save_bios()
         await respond(msg, f"**AFFIRMATIVE. Character {t_name_storage} updated.**")
 
-    @Command("ReloadBios",
+    @Command("ReloadBios", "ReloadBio",
              doc="Administrative function that reloads the bios from the file.",
              category="role_play",
              bot_maintainers_only=True)
-    async def _reloadbios(self, msg):
+    async def _reloadbio(self, msg):
         self._load_bios()
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
