@@ -20,6 +20,7 @@ class CommandDispatcher:
         self.default_config = {
             "command_prefix": "!"
         }
+
         self.commands = {}
         self.last_error = None
 
