@@ -223,7 +223,6 @@ class Roleplay(BasePlugin):
             raise CommandSyntaxError("Three arguments required.")
 
         t_name = self._sanitise_name(args[1].lower())
-<<<<<<< HEAD
         if t_name in self.bios[gid]:
             if self.bios[gid][t_name].get("author", 0) != msg.author.id:
                 raise UserPermissionError("Character belongs to other user.")
@@ -248,42 +247,6 @@ class Roleplay(BasePlugin):
             if args[3].lower() == "clear":
                 if t_field in self.mandatory_fields:
                     bio[t_field] = "undefined"
-=======
-
-        if len(args) == 2:
-            if t_name in self.bios[gid]:
-                await respond(msg, None, embed=self._print_bio(msg.guild, t_name))
-            else:
-                raise CommandSyntaxError(f"No such character: {args[1]}.")
-        elif len(args) == 3:
-            if args[2].lower() == "delete":
-                if t_name in self.bios[gid]:
-                    if self.bios[gid][t_name].get("author", 0) == msg.author.id or \
-                            msg.author.permissions_in(msg.channel).manage_messages or \
-                                    msg.author.id in self.config_manager.config.get("bot_maintainers", []):
-                        del self.bios[gid][t_name]
-                        await respond(msg, f"**AFFIRMATIVE. Character bio {args[1]} was deleted.**")
-                    else:
-                        raise UserPermissionError("Character belongs to other user.")
-                else:
-                    raise CommandSyntaxError(f"No such character: {args[1]}.")
-                self._save_bios()
-            elif args[2].lower() == "dump":
-                if t_name in self.bios[gid]:
-                    t_bio = self.bios[gid][t_name].copy()
-                    del t_bio["author"]
-                    t_bio["fullname"] = t_bio["name"]
-                    t_bio["name"] = t_name
-                    t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
-                    async with msg.channel.typing():
-                        await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                                      file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=t_name + ".json"))
-                else:
-                    raise CommandSyntaxError(f"No such character: {args[1]}.")
-            elif args[2].lower() == "create":
-                if t_name in self.bios[gid]:
-                    raise CommandSyntaxError("Character already exists.")
->>>>>>> ddcbcc0... Reworked the roll command to support advanced notation.
                 else:
                     bio[t_field] = ""
                 await respond(msg, f"**AFFIRMATIVE. {t_field.capitalize()} cleared.**")
