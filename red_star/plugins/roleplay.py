@@ -2,7 +2,7 @@ import re
 import json
 import shlex
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
-from red_star.rs_utils import respond, DotDict, find_role, find_user, split_output, decode_json, parse_roll_string, \
+from red_star.rs_utils import respond, find_role, find_user, split_output, decode_json, parse_roll_string, \
     RSArgumentParser
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
@@ -449,7 +449,7 @@ class Roleplay(BasePlugin):
 
     def _initialize(self, gid):
         if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict(self.default_config["default"])
+            self.plugin_config[gid] = self.default_config["default"].copy()
             self.config_manager.save_config()
         if gid not in self.bios:
             self.bios[gid] = {}

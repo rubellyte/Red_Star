@@ -1,5 +1,5 @@
 from red_star.plugin_manager import BasePlugin
-from red_star.rs_utils import respond, split_message, find_user, DotDict, is_positive
+from red_star.rs_utils import respond, split_message, find_user, is_positive
 from red_star.command_dispatcher import Command
 from discord import InvalidArgument, ClientException, FFmpegPCMAudio, PCMVolumeTransformer
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
@@ -923,7 +923,7 @@ class MusicPlayer(BasePlugin):
         :param entry: request data
         :return: dictionary of parameters
         """
-        t_dict = DotDict()
+        t_dict = {}
         self.logger.info(f'processing URL {entry["title"]}')
         if self.plugin_config["download_songs"]:
             filename = ydl.prepare_filename(entry)
@@ -1102,7 +1102,7 @@ class MusicPlayer(BasePlugin):
             "upload_date": source.upload_date,
             "kwargs": source.kwargs
         }
-        return DotDict(entry)
+        return entry
 
         # Utility functions
 

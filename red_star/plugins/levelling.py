@@ -1,5 +1,5 @@
 from red_star.plugin_manager import BasePlugin
-from red_star.rs_utils import respond, DotDict, find_user, is_positive
+from red_star.rs_utils import respond, find_user, is_positive
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError
 
@@ -207,7 +207,7 @@ class Levelling(BasePlugin):
         if gid not in self.storage:
             self.storage[gid] = {}
         if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict(self.plugin_config["default"])
+            self.plugin_config[gid] = self.plugin_config["default"].copy()
 
     def _give_xp(self, msg):
         gid = str(msg.guild.id)

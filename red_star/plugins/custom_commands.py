@@ -9,7 +9,7 @@ import discord.utils
 from io import BytesIO
 
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from red_star.rs_utils import respond, DotDict, find_user
+from red_star.rs_utils import respond, find_user
 from red_star.command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
@@ -508,7 +508,7 @@ class CustomCommands(BasePlugin):
 
     def _initialize(self, gid):
         if gid not in self.plugin_config:
-            self.plugin_config[gid] = DotDict(self.default_config["default"])
+            self.plugin_config[gid] = self.default_config["default"].copy()
             self.config_manager.save_config()
         if gid not in self.storage:
             self.storage[gid] = {

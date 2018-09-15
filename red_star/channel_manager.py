@@ -1,4 +1,3 @@
-from red_star.rs_utils import DotDict
 from red_star.rs_errors import ChannelNotFoundError
 
 
@@ -7,10 +6,10 @@ class ChannelManager:
         self.client = client
         self.config_manager = client.config_manager
         try:
-            self.conf = self.config_manager.config.channel_manager
+            self.conf = self.config_manager.config["channel_manager"]
         except AttributeError:
-            self.config_manager.config.channel_manager = DotDict()
-            self.conf = self.config_manager.config.channel_manager
+            self.config_manager.config["channel_manager"] = {}
+            self.conf = self.config_manager.config["channel_manager"]
         self.default_config = {
             "channels": {},
             "categories": {}
@@ -19,7 +18,7 @@ class ChannelManager:
     def add_guild(self, guild):
         gid = str(guild.id)
         if gid not in self.conf:
-            self.conf[gid] = DotDict(self.default_config)
+            self.conf[gid] = self.default_config
             if guild.afk_channel:
                 self.conf[gid].channels.voice_afk = guild.afk_channel.id
             self.config_manager.save_config()

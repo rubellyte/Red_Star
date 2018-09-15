@@ -4,7 +4,7 @@ from asyncio import sleep
 from sys import exc_info
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
-from red_star.rs_utils import respond, DotDict
+from red_star.rs_utils import respond
 
 
 class CommandDispatcher:
@@ -13,10 +13,10 @@ class CommandDispatcher:
         self.config_manager = client.config_manager
         self.logger = logging.getLogger("red_star.command_dispatcher")
         try:
-            self.conf = client.config_manager.config.command_dispatcher
+            self.conf = client.config_manager.config["command_dispatcher"]
         except AttributeError:
-            client.config_manager.config.command_dispatcher = DotDict()
-            self.conf = client.config_manager.config.command_dispatcher
+            client.config_manager.config["command_dispatcher"] = {}
+            self.conf = client.config_manager.config["command_dispatcher"]
         self.default_config = {
             "command_prefix": "!"
         }
@@ -127,7 +127,7 @@ class CommandDispatcher:
     async def command_check(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.conf:
-            self.conf[gid] = DotDict(self.default_config)
+            self.conf[gid] = self.default_config.copy()
         deco = self.conf[gid].command_prefix
         if msg.author != self.client.user:
             cnt = msg.content
@@ -144,7 +144,7 @@ class Command:
     and aliases.
     """
 
-    def __init__(self, name, *aliases, perms=set(), doc=None, syntax=None, priority=0, delcall=False,
+    def __init__(self, name, *aliases, perms=None, doc=None, syntax=None, priority=0, delcall=False,
                  run_anywhere=False, bot_maintainers_only=False, category="other"):
         if syntax is None:
             syntax = ()
@@ -153,6 +153,8 @@ class Command:
         if doc is None:
             doc = ""
         self.name = name
+        if not perms:
+            perms = set()
         if isinstance(perms, str):
             perms = {perms}
         self.perms = perms

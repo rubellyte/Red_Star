@@ -62,7 +62,7 @@ def main():
         logging.getLogger("asyncio").setLevel(logging.INFO)
 
     bot = RedStar(base_dir=default_user_dir, debug=args.verbose, config_path=args.config / "config" / "config.json")
-    task = loop.create_task(bot.start(bot.config.token))
+    task = loop.create_task(bot.start(bot.config["token"]))
     try:
         loop.run_until_complete(task)
     except KeyboardInterrupt:

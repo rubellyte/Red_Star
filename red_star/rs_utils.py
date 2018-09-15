@@ -4,39 +4,41 @@ import dbm
 import re
 import shelve
 import json
-from collections import Mapping
 from io import BytesIO
 from pickle import Pickler, Unpickler
 from red_star.rs_errors import CommandSyntaxError
 from random import randint
 
 
-class DotDict(dict):
+class JsonFileDict(dict):
     """
-    Custom dictionary format that allows member access by using dot notation:
-    eg - dict.key.subkey
+    Dictionary subclass that handles saving the file on edits automatically.
+    Try not to instantiate this class directly; instead, use the config_manager's factory method.
+    :param pathlib.Path path: The path that should be saved to.
     """
-
-    def __init__(self, orig_dict=None, **kwargs):
+    def __init__(self, path, **kwargs):
         super().__init__(**kwargs)
-        if isinstance(orig_dict, Mapping):
-            for k, v in orig_dict.items():
-                if isinstance(v, Mapping):
-                    v = DotDict(v)
-                self[k] = v
+        self.path = path
+        with self.path.open(encoding="utf-8") as fd:
+            self.update(json.load(fd))
 
-    def __getattr__(self, item):
-        try:
-            return super().__getitem__(item)
-        except KeyError as e:
-            raise AttributeError(str(e)) from None
-
-    def __setattr__(self, key, value):
-        if isinstance(value, Mapping):
-            value = DotDict(value)
+    def __setitem__(self, key, value, save=True):
         super().__setitem__(key, value)
+        if save:
+            self.save()
 
-    __delattr__ = dict.__delitem__
+    def __delitem__(self, key, save=True):
+        super().__delitem__(key)
+        if save:
+            self.save()
+
+    def save(self):
+        with self.path.open("w", encoding="utf-8") as fd:
+            json.dump(self, fd, sort_keys=True, indent=2)
+
+    def reload(self):
+        with self.path.open(encoding="utf-8") as fd:
+            self.update(json.load(fd))
 
 
 class Cupboard(shelve.Shelf):
@@ -132,7 +134,7 @@ def get_guild_config(cls, gid, key):
     :return: The config option asked for.
     """
     if gid not in cls.plugin_config:
-        cls.plugin_config[gid] = DotDict(cls.plugin_config["default"])
+        cls.plugin_config[gid] = cls.plugin_config["default"].copy()
         cls.config_manager.save_config()
     elif key not in cls.plugin_config[gid]:
         cls.plugin_config[gid][key] = cls.plugin_config["default"][key]

@@ -3,7 +3,7 @@ import logging
 import sys
 from pathlib import Path
 from shutil import copyfile
-from red_star.rs_utils import DotDict
+from red_star.rs_utils import JsonFileDict
 
 
 class ConfigManager:
@@ -14,7 +14,7 @@ class ConfigManager:
         self.logger = logging.getLogger("red_star.config_manager")
         self.logger.debug("Initialized config manager.")
         self.raw_config = None
-        self.config = DotDict()
+        self.config = {}
         self._path = None
 
     def load_config(self, config_path):
@@ -35,7 +35,7 @@ class ConfigManager:
 
         self._path = config_path
         try:
-            self.config = DotDict(json.loads(self.raw_config))
+            self.config = json.loads(self.raw_config)
         except json.decoder.JSONDecodeError:
             self.logger.exception("Exception encountered while parsing config.json: ", exc_info=True)
             sys.exit(1)
@@ -43,7 +43,7 @@ class ConfigManager:
             self.logger.error("Load of config.json failed!")
             sys.exit(1)
         if "plugins" not in self.config:
-            self.config.plugins = DotDict()
+            self.config["plugins"] = {}
 
     def save_config(self, path=None):
         if not path:
@@ -56,13 +56,14 @@ class ConfigManager:
         self.logger.debug("Saved config file.")
 
     def get_plugin_config(self, name):
-        if name not in self.config.plugins:
-            self.config.plugins[name] = DotDict()
-        conf = self.config.plugins[name]
+        if name not in self.config["plugins"]:
+            self.config["plugins"][name] = {}
+        conf = self.config["plugins"][name]
         return conf
 
-    def init_plugin_config(self, name, conf):
-        if name not in self.config.plugins:
-            self.config.plugins[name] = DotDict()
-        self.config.plugins[name] = DotDict({**conf, **self.config.plugins[name]})
+    def init_plugin_config(self, name, default_config):
+        new_config = default_config.copy()
+        current_config = self.config.get("plugins", {})
+        new_config.update(current_config)
+        self.config["plugins"][name] = new_config
         self.save_config()

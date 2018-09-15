@@ -33,11 +33,11 @@ class ConsoleListener(BasePlugin):
             "exec": self._exec,
             "last_error": self._last_error
         }
-        if not self.plugin_config.allow_stdout_logging:
+        if not self.plugin_config["allow_stdout_logging"]:
             base_logger = logging.getLogger()
             for h in base_logger.handlers:
                 if type(h) == logging.StreamHandler:
-                    if self.plugin_config.allow_stdout_errors:
+                    if self.plugin_config["allow_stdout_errors"]:
                         self.logger.info("Quieting STDOUT logger (errors-only) and starting console...")
                         h.setLevel(logging.ERROR)
                     else:

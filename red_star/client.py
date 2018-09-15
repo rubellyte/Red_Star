@@ -1,7 +1,4 @@
-import asyncio
 import logging
-from argparse import ArgumentParser
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from discord import AutoShardedClient
 from discord.errors import ConnectionClosed

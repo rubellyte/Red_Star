@@ -65,7 +65,7 @@ class Reminder(BasePlugin):
         if args['private']:
             try:
                 await msg.delete()
-            except:
+            except Exception:
                 pass
 
         try:

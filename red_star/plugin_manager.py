@@ -4,7 +4,7 @@ import importlib
 import importlib.util
 import asyncio
 from sys import exc_info
-from red_star.rs_utils import DotDict, Cupboard
+from red_star.rs_utils import Cupboard
 
 
 class PluginManager:
@@ -18,8 +18,8 @@ class PluginManager:
         self.channel_manager = client.channel_manager
         self.command_dispatcher = client.command_dispatcher
         self.modules = {}
-        self.plugins = DotDict()
-        self.active_plugins = DotDict()
+        self.plugins = {}
+        self.active_plugins = {}
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.logger.debug("Initialized plugin manager.")
         self.shelve_path = client.base_dir / "storage"
@@ -100,11 +100,11 @@ class PluginManager:
     async def activate_all(self):
         self.logger.info("Activating plugins.")
         if "disabled_plugins" not in self.config_manager.config:
-            self.config_manager.config.disabled_plugins = []
+            self.config_manager.config["disabled_plugins"] = []
             self.config_manager.save_config()
-        to_load = self.config_manager.config.disabled_plugins
+        disabled_plugins = self.config_manager.config["disabled_plugins"]
         for n, plugin in self.plugins.items():
-            if n not in self.active_plugins and n not in to_load:
+            if n not in self.active_plugins and n not in disabled_plugins:
                 self.logger.info("Activating " + plugin.name)
                 # noinspection PyBroadException
                 try:
@@ -206,7 +206,7 @@ class PluginManager:
         :return: None.
         """
         try:
-            time = self.config_manager.config.shelve_save_interval
+            time = self.config_manager.config["shelve_save_interval"]
         except AttributeError:
             time = 60
         while not self.shutting_down:
@@ -229,7 +229,7 @@ class BasePlugin:
     description = "This is a template class for plugins. Name *must* be"
     "filled, other meta-fields are optional."
     version = "1.0"
-    default_config = DotDict()
+    default_config = {}
     plugins = set()
     client = None
     config_manager = None

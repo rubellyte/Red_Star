@@ -11,7 +11,7 @@ class ChannelManagerCommands(BasePlugin):
     default_config = {}
 
     async def activate(self):
-        self.chan_conf = self.config_manager.config.channel_manager
+        self.chan_conf = self.config_manager.config["channel_manager"]
 
     @Command("GetChannel",
              doc="Gets information on the specified channel type (or all channel types if none specified) in this "

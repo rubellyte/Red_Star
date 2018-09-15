@@ -96,11 +96,15 @@ class AdminCommands(BasePlugin):
                       (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
 
     @staticmethod
-    def search(msg, searchstr, members=list()):
+    def search(msg, searchstr, members=None):
+        if not members:
+            members = []
         return ((not searchstr) or (searchstr.lower() in msg.content.lower())) and \
                ((msg.author.id in members) or not members)
 
     @staticmethod
-    def rsearch(msg, searchstr, members=list()):
+    def rsearch(msg, searchstr, members=None):
+        if not members:
+            members = []
         return ((not searchstr) or re.match(searchstr.lower(), msg.content.lower())) and \
                ((msg.author.id in members) or not members)

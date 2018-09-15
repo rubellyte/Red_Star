@@ -38,10 +38,6 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True)
     async def _update_avatar(self, msg):
-        if "bot_maintainers" not in self.config_manager.config:
-            raise UserPermissionError("No bot maintainers are set!")
-        elif msg.author.id not in self.config_manager.config.bot_maintainers:
-            raise UserPermissionError
         url = " ".join(msg.content.split()[1:])
         if url:
             try:
@@ -74,7 +70,7 @@ class BotManagement(BasePlugin):
         if edit_username:
             if "bot_maintainers" not in self.config_manager.config:
                 raise UserPermissionError("No bot maintainers are set!")
-            if msg.author.id not in self.config_manager.config.bot_maintainers:
+            if msg.author.id not in self.config_manager.config["bot_maintainers"]:
                 raise UserPermissionError
             await self.client.user.edit(username=newname)
             await respond(msg, f"**ANALYSIS: Username changed to {newname} successfully.**")
@@ -96,8 +92,8 @@ class BotManagement(BasePlugin):
         all_plugins = self.plugin_manager.plugins
         if plgname in all_plugins:
             if plgname not in self.plugins:
-                if plgname in self.config_manager.config.disabled_plugins and permanent:
-                    self.config_manager.config.disabled_plugins.remove(plgname)
+                if plgname in self.config_manager.config["disabled_plugins"] and permanent:
+                    self.config_manager.config["disabled_plugins"].remove(plgname)
                     self.config_manager.save_config()
                 await self.plugin_manager.activate(plgname)
                 await respond(msg, f"**ANALYSIS: Plugin {plgname} was activated successfully.**")
@@ -120,8 +116,8 @@ class BotManagement(BasePlugin):
         if plgname == self.name:
             await respond(msg, f"**WARNING: Cannot deactivate {self.name}.**")
         elif plgname in self.plugins:
-            if plgname not in self.config_manager.config.disabled_plugins and permanent:
-                self.config_manager.config.disabled_plugins.append(plgname)
+            if plgname not in self.config_manager.config["disabled_plugins"] and permanent:
+                self.config_manager.config["disabled_plugins"].append(plgname)
                 self.config_manager.save_config()
             await self.plugin_manager.deactivate(plgname)
             await respond(msg, f"**ANALYSIS: Plugin {plgname} was deactivated successfully.**")
