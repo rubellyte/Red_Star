@@ -29,30 +29,22 @@ class CustomCommands(BasePlugin):
     }
 
     async def activate(self):
-        self.cc_file_path = self.client.base_dir / "ccs.json"
-        self._load_ccs()
-
-    def _load_ccs(self):
+        self.ccs = self.config_manager.get_plugin_config_file("ccs.json")
         try:
-            with self.cc_file_path.open(encoding="utf8") as fd:
-                self.ccs = json.load(fd)
-        except FileNotFoundError:
-            self.ccs = {}
-            with self.cc_file_path.open("w", encoding="utf8") as fd:
-                fd.write("{}")
-        except json.decoder.JSONDecodeError:
-            self.logger.exception("Could not decode ccs.json!\n", exc_info=True)
+            self.bans = self.ccs["bans"]
+        except KeyError:
+            self.bans = self.ccs["bans"] = {}
 
     # Event hooks
 
     async def on_message(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        deco = self.plugin_config[gid].cc_prefix
+        deco = self.plugin_config[gid]["cc_prefix"]
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):
-                if msg.author.id in self.storage[gid]["cc_use_ban"]:
+                if msg.author.id in self.bans[gid]["cc_use_ban"]:
                     try:
                         await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
                                               f"{str(msg.guild)}**")
@@ -94,7 +86,7 @@ class CustomCommands(BasePlugin):
              category="custom_commands",
              bot_maintainers_only=True)
     async def _reloadccs(self, msg):
-        self._load_ccs()
+        self.ccs.reload()
         await respond(msg, "**AFFIRMATIVE. CCS reloaded.**")
 
     @Command("CreateCC", "NewCC",
@@ -105,7 +97,7 @@ class CustomCommands(BasePlugin):
     async def _createcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+        if msg.author.id in self.bans[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from creating custom commands.")
         if msg.attachments:
             fp = BytesIO()
@@ -162,7 +154,7 @@ class CustomCommands(BasePlugin):
                 "times_run": 0
             }
             self.ccs[gid][name] = newcc
-            self._save_ccs()
+            self.ccs.save()
             await respond(msg, f"**ANALYSIS: Custom command {name} created successfully.**")
 
     @Command("DumpCC",
@@ -172,7 +164,7 @@ class CustomCommands(BasePlugin):
     async def _dumpcc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+        if msg.author.id in self.bans[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from editing custom commands.")
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -199,7 +191,7 @@ class CustomCommands(BasePlugin):
     async def _editcc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+        if msg.author.id in self.bans[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from editing custom commands.")
         if msg.attachments:
             fp = BytesIO()
@@ -239,7 +231,7 @@ class CustomCommands(BasePlugin):
                 ccdata["content"] = content
                 ccdata["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
                 self.ccs[gid][name] = ccdata
-                self._save_ccs()
+                self.ccs.save()
                 await respond(msg, f"**ANALYSIS: Custom command {name} edited successfully.**")
             else:
                 await respond(msg, f"**WARNING: No permission to edit custom command {name}.**")
@@ -253,7 +245,7 @@ class CustomCommands(BasePlugin):
     async def _delcc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        if msg.author.id in self.storage[gid]["cc_create_ban"]:
+        if msg.author.id in self.bans[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from deleting custom commands.")
         try:
             name = msg.clean_content.split()[1].lower()
@@ -265,7 +257,7 @@ class CustomCommands(BasePlugin):
             if self.ccs[gid][name]["author"] == msg.author.id or \
                     msg.author.guild_permissions.manage_messages:
                 del self.ccs[gid][name]
-                self._save_ccs()
+                self.ccs.save()
                 await respond(msg, f"**ANALYSIS: Custom command {name} deleted successfully.**")
             else:
                 await respond(msg, f"**WARNING: No permission to delete custom command {name}.**")
@@ -405,11 +397,11 @@ class CustomCommands(BasePlugin):
         if not t_member:
             raise CommandSyntaxError("Not a user, or user not found.")
 
-        if t_member.id in self.storage[gid]["cc_use_ban"]:
-            self.storage[gid]["cc_use_ban"].remove(t_member.id)
+        if t_member.id in self.bans[gid]["cc_use_ban"]:
+            self.bans[gid]["cc_use_ban"].remove(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was allowed the usage of custom commands.**")
         else:
-            self.storage[gid]["cc_use_ban"].append(t_member.id)
+            self.bans[gid]["cc_use_ban"].append(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from using custom commands.**")
 
     @Command("CCBan", "BanCC",
@@ -428,11 +420,11 @@ class CustomCommands(BasePlugin):
         if not t_member:
             raise CommandSyntaxError("Not a user, or user not found.")
 
-        if t_member.id in self.storage[gid]["cc_create_ban"]:
-            self.storage[gid]["cc_create_ban"].remove(t_member.id)
+        if t_member.id in self.bans[gid]["cc_create_ban"]:
+            self.bans[gid]["cc_create_ban"].remove(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was allowed creation of custom commands.**")
         else:
-            self.storage[gid]["cc_create_ban"].append(t_member.id)
+            self.bans[gid]["cc_create_ban"].append(t_member.id)
             await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from creating custom commands.**")
 
     @Command("ListCCbans",
@@ -446,12 +438,12 @@ class CustomCommands(BasePlugin):
 
         t_dict = {}
 
-        for t_id in self.storage[gid]["cc_create_ban"]:
-            if t_id in self.storage[gid]["cc_use_ban"]:
+        for t_id in self.bans[gid]["cc_create_ban"]:
+            if t_id in self.bans[gid]["cc_use_ban"]:
                 t_dict[t_id] = (True, True)
             else:
                 t_dict[t_id] = (True, False)
-        for t_id in self.storage[gid]["cc_use_ban"]:
+        for t_id in self.bans[gid]["cc_use_ban"]:
             if t_id not in t_dict:
                 t_dict[t_id] = (False, True)
         t_string = f"**ANALYSIS: Currently banned members:**\n```{'Username'.ljust(32)} |  Ban  |  Mute\n"
@@ -510,8 +502,8 @@ class CustomCommands(BasePlugin):
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.default_config["default"].copy()
             self.config_manager.save_config()
-        if gid not in self.storage:
-            self.storage[gid] = {
+        if gid not in self.bans:
+            self.bans[gid] = {
                 "cc_create_ban": [],
                 "cc_use_ban": []
             }
@@ -591,10 +583,6 @@ class CustomCommands(BasePlugin):
                 stack.append(a)
         return [*out, *stack]
 
-    def _save_ccs(self):
-        with self.cc_file_path.open("w", encoding="utf8") as fd:
-            json.dump(self.ccs, fd, indent=2, ensure_ascii=False)
-
     async def run_cc(self, cmd, msg):
         gid = str(msg.guild.id)
         if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
@@ -621,13 +609,13 @@ class CustomCommands(BasePlugin):
                 elif res:
                     await respond(msg, str(res))
                 self.ccs[gid][cmd]["times_run"] += 1
-                self._save_ccs()
+                self.ccs.save()
 
     #  tag functions that *require* the discord machinery
 
     def _env(self, msg):
         gid = str(msg.guild.id)
-        cmd = msg.content[len(self.plugin_config[gid].cc_prefix):].split()[0].lower()
+        cmd = msg.content[len(self.plugin_config[gid]["cc_prefix"]):].split()[0].lower()
         env = standard_env(max_runtime=self.plugin_config.get('rslisp_max_runtime', 0))
 
         env['username'] = msg.author.name

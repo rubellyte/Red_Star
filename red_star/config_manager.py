@@ -10,49 +10,41 @@ class ConfigManager:
     """
     Manages the loading and modification of the configuration files.
     """
-    def __init__(self):
+    def __init__(self, config_path):
         self.logger = logging.getLogger("red_star.config_manager")
         self.logger.debug("Initialized config manager.")
-        self.raw_config = None
         self.config = {}
-        self._path = None
+        self.config_path = config_path
+        self.config_file_path = config_path / "config.json"
+        self.plugin_config_files = []
+        self.load_config()
 
-    def load_config(self, config_path):
+    def load_config(self):
         self.logger.debug("Loading configuration...")
         try:
-            with config_path.open(encoding="utf-8") as f:
-                self.raw_config = f.read()
+            with self.config_file_path.open(encoding="utf-8") as fd:
+                self.config = json.load(fd)
         except FileNotFoundError:
-            self.logger.warning(f"Couldn't find {config_path}! Copying default configuration...")
+            self.logger.warning(f"Couldn't find {self.config_file_path}! Copying default configuration...")
             default_path = Path.cwd() / "_default_files/config.json.default"
-            copyfile(str(default_path), str(config_path))
-            self.logger.info(f"A default configuration has been copied to {config_path}. Please configure the bot "
-                             f"before continuing.")
+            copyfile(str(default_path), str(self.config_file_path))
+            self.logger.info(f"A default configuration has been copied to {self.config_path}.\n"
+                             f"Please configure the bot before continuing.")
             sys.exit(1)
         except json.decoder.JSONDecodeError:
-            self.logger.exception(f"The configuration file located at {config_path} is invalid!\n", exc_info=True)
+            self.logger.exception(f"The configuration file located at {self.config_file_path} is invalid!\n"
+                                  f"Please correct the error below and restart.", exc_info=True)
             sys.exit(1)
 
-        self._path = config_path
-        try:
-            self.config = json.loads(self.raw_config)
-        except json.decoder.JSONDecodeError:
-            self.logger.exception("Exception encountered while parsing config.json: ", exc_info=True)
-            sys.exit(1)
-        except TypeError:
-            self.logger.error("Load of config.json failed!")
-            sys.exit(1)
         if "plugins" not in self.config:
             self.config["plugins"] = {}
 
-    def save_config(self, path=None):
-        if not path:
-            path = self._path
-        temp_path = Path(str(path) + "_")
+    def save_config(self):
+        temp_path = Path(str(self.config_file_path) + "_")
         with temp_path.open("w", encoding="utf-8") as f:
             json.dump(self.config, f, sort_keys=True, indent=2)
-        path.unlink()
-        temp_path.rename(path)
+        self.config_file_path.unlink()
+        temp_path.rename(self.config_file_path)
         self.logger.debug("Saved config file.")
 
     def get_plugin_config(self, name):
@@ -63,7 +55,16 @@ class ConfigManager:
 
     def init_plugin_config(self, name, default_config):
         new_config = default_config.copy()
-        current_config = self.config.get("plugins", {})
+        current_config = self.config["plugins"].get(name, {})
         new_config.update(current_config)
         self.config["plugins"][name] = new_config
-        self.save_config()
+
+    def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None):
+        file_path = self.config_path / filename
+        if not file_path.exists():
+            with file_path.open("w", encoding="utf-8") as fd:
+                fd.write("{}")
+            self.logger.debug(f"Created config file {file_path}.")
+        file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
+        self.plugin_config_files.append(file_obj)
+        return file_obj

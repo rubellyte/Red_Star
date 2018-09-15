@@ -22,6 +22,7 @@ class Reminder(BasePlugin):
     rem = namedtuple("reminder", ["uid", "cid", "time", "text", "dm"])
 
     async def activate(self):
+        self.storage = self.config_manager.get_plugin_config_file("reminders.json")
         for guild in self.client.guilds:
             if guild.id not in self.storage:
                 self.storage[guild.id] = []

@@ -23,18 +23,7 @@ class Roleplay(BasePlugin):
     }
 
     async def activate(self):
-        self.bios_file_path = self.client.base_dir / "bios.json"
-
-    def _load_bios(self):
-        try:
-            with self.bios_file_path.open(encoding="utf8") as fd:
-                self.bios = json.load(fd)
-        except FileNotFoundError:
-            self.bios = {}
-            with self.bios_file_path.open("w", encoding="utf8") as f:
-                f.write("{}")
-        except json.decoder.JSONDecodeError:
-            self.logger.exception("Could not decode bios.json!\n", exc_info=True)
+        self.bios = self.config_manager.get_plugin_config_file("bios.json")
 
     @Command("Roll",
              doc="Rolls a specified amount of specified dice with specified bonus and advantage/disadvantage",
@@ -442,7 +431,7 @@ class Roleplay(BasePlugin):
              category="role_play",
              bot_maintainers_only=True)
     async def _reloadbio(self, msg):
-        self._load_bios()
+        self.bios.reload()
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
     # util commands

@@ -19,6 +19,7 @@ class Levelling(BasePlugin):
     }
 
     async def activate(self):
+        self.storage = self.config_manager.get_plugin_config_file("xp.json")
         for guild in self.client.guilds:
             self.channel_manager.register_category(guild, "no_xp")
 

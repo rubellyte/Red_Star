@@ -7,7 +7,7 @@ class ChannelManager:
         self.config_manager = client.config_manager
         try:
             self.conf = self.config_manager.config["channel_manager"]
-        except AttributeError:
+        except KeyError:
             self.config_manager.config["channel_manager"] = {}
             self.conf = self.config_manager.config["channel_manager"]
         self.default_config = {
@@ -20,15 +20,15 @@ class ChannelManager:
         if gid not in self.conf:
             self.conf[gid] = self.default_config
             if guild.afk_channel:
-                self.conf[gid].channels.voice_afk = guild.afk_channel.id
+                self.conf[gid]["channels"]["voice_afk"] = guild.afk_channel.id
             self.config_manager.save_config()
 
     def get_channel(self, guild, chantype):
         gid = str(guild.id)
         chantype = chantype.lower()
         self.add_guild(guild)
-        if chantype in self.conf[gid].channels:
-            chan = self.conf[gid].channels[chantype]
+        if chantype in self.conf[gid]["channels"]:
+            chan = self.conf[gid]["channels"][chantype]
             chan = self.client.get_channel(chan)
             if not chan:
                 raise ChannelNotFoundError(chantype)
@@ -41,17 +41,17 @@ class ChannelManager:
         chantype = chantype.lower()
         self.add_guild(guild)
         if channel:
-            self.conf[gid].channels[chantype] = channel.id
+            self.conf[gid]["channels"][chantype] = channel.id
             self.config_manager.save_config()
-        elif chantype in self.conf[gid].channels:
-            self.conf[gid].channels.pop(chantype)
+        elif chantype in self.conf[gid]["channels"]:
+            self.conf[gid]["channels"].pop(chantype)
             self.config_manager.save_config()
 
     def register_category(self, guild, category):
         gid = str(guild.id)
         category = category.lower()
         self.add_guild(guild)
-        if category not in self.conf[gid].categories:
+        if category not in self.conf[gid]["categories"]:
             self.conf[gid]["categories"][category] = []
         self.config_manager.save_config()
 
@@ -59,7 +59,7 @@ class ChannelManager:
         gid = str(guild.id)
         category = category.lower()
         self.add_guild(guild)
-        if category not in self.conf[gid].categories:
+        if category not in self.conf[gid]["categories"]:
             return False
         if channel.id not in self.conf[gid]["categories"][category]:
             return False
@@ -69,12 +69,12 @@ class ChannelManager:
         gid = str(guild.id)
         category = category.lower()
         self.add_guild(guild)
-        if category not in self.conf[gid].categories:
-            self.conf[gid].categories[category] = [channel.id]
+        if category not in self.conf[gid]["categories"]:
+            self.conf[gid]["categories"][category] = [channel.id]
             self.config_manager.save_config()
             return True
-        elif channel.id not in self.conf[gid].categories[category]:
-            self.conf[gid].categories[category].append(channel.id)
+        elif channel.id not in self.conf[gid]["categories"][category]:
+            self.conf[gid]["categories"][category].append(channel.id)
             self.config_manager.save_config()
             return True
         else:
@@ -84,11 +84,11 @@ class ChannelManager:
         gid = str(guild.id)
         category = category.lower()
         self.add_guild(guild)
-        if category not in self.conf[gid].categories:
+        if category not in self.conf[gid]["categories"]:
             return False
-        elif channel.id not in self.conf[gid].categories[category]:
+        elif channel.id not in self.conf[gid]["categories"][category]:
             return False
         else:
-            self.conf[gid].categories[category].remove(channel.id)
+            self.conf[gid]["categories"][category].remove(channel.id)
             self.config_manager.save_config()
             return True

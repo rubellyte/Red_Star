@@ -449,8 +449,9 @@ class MusicPlayer(BasePlugin):
         time_skip - total time paused, for displaying duration properly with pausing
         run_timer - keep running the timer coroutine
         """
+        self.storage = self.config_manager.get_plugin_config_file("music_player.json")
         self.run_timer = True
-        self.stream = c.twitch_stream
+        self.stream = c["twitch_stream"]
         self.players = {}
 
         loop = asyncio.new_event_loop()
@@ -465,7 +466,7 @@ class MusicPlayer(BasePlugin):
             if str(guild.id) not in self.plugin_config:
                 self.plugin_config[str(guild.id)] = self.plugin_config["default"]
             if guild.id not in self.storage["banned_members"]:
-                self.storage["banned_members"][guild.id] = set()
+                self.storage["banned_members"][guild.id] = []
             self.players[guild.id] = self.ServerStorage(self, guild, self.plugin_config[str(guild.id)])
 
         if "stored_songs" not in self.storage:
@@ -483,7 +484,7 @@ class MusicPlayer(BasePlugin):
         if guild.id not in self.plugin_config:
             self.plugin_config[str(guild.id)] = self.plugin_config["default"]
         if guild.id not in self.storage["banned_members"]:
-            self.storage["banned_members"][guild.id] = set()
+            self.storage["banned_members"][guild.id] = []
         self.players[guild.id] = self.ServerStorage(self, guild, self.plugin_config[str(guild.id)])
 
     async def on_guild_remove(self, guild):
@@ -751,7 +752,7 @@ class MusicPlayer(BasePlugin):
         for uid in args[1:]:
             t_member = find_user(data.guild, uid)
             if t_member:
-                self.storage["banned_members"][data.guild.id].add(t_member.id)
+                self.storage["banned_members"][data.guild.id].append(t_member.id)
                 t_string = f"{t_string}{t_member.mention}\n"
                 t_log = f"{t_log}{t_member.display_name} ({t_member.id})\n"
         if t_string != "":

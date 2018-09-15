@@ -10,7 +10,7 @@ from sys import exc_info
 
 
 class RedStar(AutoShardedClient):
-    def __init__(self, base_dir, config_path, debug):
+    def __init__(self, storage_dir, debug):
         self.logger = logging.getLogger("red_star")
         dpy_logger = logging.getLogger("discord")
         if debug > 0:
@@ -23,10 +23,9 @@ class RedStar(AutoShardedClient):
 
         super().__init__()
 
-        self.base_dir = base_dir
+        self.storage_dir = storage_dir
 
-        self.config_manager = ConfigManager()
-        self.config_manager.load_config(config_path)
+        self.config_manager = ConfigManager(storage_dir / "config")
         self.config = self.config_manager.config
 
         self.channel_manager = ChannelManager(self)
@@ -53,8 +52,6 @@ class RedStar(AutoShardedClient):
 
     async def stop_bot(self):
         await self.plugin_manager.deactivate_all()
-        self.logger.info("Closing the shelf.")
-        self.plugin_manager.shelve.close()
         self.config_manager.save_config()
         self.logger.info("Logging out.")
         try:

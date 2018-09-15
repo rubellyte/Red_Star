@@ -2,9 +2,7 @@ import inspect
 import logging
 import importlib
 import importlib.util
-import asyncio
 from sys import exc_info
-from red_star.rs_utils import Cupboard
 
 
 class PluginManager:
@@ -22,11 +20,8 @@ class PluginManager:
         self.active_plugins = {}
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.logger.debug("Initialized plugin manager.")
-        self.shelve_path = client.base_dir / "storage"
-        self.shelve = None
         self.shutting_down = False
         self.last_error = None
-        asyncio.ensure_future(self._write_to_shelve())
 
     def __repr__(self):
         return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
@@ -83,19 +78,12 @@ class PluginManager:
 
     def final_load(self):
         self.logger.debug("Performing final plugin load pass...")
-        try:
-            self.shelve = Cupboard(str(self.shelve_path))
-        except OSError:
-            self.logger.exception("Exception occurred while opening shelve! ", exc_info=True)
-            raise SystemExit
         for plugin in self.plugins.values():
             plugin.plugins = self.active_plugins
-            if plugin.name not in self.shelve:
-                self.shelve[plugin.name] = {}
-            plugin.storage = self.shelve[plugin.name]
             if plugin.default_config:
                 self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
                 plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
+        self.config_manager.save_config()
 
     async def activate_all(self):
         self.logger.info("Activating plugins.")
@@ -200,24 +188,6 @@ class PluginManager:
                     self.logger.exception(f"Exception encountered in plugin {plugin.name} on event {event}: ",
                                           exc_info=True)
 
-    async def _write_to_shelve(self):
-        """
-        A looping coroutine that saves the shelf to file on a configured interval.
-        :return: None.
-        """
-        try:
-            time = self.config_manager.config["shelve_save_interval"]
-        except AttributeError:
-            time = 60
-        while not self.shutting_down:
-            self.logger.debug("Writing to shelve...")
-            # noinspection PyBroadException
-            try:
-                self.shelve.sync()
-            except Exception:
-                self.logger.exception("Error writing to shelve. ", exc_info=True)
-            await asyncio.sleep(time)
-
 
 class BasePlugin:
     """
@@ -226,8 +196,7 @@ class BasePlugin:
     that the ConfigManager, PluginManager, and logger are inserted on load.
     """
     name = "Base Plugin"
-    description = "This is a template class for plugins. Name *must* be"
-    "filled, other meta-fields are optional."
+    description = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
     version = "1.0"
     default_config = {}
     plugins = set()
@@ -236,7 +205,6 @@ class BasePlugin:
     channel_manager = None
     plugin_manager = None
     logger = None
-    storage = None
 
     def __init__(self):
         self.plugin_config = self.config_manager.get_plugin_config(self.name)

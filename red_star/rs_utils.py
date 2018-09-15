@@ -13,32 +13,32 @@ from random import randint
 class JsonFileDict(dict):
     """
     Dictionary subclass that handles saving the file on edits automatically.
-    Try not to instantiate this class directly; instead, use the config_manager's factory method.
+    Try not to instantiate this class directly; instead, use the config_manager's factory method,
+    ConfigManager.get_plugin_config_file.
     :param pathlib.Path path: The path that should be saved to.
     """
-    def __init__(self, path, **kwargs):
+    def __init__(self, path, json_save_args=None, json_load_args=None, **kwargs):
         super().__init__(**kwargs)
         self.path = path
-        with self.path.open(encoding="utf-8") as fd:
-            self.update(json.load(fd))
+        self.json_save_args = {} if json_save_args is None else json_save_args
+        self.json_load_args = {} if json_load_args is None else json_load_args
+        self.reload()
 
-    def __setitem__(self, key, value, save=True):
+    def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        if save:
-            self.save()
+        self.save()
 
-    def __delitem__(self, key, save=True):
+    def __delitem__(self, key):
         super().__delitem__(key)
-        if save:
-            self.save()
+        self.save()
 
     def save(self):
         with self.path.open("w", encoding="utf-8") as fd:
-            json.dump(self, fd, sort_keys=True, indent=2)
+            json.dump(self, fd, **self.json_save_args)
 
     def reload(self):
         with self.path.open(encoding="utf-8") as fd:
-            self.update(json.load(fd))
+            self.update(json.load(fd, **self.json_load_args))
 
 
 class Cupboard(shelve.Shelf):

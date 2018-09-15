@@ -14,7 +14,7 @@ class CommandDispatcher:
         self.logger = logging.getLogger("red_star.command_dispatcher")
         try:
             self.conf = client.config_manager.config["command_dispatcher"]
-        except AttributeError:
+        except KeyError:
             client.config_manager.config["command_dispatcher"] = {}
             self.conf = client.config_manager.config["command_dispatcher"]
         self.default_config = {
@@ -128,7 +128,7 @@ class CommandDispatcher:
         gid = str(msg.guild.id)
         if gid not in self.conf:
             self.conf[gid] = self.default_config.copy()
-        deco = self.conf[gid].command_prefix
+        deco = self.conf[gid]["command_prefix"]
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):

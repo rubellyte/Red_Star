@@ -48,7 +48,7 @@ class DiscordLogger(BasePlugin):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "message_delete" not in self.plugin_config[gid].log_events and msg.author != self.client.user:
+        if "message_delete" not in self.plugin_config[gid]["log_events"] and msg.author != self.client.user:
             uname = str(msg.author)
             contents = msg.clean_content if msg.clean_content else msg.system_content
             msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
@@ -69,7 +69,7 @@ class DiscordLogger(BasePlugin):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "message_edit" not in self.plugin_config[gid].log_events and after.author != self.client.user:
+        if "message_edit" not in self.plugin_config[gid]["log_events"] and after.author != self.client.user:
             uname = str(after.author)
             old_contents = before.clean_content
             contents = after.clean_content
@@ -89,7 +89,7 @@ class DiscordLogger(BasePlugin):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_update" not in self.plugin_config[gid].log_events:
+        if "member_update" not in self.plugin_config[gid]["log_events"]:
             uname = str(after)
             t_str = ""
             t_log = ""
@@ -241,7 +241,7 @@ class DiscordLogger(BasePlugin):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if log_type not in self.plugin_config[gid].log_events:
+        if log_type not in self.plugin_config[gid]["log_events"]:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(string)
@@ -255,7 +255,7 @@ class DiscordLogger(BasePlugin):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        cfg = self.plugin_config[gid].log_events
+        cfg = self.plugin_config[gid]["log_events"]
         args = msg.clean_content.split(" ", 2)
         if len(args) > 2:
             if args[1].lower() == "remove":

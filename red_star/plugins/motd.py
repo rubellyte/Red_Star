@@ -19,7 +19,7 @@ class MOTD(BasePlugin):
     async def activate(self):
         self.run_timer = True
         self.motds = {}
-        self.motds_folder = self.client.base_dir / "motds"
+        self.motds_folder = self.client.storage_dir / "motds"
         for guild in self.client.guilds:
             motd_file = get_guild_config(self, str(guild.id), "motd_file")
             if motd_file not in self.motds:

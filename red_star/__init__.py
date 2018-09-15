@@ -11,14 +11,17 @@ def main():
     chdir(Path(__file__).parent)
     default_user_dir = Path.home() / ".red_star"
 
-    verbose_docstr = "Enables debug output. Calling multiple times increases verbosity; two calls enables discord.py" \
-                     " debug output, and three calls enables asyncio's debug mode."
     parser = ArgumentParser(description="General-purpose Discord bot with administration and entertainment functions.")
-    parser.add_argument("-v", "--verbose", "-d", "--debug", action="count", help=verbose_docstr, default=0)
-    parser.add_argument("-c", "--config", type=Path, default=default_user_dir, help="Sets the path to the "
-                                                                                    "configuration directory.")
-    parser.add_argument("-l", "--logfile", type=Path, default=default_user_dir / "red_star.log", help="Sets the path to"
-                                                                                                      " the log file.")
+    parser.add_argument("-v", "--verbose", "--debug", action="count", default=0,
+                        help="Enables debug output. Calling multiple times increases verbosity; two calls enables "
+                             "discord.py debug output, and three calls enables asyncio's debug mode.")
+    conf_path_group = parser.add_mutually_exclusive_group()
+    conf_path_group.add_argument("-d", "--directory", type=Path, default=default_user_dir,
+                                 help="Sets the directory in which configs, logs, and data will be stored.")
+    conf_path_group.add_argument("-p", "--portable", action="store_true",
+                                 help="Runs Red Star in portable mode. In portable mode, data files will be stored "
+                                      "in the installation directory.")
+    parser.add_argument("-l", "--logfile", type=str, default="red_star.log", help="Sets the name of the log file.")
     args = parser.parse_args()
 
     if args.verbose > 0:
@@ -33,8 +36,10 @@ def main():
     stream_logger.setFormatter(formatter)
     base_logger.addHandler(stream_logger)
 
-    if not args.config.exists():
-        base_logger.warning(f"Specified config directory {args.config} does not exist! Creating now...")
+    storage_dir = Path.cwd() if args.portable else args.directory
+
+    if not storage_dir.exists():
+        base_logger.warning(f"Specified config directory {storage_dir} does not exist! Creating now...")
         config_folder = args.config / "config"
         config_folder.mkdir(parents=True)
         plugins_folder = args.config / "plugins"
@@ -42,13 +47,11 @@ def main():
         plugin_init = plugins_folder / "__init__.py"
         plugin_init.touch()
 
-    if args.logfile.is_dir():
-        args.logfile /= "red_star.log"
+    logfile = storage_dir / args.logfile
+    if not logfile.exists():
+        logfile.touch()
 
-    if not args.logfile.exists():
-        args.logfile.touch()
-
-    file_logger = RotatingFileHandler(args.logfile, maxBytes=1048576, backupCount=5, encoding="utf-8")
+    file_logger = RotatingFileHandler(logfile, maxBytes=1048576, backupCount=5, encoding="utf-8")
     file_logger.setLevel(loglevel)
     file_logger.setFormatter(formatter)
     base_logger.addHandler(file_logger)
@@ -61,7 +64,7 @@ def main():
     else:
         logging.getLogger("asyncio").setLevel(logging.INFO)
 
-    bot = RedStar(base_dir=default_user_dir, debug=args.verbose, config_path=args.config / "config" / "config.json")
+    bot = RedStar(storage_dir=storage_dir, debug=args.verbose)
     task = loop.create_task(bot.start(bot.config["token"]))
     try:
         loop.run_until_complete(task)
