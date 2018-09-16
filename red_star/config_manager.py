@@ -45,7 +45,9 @@ class ConfigManager:
             json.dump(self.config, f, sort_keys=True, indent=2)
         self.config_file_path.unlink()
         temp_path.rename(self.config_file_path)
-        self.logger.debug("Saved config file.")
+        for file in self.plugin_config_files:
+            file.save()
+        self.logger.debug("Saved config files.")
 
     def get_plugin_config(self, name):
         if name not in self.config["plugins"]:
@@ -62,9 +64,14 @@ class ConfigManager:
     def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None):
         file_path = self.config_path / filename
         if not file_path.exists():
-            with file_path.open("w", encoding="utf-8") as fd:
-                fd.write("{}")
-            self.logger.debug(f"Created config file {file_path}.")
+            default_config = Path.cwd() / "_default_files" / (filename + ".default")
+            if default_config.exists():
+                copyfile(str(default_config), str(file_path))
+                self.logger.debug(f"Copied default configuration for {filename} to {file_path}.")
+            else:
+                with file_path.open("w", encoding="utf-8") as fd:
+                    fd.write("{}")
+                self.logger.debug(f"Created config file {file_path}.")
         file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
         self.plugin_config_files.append(file_obj)
         return file_obj

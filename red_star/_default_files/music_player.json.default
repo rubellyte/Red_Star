@@ -1,0 +1,27 @@
+{
+  "config": {
+    "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
+    "save_audio": true,
+    "default_volume": 15,
+    "youtube_dl_config": {
+      "quiet": true,
+      "restrictfilenames": true,
+      "source_address": "0.0.0.0",
+      "audioformat": "mp3",
+      "default_search": "auto",
+      "extractaudio": true,
+      "logtostderr": false,
+      "nocheckcertificate": true,
+      "format": "bestaudio/best"
+    },
+    "per_server_configs": {
+      "default": {
+        "max_queue_length": 30,
+        "max_video_length": 1800
+      }
+    }
+  },
+  "banned_users": {
+
+  }
+}

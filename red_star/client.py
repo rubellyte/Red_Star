@@ -43,7 +43,7 @@ class RedStar(AutoShardedClient):
         if not self.logged_in:
             self.logged_in = True
             self.logger.info("Logged in as")
-            self.logger.info(self.user.name)
+            self.logger.info(self.user)
             self.logger.info(self.user.id)
             self.logger.info("------------")
             if self.server_ready:
