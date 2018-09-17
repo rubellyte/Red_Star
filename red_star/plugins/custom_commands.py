@@ -632,15 +632,18 @@ class CustomCommands(BasePlugin):
         env['args'] = a[1].split(" ") if len(a) > 1 else []
 
         env['hasrole'] = lambda *x: self._hasrole(msg, *x)
-        env['delcall'] = lambda: ensure_future(self._rm_msg(msg))
+        env['delcall'] = lambda: self._delcall(msg)
         env['embed'] = lambda *x: self._embed(msg, *get_args(x))
 
         return env
 
+    def _delcall(self, msg):
+        ensure_future(self._rm_msg(msg))
+
     @staticmethod
     def _hasrole(msg, *args):
-        roles = [x.name.lower() for x in msg.author.roles]
-        return len([True for r in args if r.lower() in roles]) > 0
+        _args = map(str.lower, args)
+        return any([x.name.lower() in _args for x in msg.author.roles])
 
     @staticmethod
     def _embed(msg, _, kwargs):
@@ -652,7 +655,7 @@ class CustomCommands(BasePlugin):
                 t_embed.title = value
             elif name.lower() in ["!color", "!colour"]:
                 try:
-                    t_embed.colour = discord.Colour(int(value, 16))
+                    t_embed.colour = value if isinstance(value, int) else discord.Colour(int(value, 16))
                 except ValueError:
                     pass
             elif name.lower() == "!url":

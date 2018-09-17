@@ -30,7 +30,7 @@ _print = 'print'
 _try = 'try'
 
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
-tokenizer = re.compile(r"(?:;).*?(?:\n|$)|(?:\").*?(?:\")|\(|\)|[^()\" ]+", re.DOTALL)
+tokenizer = re.compile(r"(?:;).*?(?:\n|$)|(?:\").*?(?:\")|\(|\)|[^()\"; ]+", re.DOTALL)
 
 
 class Empty:
@@ -85,7 +85,7 @@ def read_from_tokens(tokens):
 
 def atom(token: str):
     try:
-        return int(token)
+        return int(token, 0)
     except ValueError:
         try:
             return float(token)
@@ -178,7 +178,7 @@ def eztime(*args):
 def _assert(var, vartype, *opt):
     try:
         if vartype == 'int':
-            return int(var)
+            return int(var, 0)
         elif vartype == 'float':
             return float(var)
         elif vartype == 'list':
