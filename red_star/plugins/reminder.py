@@ -8,7 +8,7 @@ import asyncio
 import threading
 import re
 from discord import Message
-from typing import Union
+from dataclasses import dataclass
 
 
 class Reminder(BasePlugin):
@@ -20,6 +20,7 @@ class Reminder(BasePlugin):
     pattern = re.compile(
         r"(?:(?P<D>\d{0,2})/(?P<M>\d{0,2})/(?P<Y>\d{0,4}))?[^\d]*(?:(?P<h>\d{0,2}):(?P<m>\d{0,2}):(?P<s>\d{0,2}))")
 
+    @dataclass
     class Rem:
         uid: int
         cid: int
@@ -31,13 +32,9 @@ class Reminder(BasePlugin):
         # number of days in each months, for checking
         _mdays = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
-        def __init__(self, uid, cid, time: Union[datetime.datetime, str], text, dm, rec):
-            self.uid = uid
-            self.cid = cid
-            self.time = time if isinstance(time, datetime.datetime) else datetime.datetime.fromisoformat(time)
-            self.text = text
-            self.dm = dm
-            self.recurring = rec
+        def __post_init__(self):
+            if isinstance(self.time, str):
+                self.time = datetime.datetime.fromisoformat(self.time)
 
         def dump(self):
             return {"remind": (self.uid, self.cid, self.time.isoformat(), self.text, self.dm, self.recurring)}
