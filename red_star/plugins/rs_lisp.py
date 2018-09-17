@@ -29,7 +29,12 @@ _while = 'while'
 _print = 'print'
 _try = 'try'
 
-escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"))
+escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
+tokenizer = re.compile(r"(?:;).*?(?:\n|$)|(?:\").*?(?:\")|\(|\)|[^()\" ]+", re.DOTALL)
+
+
+class Empty:
+    pass
 
 
 def l_escape(string: str) -> str:
@@ -45,7 +50,7 @@ def l_restore(string: str) -> str:
 
 
 def tokenize(string: str) -> list:
-    return re.findall(r"(?:\").*?(?:\")|\(|\)|[^()\" ]+", l_escape(string), re.DOTALL)
+    return tokenizer.findall(l_escape(string))
 
 
 def parse(program: str):
@@ -57,26 +62,20 @@ def read_from_tokens(tokens):
         raise CustomCommandSyntaxError('unexpected EOF while reading')
     token = tokens.pop(0)
 
-    if re.match(r'\".*\"', token, re.DOTALL):
+    if token[0] == token[-1] == '"':
         return ['quote', l_restore(token[1:-1])]
 
     elif '(' == token:
         token_list = []
         while tokens[0] != ')':
             t = read_from_tokens(tokens)
-            if t != '':
+            if not isinstance(t, Empty) and t != '':
                 token_list.append(t)
         tokens.pop(0)
         return token_list
 
-    elif ';' == token:
-        token_list = [token]
-        while tokens[0] != '\n':
-            token_list.append(read_from_tokens(tokens))
-        new_line = tokens.pop(0)
-        token_list.append(new_line)
-        string = l_restore(" ".join(token_list))
-        return ['quote', string]
+    elif token.startswith(';'):
+        return Empty()
 
     elif ')' == token:
         raise CustomCommandSyntaxError('unexpected )')
@@ -376,7 +375,9 @@ def lisp_eval(x, env=global_env):
     if env.max_runtime != 0 and time() - env.timestamp > env.max_runtime:
         raise CustomCommandSyntaxError("The command ran too long.")
     try:
-        if isinstance(x, Symbol):  # variable reference
+        if isinstance(x, Empty):
+            return
+        elif isinstance(x, Symbol):  # variable reference
             l, *ind = x.split(':')
             ind = [int(x) if isnum(x) else lisp_eval(x, env) for x in ind]
             return _lget(env.find(l)[l], *ind)
