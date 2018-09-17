@@ -4,32 +4,53 @@ from asyncio import get_event_loop
 from collections import deque
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.errors import ClientException
-from math import floor
+from math import floor, ceil
 from functools import partial
 from time import monotonic as time
 from youtube_dl import YoutubeDL
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
-from red_star.rs_utils import respond, split_output
+from red_star.rs_utils import respond, split_output, get_guild_config
+
 
 class MusicPlayer(BasePlugin):
     name = "music_player"
     version = "2.0"
+    default_config = {
+        "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
+        "save_audio": True,
+        "default_volume": 15,
+        "youtube_dl_config": {
+            "quiet": True,
+            "restrictfilenames": True,
+            "source_address": "0.0.0.0",
+            "audioformat": "mp3",
+            "default_search": "auto",
+            "extractaudio": True,
+            "logtostderr": False,
+            "nocheckcertificate": True,
+            "format": "bestaudio/best"
+        },
+        "default": {
+            "max_queue_length": 30,
+            "max_video_length": 1800,
+            "vote_skip_threshold": 0.5
+        }
+    }
 
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("music_player.json")
-        self.config = self.storage["config"]
 
         if not discord.opus.is_loaded():
             try:
-                discord.opus.load_opus(self.config["opus_path"])
+                discord.opus.load_opus(self.plugin_config["opus_path"])
             except (OSError, TypeError):
                 raise RuntimeError("Error occurred while loading libopus! Ensure that the path is correct.")
 
         self.players = {}
 
-        self.ydl_options = self.config["youtube_dl_config"].copy()
+        self.ydl_options = self.plugin_config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
 
     async def deactivate(self):
@@ -129,15 +150,18 @@ class MusicPlayer(BasePlugin):
 
     @Command("SkipSong", "Skip",
              doc="Tells the bot to skip the currently playing song.",
-             perms="mute_members",
              category="music_player")
     async def _skip_song(self, msg):
         player = self.get_guild_player(msg)
+        self.check_user_permission(msg.author, player)
         if not player or not player.is_playing:
             await respond(msg, "**ANALYSIS: No music currently playing.**")
             return
-        await respond(msg, "**ANALYSIS: Skipping to next song in queue...**")
-        player.stop()
+        elif player.voice_client.channel.permissions_for(msg.author).mute_members:
+            await respond(msg, "**ANALYSIS: Skipping to next song in queue...**")
+            player.stop()
+        else:
+            await player.skip_vote()
 
     @Command("PauseSong", "Pause", "ResumeSong", "Resume",
              doc="Tells the bot to pause or resume the current song.",
@@ -177,21 +201,12 @@ class MusicPlayer(BasePlugin):
     def check_user_permission(self, user, player):
         if user.id in self.storage["banned_users"].get(str(player.voice_client.guild.id), []):
             raise UserPermissionError("You are banned from using the music player.")
-        if not user in player.voice_client.channel.members:
+        if user not in player.voice_client.channel.members:
             raise UserPermissionError("You are not in the voice channel.")
         return True
 
     def get_guild_player(self, msg):
         return self.players.get(msg.guild.id, None)
-
-    def get_guild_config(self, guild, key):
-        gid = str(guild.id)
-        try:
-            return self.config["per_server_configs"][gid][key]
-        except KeyError:
-            self.config["per_server_configs"][gid] = self.config["per_server_configs"]["default"].copy()
-            self.storage.save()
-            return self.config["per_server_configs"][gid][key]
 
     @staticmethod
     def print_queue(player):
@@ -202,13 +217,8 @@ class MusicPlayer(BasePlugin):
             if duration <= 0:
                 duration = "--:--"
             else:
-                mn, sec = divmod(duration, 60)
-                sec = floor(sec)
-                if mn > 99:
-                    hr, mn = divmod(mn, 60)
-                    duration = f"{hr:02d}:{mn:02d}:{sec:02d}"
-                else:
-                    duration = f"{mn:02d}:{sec:02d}"
+                duration = seconds_to_minutes(duration)
+                duration = f"{duration[0]:02d}:{duration[1]:02d}"
             # Title truncating and padding
             title = vid.get("title", "Unknown")
             if len(title) >= 59:
@@ -219,13 +229,13 @@ class MusicPlayer(BasePlugin):
     @staticmethod
     def now_playing(player):
         play_time = player.play_time()
-        play_time_min, play_time_sec = divmod(play_time, 60)
+        play_time_tup = seconds_to_minutes(play_time)
         duration = player.current_song.get("duration", 0)
-        dur_str = f"{int(play_time_min):02d}:{floor(play_time_sec):02d}/"
+        dur_str = f"{play_time[0]:02d}:{play_time[1]:02d}/"
         if duration > 0:
             played = play_time / duration
-            duration_min, duration_sec = divmod(duration, 60)
-            dur_str += f"{duration_min:02d}:{floor(duration_sec):02d}"
+            duration= seconds_to_minutes(duration)
+            dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
         else:
             played = 0
             dur_str += "--:--"
@@ -246,67 +256,85 @@ class GuildPlayer:
         self.queue = deque()
         self.is_playing = False
         self.current_song = {}
-        self._volume = self.parent.config["default_volume"] / 100
-        self.loop = get_event_loop()
-        self.song_start_time = None
-        self.song_pause_time = None
+        self._volume = self.parent.plugin_config["default_volume"] / 100
+        self._loop = get_event_loop()
+        self._song_start_time = None
+        self._song_pause_time = None
+        self._skip_votes = 0
+        self.gid = str(voice_client.guild.id)
 
     async def enqueue(self, url):
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
-                vid_info = await self.loop.run_in_executor(None, partial(ydl.extract_info, url, download=False))
+                vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, url, download=False))
             if vid_info.get("_type") == "playlist":
-                self.loop.create_task(self.enqueue_playlist(vid_info["entries"]))
+                self._loop.create_task(self._enqueue_playlist(vid_info["entries"]))
                 return
             else:
-                if len(self.queue) < self.parent.get_guild_config(self.voice_client.guild, "max_queue_length"):
-                    await self.process_video(vid_info)
-                else:
+                if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                     await self.text_channel.send(f"**WARNING: The queue is full. {vid_info['title']} "
                                                  f"will not be added.")
+                    return
+                elif vid_info["duration"] > get_guild_config(self.parent, self.gid, "max_video_length"):
+                    max_len = seconds_to_minutes(get_guild_config(self.parent, self.gid, "max_video_length"))
+                    max_len_str = f"{max_len[0]:02d}:{max_len[1]:02d}"
+                    await self.text_channel.send(f"**WARNING: Your video exceeds the maximum video length "
+                                                 f"({max_len_str}). It will not be added.**")
+                    return
+                else:
+                    await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.**")
         if not self.is_playing:
-            await self.play()
+            await self._play()
 
-    async def enqueue_playlist(self, entries):
+    async def _enqueue_playlist(self, entries):
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
                                      f"begin shortly.")
         orig_len = len(self.queue)
         with self.text_channel.typing():
             for vid in entries:
-                if len(self.queue) >= self.parent.get_guild_config(self.voice_client.guild, "max_queue_length"):
+                if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                     await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
                     break
+                elif vid["duration"] > get_guild_config(self.parent, self.gid, "max_video_length"):
+                    max_len = seconds_to_minutes(get_guild_config(self.parent, self.gid, "max_video_length"))
+                    max_len_str = f"{max_len[0]:02d}:{max_len[1]:02d}"
+                    await self.text_channel.send(f"**WARNING: Video {vid['title']} exceeds the maximum video length"
+                                                 f"({max_len_str}). It will not be added.**")
+                    continue
                 try:
-                    await self.process_video(vid)
+                    await self._process_video(vid)
                 except TypeError:
                     continue
-                self.logger.info(f"Added {vid['title']} to queue.")
                 if not self.is_playing:
                     try:
-                        self.loop.create_task(self.play())
+                        self._loop.create_task(self._play())
                     except ClientException:
                         pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
 
-    async def process_video(self, vid):
+    async def _process_video(self, vid):
         if not vid:
             raise TypeError
-        if self.parent.config["save_audio"] and not vid.get("is_live", False):
+        if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
-                await self.loop.run_in_executor(None, partial(ydl.process_info, vid))
+                await self._loop.run_in_executor(None, partial(ydl.process_info, vid))
                 vid["filename"] = ydl.prepare_filename(vid)
         vid.setdefault("title", "Unknown")
         vid.setdefault("is_live", False)
+        vid.setdefault("duration", 0)
+        if vid["duration"] < 0:
+            vid["duration"] = 0
         self.queue.append(vid)
 
-    async def play(self):
+    async def _play(self):
         try:
             next_song = self.queue.popleft()
         except IndexError:
             await self.text_channel.send("**ANALYSIS: Queue complete.**")
             self.is_playing = False
             self.current_song = {}
+            self._skip_votes = 0
             self.voice_client.stop()
             try:
                 self.voice_client.source.cleanup()
@@ -314,7 +342,7 @@ class GuildPlayer:
                 pass
             return
         before_args = ""
-        if self.parent.config["save_audio"] and not next_song["is_live"]:
+        if self.parent.plugin_config["save_audio"] and not next_song["is_live"]:
             file = next_song["filename"]
         else:
             file = next_song["url"]
@@ -322,29 +350,31 @@ class GuildPlayer:
         self.is_playing = True
         source = PCMVolumeTransformer(FFmpegPCMAudio(file, before_options=before_args, options="-vn"),
                                       volume=self._volume)
-        self.voice_client.play(source, after=self.after)
-        self.song_start_time = time()
+        self.voice_client.play(source, after=self._after)
+        self._song_start_time = time()
         self.current_song = next_song
+        self._skip_votes = 0
         await self.text_channel.send(f"**NOW PLAYING: {next_song['title']}.**")
 
     def toggle_pause(self):
         if self.voice_client.is_paused():
             self.voice_client.resume()
-            self.song_start_time += (time() - self.song_pause_time)
+            self._song_start_time += (time() - self._song_pause_time)
             return False
         else:
             self.voice_client.pause()
-            self.song_pause_time = time()
+            self._song_pause_time = time()
             return True
 
-    def after(self, error):
+    def _after(self, error):
         if error:
             self.logger.error(error)
-        self.loop.create_task(self.play())
+        self._loop.create_task(self._play())
 
     def stop(self):
         self.is_playing = False
         self.current_song = {}
+        self._skip_votes = 0
         try:
             self.voice_client.source.cleanup()
         except AttributeError:
@@ -353,9 +383,20 @@ class GuildPlayer:
 
     def play_time(self):
         if self.voice_client.is_paused():
-            return self.song_pause_time - self.song_start_time
+            return self._song_pause_time - self._song_start_time
         else:
-            return time() - self.song_start_time
+            return time() - self._song_start_time
+
+    async def skip_vote(self):
+        self._skip_votes += 1
+        total_users = len(self.voice_client.channel.members) - 1  # Don't want to count the bot itself
+        threshold = get_guild_config(self.parent, self.gid, "vote_skip_threshold")
+        if self._skip_votes / total_users >= threshold:
+            await self.text_channel.send("**AFFIRMATIVE. Skipping current song.**")
+            self.stop()
+        else:
+            votes_needed = ceil(total_users * threshold) - self._skip_votes
+            await self.text_channel.send(f"**AFFIRMATIVE. Skip vote recorded. {votes_needed} votes needed to skip.")
 
     @property
     def volume(self):
@@ -365,3 +406,12 @@ class GuildPlayer:
     def volume(self, val):
         self._volume = val
         self.voice_client.source.volume = val
+
+
+def seconds_to_minutes(secs, hours=False):
+    mn, sec = divmod(secs, 60)
+    if hours:
+        hr, mn = divmod(mn, 60)
+        return int(hr), int(mn), floor(sec)
+    else:
+        return int(mn), int(floor(sec))
