@@ -16,7 +16,7 @@ class ConfigManager:
         self.config = {}
         self.config_path = config_path
         self.config_file_path = config_path / "config.json"
-        self.plugin_config_files = []
+        self.plugin_config_files = {}
         self.load_config()
 
     def load_config(self):
@@ -45,7 +45,7 @@ class ConfigManager:
             json.dump(self.config, f, sort_keys=True, indent=2)
         self.config_file_path.unlink()
         temp_path.rename(self.config_file_path)
-        for file in self.plugin_config_files:
+        for file in self.plugin_config_files.values():
             file.save()
         self.logger.debug("Saved config files.")
 
@@ -73,5 +73,5 @@ class ConfigManager:
                     fd.write("{}")
                 self.logger.debug(f"Created config file {file_path}.")
         file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
-        self.plugin_config_files.append(file_obj)
+        self.plugin_config_files[filename] = file_obj
         return file_obj

@@ -154,13 +154,22 @@ class BotManagement(BasePlugin):
                            f"Inactive: {inactive_plgs}\n```")
 
     @Command("GetConfig",
-             doc="Gets the config value at the specified path. Use <server> to fill in the server ID.",
-             syntax="(path/to/value)",
+             doc="Gets the config value at the specified path. Use <server> to fill in the server ID.\n"
+                 "Use --file to view a different configuration file, such as music_player.json.",
+             syntax="(path/to/value) [-f/--file file]",
              category="bot_management",
              bot_maintainers_only=True)
     async def _get_config(self, msg):
-        conf_dict = self.config_manager.config.copy()
         args = msg.clean_content.split()[1:]
+        if args[0] in ("-f", "--file"):
+            args.pop(0)
+            filename = args.pop(0)
+            try:
+                conf_dict = self.config_manager.plugin_config_files[filename]
+            except KeyError:
+                raise CommandSyntaxError(f"Config file {filename} does not exist.")
+        else:
+            conf_dict = self.config_manager.config.copy()
 
         try:
             path = args[0]
@@ -170,7 +179,7 @@ class BotManagement(BasePlugin):
         if path.startswith("/"):
             path = path[1:]
         path_list = path.split("/")
-        del conf_dict["token"]  # Don't wanna leak that by accident!
+        conf_dict.pop("token", None)  # Don't wanna leak that by accident!
 
         for k in path_list:
             if not k:
@@ -192,23 +201,25 @@ class BotManagement(BasePlugin):
     @Command("SetConfig",
              doc="Edits the config value at the specified path. Use <server> to fill in the server ID. Doesn't allow "
                  "types to be changed unless forced.\n"
+                 "Use --file to edit a different configuration file, such as music_player.json.\n"
                  "Use --remove to delete a value, --append to add a value to a list, --addkey to add a new key/value"
                  "pair to a dict, and --type with a type name to force type conversion.\n"
                  "Valid --types: bool, int, float, str, list, dict, json",
-             syntax="(path/to/edit) (value or -r/--remove) [-a/--append] [-k/--addkey key_name] [-t/--type type]",
+             syntax="(path/to/edit) (value or -r/--remove) [-a/--append] [-k/--addkey key_name] [-t/--type type]"
+                    "[-f/--file file]",
              category="bot_management",
              bot_maintainers_only=True)
     async def _set_config(self, msg):
-        conf_dict = self.config_manager.config.copy()
-
         parser = RSArgumentParser()
         parser.add_argument("path")
         parser.add_argument("value", nargs="*")
-        parser.add_argument("-r", "--remove", action="store_true")
-        parser.add_argument("-a", "--append", action="store_true")
-        parser.add_argument("-k", "--addkey")
+        parser.add_argument("-f", "--file", type=str)
         parser.add_argument("-t", "--type", choices=("null", "bool", "int", "float", "str", "list", "dict", "json"),
                             type=str.lower)
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("-r", "--remove", action="store_true")
+        group.add_argument("-a", "--append", action="store_true")
+        group.add_argument("-k", "--addkey")
 
         args = parser.parse_args(shlex.split(msg.clean_content)[1:])
 
@@ -224,8 +235,13 @@ class BotManagement(BasePlugin):
             "json": json.loads
         }
 
-        if sum((args.remove, args.append, bool(args.addkey))) > 1:
-            raise CommandSyntaxError("--remove, --append, and --addkey arguments are mutually exclusive.")
+        if args.file:
+            try:
+                conf_dict = self.config_manager.plugin_config_files[args.file]
+            except KeyError:
+                raise CommandSyntaxError(f"Config file {args.file} does not exist.")
+        else:
+            conf_dict = self.config_manager.config.copy()
 
         try:
             path = args.path

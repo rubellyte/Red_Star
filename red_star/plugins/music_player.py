@@ -1,10 +1,11 @@
 import discord.opus
 import logging
-import shlex
 from asyncio import get_event_loop
 from collections import deque
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
+from math import floor
 from functools import partial
+from time import monotonic as time
 from youtube_dl import YoutubeDL
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
@@ -27,7 +28,7 @@ class MusicPlayer(BasePlugin):
 
         self.players = {}
 
-        self.ydl_options = self.config["youtube_dl_config"]
+        self.ydl_options = self.config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
 
     async def deactivate(self):
@@ -84,7 +85,7 @@ class MusicPlayer(BasePlugin):
         if not player:
             player = await self._join_voice(msg)
         self.check_user_permission(msg.author, player)
-        url = shlex.split(msg.clean_content)[1]
+        url = msg.clean_content.split(None, 1)[1]
         await player.enqueue(url)
 
     @Command("SongQueue", "Queue",
@@ -95,11 +96,17 @@ class MusicPlayer(BasePlugin):
         if not player:
             await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
             return
-        elif len(player.queue) < 1:
+        elif len(player.queue) < 1 and not player.current_song:
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
-        queue_list = "\n".join(f"[{i:02d}][{v['title']:40}]" for i, v in enumerate(player.queue))
-        await respond(msg, f"**ANALYSIS: Current queue:**\n```{queue_list}```")
+        final = ""
+        if player.current_song:
+            now_playing = self.now_playing(player)
+            final += f"**ANALYSIS: Now playing:**\n```{now_playing}```"
+        if player.queue:
+            queue_list = self.print_queue(player)
+            final += f"**ANALYSIS: Current queue:**\n```{queue_list}```"
+        await respond(msg, final)
 
     @Command("SongVolume", "Volume",
              doc="Sets the volume at which the player plays music, between 0 and 100.",
@@ -108,7 +115,7 @@ class MusicPlayer(BasePlugin):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         try:
-            new_volume = shlex.split(msg.clean_content)[1]
+            new_volume = msg.clean_content(None, 1)[1]
             new_volume = int(new_volume)
             if new_volume == 0:
                 raise CommandSyntaxError("Please use PauseSong to mute the bot.")
@@ -140,12 +147,10 @@ class MusicPlayer(BasePlugin):
         if not player or player.is_playing is False:
             await respond(msg, "**WARNING: No music currently playing.**")
             return
-        if player.voice_client.is_paused():
-            player.voice_client.resume()
-            await respond(msg, "**ANALYSIS: Song resumed.**")
-        else:
-            player.voice_client.pause()
+        if player.toggle_pause():
             await respond(msg, "**ANALYSIS: Song paused.**")
+        else:
+            await respond(msg, "**ANALYSIS: Song resumed.**")
 
     @Command("StopMusic", "StopSong", "Stop",
              doc="Tells the bot to stop playing songs and empty the queue.",
@@ -185,6 +190,49 @@ class MusicPlayer(BasePlugin):
         except KeyError:
             self.config["per_server_configs"][gid] = self.config["per_server_configs"]["default"].copy()
 
+    @staticmethod
+    def print_queue(player):
+        str_list = []
+        for i, vid in enumerate(player.queue):
+            # Duration formatting
+            duration = vid.get("duration", 0)
+            if duration <= 0:
+                duration = "--:--"
+            else:
+                mn, sec = divmod(duration, 60)
+                sec = floor(sec)
+                if mn > 99:
+                    hr, mn = divmod(mn, 60)
+                    duration = f"{hr:02d}:{mn:02d}:{sec:02d}"
+                else:
+                    duration = f"{mn:02d}:{sec:02d}"
+            # Title truncating and padding
+            title = vid.get("title", "Unknown")
+            if len(title) >= 59:
+                title = title[:56] + "..."
+            str_list.append(f"[{i+1:02d}][{title:-<59}][{duration}]")
+        return "\n".join(str_list)
+
+    @staticmethod
+    def now_playing(player):
+        play_time = player.play_time()
+        play_time_min, play_time_sec = divmod(play_time, 60)
+        duration = player.current_song.get("duration", 0)
+        dur_str = f"{int(play_time_min):02d}:{floor(play_time_sec):02d}/"
+        if duration > 0:
+            played = play_time / duration
+            duration_min, duration_sec = divmod(duration, 60)
+            dur_str += f"{duration_min:02d}:{floor(duration_sec):02d}"
+        else:
+            played = 0
+            dur_str += "--:--"
+        bars = floor(70 * played)
+        progress_bar = f"{'█'*bars}{'-'*(70-bars)}"
+        title = player.current_song.get("title", "Unknown")
+        if len(title) > 57:
+            title = title[:54] + "..."
+        return f"[{title:-<57}][{dur_str}]\n[{progress_bar}]"
+
 
 class GuildPlayer:
     def __init__(self, parent, voice_client, channel):
@@ -197,6 +245,8 @@ class GuildPlayer:
         self.current_song = {}
         self.volume = self.parent.config["default_volume"] / 100
         self.loop = get_event_loop()
+        self.song_start_time = None
+        self.song_pause_time = None
 
     async def enqueue(self, url):
         count = 1
@@ -238,8 +288,19 @@ class GuildPlayer:
                                       volume=self.volume)
         self.voice_client.play(source, after=self.after)
         self.is_playing = True
+        self.song_start_time = time()
         self.current_song = next_song
         await self.text_channel.send(f"**NOW PLAYING: {next_song.get('title', 'Unkown')}.**")
+
+    def toggle_pause(self):
+        if self.voice_client.is_paused():
+            self.voice_client.resume()
+            self.song_start_time += (time() - self.song_pause_time)
+            return False
+        else:
+            self.voice_client.pause()
+            self.song_pause_time = time()
+            return True
 
     def after(self, error):
         if error:
@@ -254,3 +315,9 @@ class GuildPlayer:
         except AttributeError:
             pass
         self.voice_client.stop()
+
+    def play_time(self):
+        if self.voice_client.is_paused():
+            return self.song_pause_time - self.song_start_time
+        else:
+            return time() - self.song_start_time
