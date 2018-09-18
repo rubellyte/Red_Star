@@ -13,7 +13,7 @@ from youtube_dl import YoutubeDL
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
-from red_star.rs_utils import respond, split_output, get_guild_config, split_message
+from red_star.rs_utils import respond, split_output, get_guild_config, split_message, find_user
 
 
 class MusicPlayer(BasePlugin):
@@ -218,6 +218,37 @@ class MusicPlayer(BasePlugin):
         player.queue.clear()
         player.stop()
         await respond(msg, "**ANALYSIS: The music has been stopped and the queue has been cleared.**")
+
+    @Command("MusicBan",
+             doc="Bans or unbans a user from using music bot commands, or lists bans if no user specified..",
+             syntax="(user)",
+             perms="mute_memebers",
+             category="music_player")
+    async def _music_ban(self, msg):
+        try:
+            ban_store = self.storage["banned_users"][str(msg.guild.id)]
+        except KeyError:
+            ban_store = self.storage["banned_users"][str(msg.guild.id)] = []
+        try:
+            user = find_user(msg.guild, msg.content.split(None, 1)[1])
+        except IndexError:
+            user_li = [find_user(msg.guild, x) for x in ban_store]
+            banned_list = [str(x) if x else "Unknown" for x in user_li]
+            if not banned_list:
+                banned_list = ["None."]
+            await split_output(msg, "**ANALYSIS: Banned users:**\n", banned_list)
+            return
+        if user:
+            if user.id in ban_store:
+                ban_store.remove(user.id)
+                await respond(msg, f"**AFFIRMATIVE. User {user} has been unbanned from using the music module.**")
+                return
+            else:
+                ban_store.append(user.id)
+            await respond(msg, f"**AFFIRMATIVE. User {user} has been banned from using the music module.**")
+        else:
+            raise CommandSyntaxError(f"No such user {msg.clean_content.split(None, 1)[1]}")
+
 
     # Utility functions
 
