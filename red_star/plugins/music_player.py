@@ -2,7 +2,6 @@ import enum
 import discord.opus
 import logging
 from asyncio import get_event_loop
-from collections import deque
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.errors import ClientException
 from math import floor, ceil
@@ -121,12 +120,44 @@ class MusicPlayer(BasePlugin):
         if not player:
             await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
             return
-        elif len(player.queue) < 1 and not player.current_song:
+        elif player.queue and not player.current_song:
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
         if player.current_song:
             await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.now_playing()}```")
         if player.queue:
+            await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
+
+    @Command("DeleteSong", "DelSong", "RMSong",
+             doc="Removes a song from the bot's queue.",
+             syntax="(index)",
+             perms="mute_members",
+             category="music_player")
+    async def _delete_song(self, msg):
+        player = self.get_guild_player(msg)
+        if not player:
+            await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
+            return
+        elif not player.queue:
+            await respond(msg, "**ANALYSIS: The queue is empty.**")
+            return
+        try:
+            index = int(msg.clean_content.split(None, 1)[1])
+        except IndexError:
+            raise CommandSyntaxError("No arguments provided")
+        except ValueError:
+            raise CommandSyntaxError(f"{msg.clean_content.split(None, 1)[1]} is not a valid integer.")
+        if index == 0:
+            raise CommandSyntaxError("Use Skip to skip the currently playing song")
+        elif index < 0:
+            raise CommandSyntaxError("Provided integer must be positive")
+        index -= 1
+        try:
+            del_song = player.queue.pop(index)
+        except IndexError:
+            raise CommandSyntaxError("Integer provided is not a valid index")
+        await respond(msg, f"**AFFIRMATIVE. Deleted song at position {index + 1} ({del_song['title']}).**")
+        if get_guild_config(self, str(msg.guild.id), "print_queue_on_edit"):
             await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
 
     @Command("SongVolume", "Volume",
@@ -278,7 +309,7 @@ class GuildPlayer:
         self.text_channel = channel
         self.voice_client = voice_client
         self.logger = logging.getLogger(f"red_star.plugin.music_player.player_{self.voice_client.guild.id}")
-        self.queue = deque()
+        self.queue = []
         self.is_playing = False
         self.current_song = {}
         self.song_mode = SongMode.NORMAL
@@ -364,27 +395,20 @@ class GuildPlayer:
     async def _play(self):
         try:
             if self.song_mode == SongMode.SHUFFLE_REPEAT:
-                if len(self.queue) > 0:
-                    next_song = self.queue[randint(0, len(self.queue) - 1)]
-                else:
-                    next_song = None
-                if self.current_song:
-                    self.queue.remove(next_song)  # So you don't get the same song twice
-                    self.queue.append(self.current_song)
+                next_song = self.queue[randint(0, len(self.queue) - 1)]
             elif self.song_mode == SongMode.SHUFFLE:
-                next_song = self.queue[randint(0, len(self.queue))]
-                self.queue.remove(next_song)
+                next_song = self.queue.pop(randint(0, len(self.queue) - 1))
             elif self.song_mode == SongMode.REPEAT_QUEUE:
                 if self.current_song:
                     self.queue.append(self.current_song)
-                next_song = self.queue.popleft()
+                next_song = self.queue.pop(0)
             elif self.song_mode == SongMode.REPEAT_SONG:
                 if self.current_song:
                     next_song = self.current_song
                 else:
-                    next_song = self.queue.popleft()
+                    next_song = self.queue.pop(0)
             else:
-                next_song = self.queue.popleft()
+                next_song = self.queue.pop(0)
         except IndexError:
             await self.text_channel.send("**ANALYSIS: Queue complete.**")
             self.is_playing = False
