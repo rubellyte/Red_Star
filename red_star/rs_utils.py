@@ -1,11 +1,7 @@
 # Miscellaneous utility functions and classes found here.
 import argparse
-import dbm
 import re
-import shelve
 import json
-from io import BytesIO
-from pickle import Pickler, Unpickler
 from red_star.rs_errors import CommandSyntaxError
 from random import randint
 
@@ -39,55 +35,6 @@ class JsonFileDict(dict):
     def reload(self):
         with self.path.open(encoding="utf-8") as fd:
             self.update(json.load(fd, **self.json_load_args))
-
-
-class Cupboard(shelve.Shelf):
-    """
-    Custom Shelf implementation that only pickles values at save-time.
-    Increases save/load times, decreases get/set item times.
-    More suitable for use as a savable dictionary.
-    """
-    def __init__(self, filename, flag='c', protocol=None, keyencoding='utf-8'):
-        self.db = filename
-        self.flag = flag
-        self.dict = {}
-        with dbm.open(self.db, self.flag) as db:
-            for k in db.keys():
-                v = BytesIO(db[k])
-                try:
-                    self.dict[k] = Unpickler(v).load()
-                except ModuleNotFoundError:  # Just throw it away if it won't load.
-                    del db[k]
-        shelve.Shelf.__init__(self, self.dict, protocol, False, keyencoding)
-
-    def __getitem__(self, key):
-        return self.dict[key.encode(self.keyencoding)]
-
-    def __setitem__(self, key, value):
-        self.dict[key.encode(self.keyencoding)] = value
-
-    def __delitem__(self, key):
-        del self.dict[key.encode(self.keyencoding)]
-
-    def sync(self):
-        with dbm.open(self.db, self.flag) as db:
-            for k, v in self.dict.items():
-                f = BytesIO()
-                p = Pickler(f, protocol=self._protocol)
-                p.dump(v)
-                db[k] = f.getvalue()
-            db.sync()
-
-    def close(self):
-        try:
-            self.sync()
-        finally:
-            # noinspection PyBroadException
-            try:
-                # noinspection PyProtectedMember
-                self.dict = shelve._ClosedDict()
-            except Exception:
-                self.dict = None
 
 
 class RSNamespace(argparse.Namespace):

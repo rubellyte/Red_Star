@@ -1,3 +1,4 @@
+import enum
 import discord.opus
 import logging
 from asyncio import get_event_loop
@@ -6,6 +7,7 @@ from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.errors import ClientException
 from math import floor, ceil
 from functools import partial
+from random import randint
 from time import monotonic as time
 from youtube_dl import YoutubeDL
 from red_star.command_dispatcher import Command
@@ -148,6 +150,33 @@ class MusicPlayer(BasePlugin):
         player.volume = new_volume / 100
         await respond(msg, f"**AFFIRMATIVE. Set volume to {new_volume}%.**")
 
+    @Command("SongMode", "Shuffle", "Repeat",
+             doc="Tells the bot in what order the bot should play its queue, or prints the current mode if no mode "
+                 "is specified.",
+             syntax="[n/normal|rs/repeat_song|rq/repeat_queue|s/shuffle|sr/shuffle_repeat]",
+             category="music_player")
+    async def _song_mode(self, msg):
+        player = self.get_guild_player(msg)
+        self.check_user_permission(msg.author, player)
+        try:
+            arg = msg.clean_content.split(None, 1)[1].lower()
+        except IndexError:
+            await respond(msg, f"**ANALYSIS: Current song mode is {player.song_mode}.**")
+            return
+        if arg in ("n", "normal", "reset"):
+            player.song_mode = SongMode.NORMAL
+        elif arg in ("rs", "repeat_song", "loop"):
+            player.song_mode = SongMode.REPEAT_SONG
+        elif arg in ("rq", "repeat", "repeat_queue", "cycle"):
+            player.song_mode = SongMode.REPEAT_QUEUE
+        elif arg in ("s", "shuffle", "random"):
+            player.song_mode = SongMode.SHUFFLE
+        elif arg in ("sr", "shuffle_repeat", "random_repeat"):
+            player.song_mode = SongMode.SHUFFLE_REPEAT
+        else:
+            raise CommandSyntaxError(f"Argument {arg} is not a valid mode")
+        await respond(msg, f"**AFFIRMATIVE. Song mode changed to {player.song_mode}.**")
+
     @Command("SkipSong", "Skip",
              doc="Tells the bot to skip the currently playing song.",
              category="music_player")
@@ -199,10 +228,13 @@ class MusicPlayer(BasePlugin):
         return player
 
     def check_user_permission(self, user, player):
-        if user.id in self.storage["banned_users"].get(str(player.voice_client.guild.id), []):
-            raise UserPermissionError("You are banned from using the music player.")
-        if user not in player.voice_client.channel.members:
-            raise UserPermissionError("You are not in the voice channel.")
+        try:
+            if user.id in self.storage["banned_users"].get(str(player.voice_client.guild.id), []):
+                raise UserPermissionError("You are banned from using the music player.")
+            if user not in player.voice_client.channel.members:
+                raise UserPermissionError("You are not in the voice channel.")
+        except AttributeError:
+            raise UserPermissionError("The bot is not currently in a voice channel.")
         return True
 
     def get_guild_player(self, msg):
@@ -231,7 +263,7 @@ class MusicPlayer(BasePlugin):
         play_time = player.play_time()
         play_time_tup = seconds_to_minutes(play_time)
         duration = player.current_song.get("duration", 0)
-        dur_str = f"{play_time[0]:02d}:{play_time[1]:02d}/"
+        dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
         if duration > 0:
             played = play_time / duration
             duration= seconds_to_minutes(duration)
@@ -256,6 +288,7 @@ class GuildPlayer:
         self.queue = deque()
         self.is_playing = False
         self.current_song = {}
+        self.song_mode = SongMode.NORMAL
         self._volume = self.parent.plugin_config["default_volume"] / 100
         self._loop = get_event_loop()
         self._song_start_time = None
@@ -289,7 +322,7 @@ class GuildPlayer:
 
     async def _enqueue_playlist(self, entries):
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
-                                     f"begin shortly.")
+                                     f"begin shortly.**")
         orig_len = len(self.queue)
         with self.text_channel.typing():
             for vid in entries:
@@ -329,7 +362,28 @@ class GuildPlayer:
 
     async def _play(self):
         try:
-            next_song = self.queue.popleft()
+            if self.song_mode == SongMode.SHUFFLE_REPEAT:
+                if len(self.queue) > 0:
+                    next_song = self.queue[randint(0, len(self.queue) - 1)]
+                else:
+                    next_song = None
+                if self.current_song:
+                    self.queue.remove(next_song)  # So you don't get the same song twice
+                    self.queue.append(self.current_song)
+            elif self.song_mode == SongMode.SHUFFLE:
+                next_song = self.queue[randint(0, len(self.queue))]
+                self.queue.remove(next_song)
+            elif self.song_mode == SongMode.REPEAT_QUEUE:
+                if self.current_song:
+                    self.queue.append(self.current_song)
+                next_song = self.queue.popleft()
+            elif self.song_mode == SongMode.REPEAT_SONG:
+                if self.current_song:
+                    next_song = self.current_song
+                else:
+                    next_song = self.queue.popleft()
+            else:
+                next_song = self.queue.popleft()
         except IndexError:
             await self.text_channel.send("**ANALYSIS: Queue complete.**")
             self.is_playing = False
@@ -373,7 +427,6 @@ class GuildPlayer:
 
     def stop(self):
         self.is_playing = False
-        self.current_song = {}
         self._skip_votes = 0
         try:
             self.voice_client.source.cleanup()
@@ -415,3 +468,14 @@ def seconds_to_minutes(secs, hours=False):
         return int(hr), int(mn), floor(sec)
     else:
         return int(mn), int(floor(sec))
+
+
+class SongMode(enum.Enum):
+    NORMAL = "normal"
+    REPEAT_SONG = "repeat_song"
+    REPEAT_QUEUE = "repeat_queue"
+    SHUFFLE = "shuffle"
+    SHUFFLE_REPEAT = "shuffle_repeat"
+
+    def __str__(self):
+        return self.name
