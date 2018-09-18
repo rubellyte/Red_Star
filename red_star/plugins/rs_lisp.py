@@ -31,6 +31,7 @@ _try = 'try'
 
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
 tokenizer = re.compile(r";.*?(?:\n|$)|\".*?\"|\(|\)|[^()\";\s]+", re.DOTALL)
+strip_extra_whitespace = re.compile("\s*([()])\s*")
 
 
 class Empty:
@@ -55,6 +56,38 @@ def tokenize(string: str) -> list:
 
 def parse(program: str):
     return read_from_tokens(tokenize(program))
+
+
+def joiner(iterable):
+    return reduce(lambda s, i: s + i if i[0] in '()"' or s[-1] in '()"' else s + ' ' + i, iterable)
+
+
+def reprint(ast: [list, int, str, float])-> str:
+    """
+    Takes an RSLisp Abstract Syntax Tree and prints out the corresponding lisp code.
+    :param ast:
+    :return:
+    """
+    if isinstance(ast, list):
+        if len(ast) > 0:
+            if ast[0] == 'quote' and isinstance(ast[1], str):
+                return f'"{ast[1]}"'
+            else:
+                return '('+joiner([reprint(x) for x in ast])+')'
+        else:
+            return "()"
+    else:
+        return str(ast)
+
+
+def minify(program: [str, list]):
+    """
+    Takes a program or an abstract syntax tree and returns the corresponding lisp code, with comments and extra
+    whitespace stripped.
+    :param program:
+    :return:
+    """
+    return reprint(program if isinstance(program, list) else parse(program))
 
 
 def read_from_tokens(tokens):

@@ -14,7 +14,7 @@ from red_star.command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
 
-from red_star.plugins.rs_lisp import lisp_eval, parse, standard_env, get_args
+from red_star.plugins.rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
 
 
 # noinspection PyBroadException
@@ -25,7 +25,8 @@ class CustomCommands(BasePlugin):
             "cc_prefix": "!!",
             "cc_limit": 25
         },
-        "rslisp_max_runtime": 5
+        "rslisp_max_runtime": 5,
+        "rslisp_minify": True
     }
 
     async def activate(self):
@@ -145,7 +146,7 @@ class CustomCommands(BasePlugin):
                 return
             newcc = {
                 "name": name,
-                "content": content,
+                "content": reprint(parse(content)) if self.plugin_config['rslisp_minify'] else content,
                 "author": msg.author.id,
                 "date_created": datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S"),
                 "last_edited": None,
@@ -228,7 +229,7 @@ class CustomCommands(BasePlugin):
                 except Exception as err:
                     await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
                     return
-                ccdata["content"] = content
+                ccdata["content"] = reprint(parse(content)) if self.plugin_config['rslisp_minify'] else content
                 ccdata["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
                 self.ccs[gid][name] = ccdata
                 self.ccs.save()
