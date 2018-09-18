@@ -30,7 +30,7 @@ _print = 'print'
 _try = 'try'
 
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
-tokenizer = re.compile(r"(?:;).*?(?:\n|$)|(?:\").*?(?:\")|\(|\)|[^()\"; ]+", re.DOTALL)
+tokenizer = re.compile(r";.*?(?:\n|$)|\".*?\"|\(|\)|[^()\";\s]+", re.DOTALL)
 
 
 class Empty:
