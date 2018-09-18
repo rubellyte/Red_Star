@@ -9,6 +9,7 @@ from functools import partial
 from random import randint
 from time import monotonic as time
 from youtube_dl import YoutubeDL
+from youtube_dl.utils import YoutubeDLError
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
@@ -323,7 +324,12 @@ class GuildPlayer:
     async def enqueue(self, url):
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
-                vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, url, download=False))
+                try:
+                    vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, url, download=False))
+                except YoutubeDLError as e:
+                    await self.text_channel.send(f"**WARNING. An error occurred while downloading video <{url}>. "
+                                                 f"It will not be queued.\nError details:** `{e}`")
+                    return
             if vid_info.get("_type") == "playlist":
                 self._loop.create_task(self._enqueue_playlist(vid_info["entries"]))
                 return
@@ -383,8 +389,13 @@ class GuildPlayer:
             raise TypeError
         if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
-                await self._loop.run_in_executor(None, partial(ydl.process_info, vid))
-                vid["filename"] = ydl.prepare_filename(vid)
+                try:
+                    await self._loop.run_in_executor(None, partial(ydl.process_info, vid))
+                    vid["filename"] = ydl.prepare_filename(vid)
+                except YoutubeDLError as e:
+                    await self.text_channel.send(f"**WARNING. An error occurred while downloading video"
+                                                 f"{vid['title']}. It will not be queued.\nError details:** `{e}`")
+                    return
         vid.setdefault("title", "Unknown")
         vid.setdefault("is_live", False)
         vid.setdefault("duration", 0)
