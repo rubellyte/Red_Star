@@ -13,7 +13,7 @@ from youtube_dl import YoutubeDL
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
-from red_star.rs_utils import respond, split_output, get_guild_config
+from red_star.rs_utils import respond, split_output, get_guild_config, split_message
 
 
 class MusicPlayer(BasePlugin):
@@ -37,7 +37,8 @@ class MusicPlayer(BasePlugin):
         "default": {
             "max_queue_length": 30,
             "max_video_length": 1800,
-            "vote_skip_threshold": 0.5
+            "vote_skip_threshold": 0.5,
+            "print_queue_on_edit": True
         }
     }
 
@@ -124,10 +125,9 @@ class MusicPlayer(BasePlugin):
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
         if player.current_song:
-            now_playing = self.now_playing(player)
-            await respond(msg, f"**ANALYSIS: Now playing:**\n```{now_playing}```")
+            await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.now_playing()}```")
         if player.queue:
-            await split_output(msg, "**ANALYSIS: Current queue:**\n", self.print_queue(player))
+            await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
 
     @Command("SongVolume", "Volume",
              doc="Sets the volume at which the player plays music, between 0 and 100.",
@@ -240,44 +240,6 @@ class MusicPlayer(BasePlugin):
     def get_guild_player(self, msg):
         return self.players.get(msg.guild.id, None)
 
-    @staticmethod
-    def print_queue(player):
-        str_list = []
-        for i, vid in enumerate(player.queue):
-            # Duration formatting
-            duration = vid.get("duration", 0)
-            if duration <= 0:
-                duration = "--:--"
-            else:
-                duration = seconds_to_minutes(duration)
-                duration = f"{duration[0]:02d}:{duration[1]:02d}"
-            # Title truncating and padding
-            title = vid.get("title", "Unknown")
-            if len(title) >= 59:
-                title = title[:56] + "..."
-            str_list.append(f"[{i+1:02d}][{title:-<59}][{duration}]")
-        return str_list
-
-    @staticmethod
-    def now_playing(player):
-        play_time = player.play_time()
-        play_time_tup = seconds_to_minutes(play_time)
-        duration = player.current_song.get("duration", 0)
-        dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
-        if duration > 0:
-            played = play_time / duration
-            duration= seconds_to_minutes(duration)
-            dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
-        else:
-            played = 0
-            dur_str += "--:--"
-        bars = floor(70 * played)
-        progress_bar = f"{'█'*bars}{'-'*(70-bars)}"
-        title = player.current_song.get("title", "Unknown")
-        if len(title) > 57:
-            title = title[:54] + "..."
-        return f"[{title:-<57}][{dur_str}]\n[{progress_bar}]"
-
 
 class GuildPlayer:
     def __init__(self, parent, voice_client, channel):
@@ -317,6 +279,10 @@ class GuildPlayer:
                 else:
                     await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.**")
+        if get_guild_config(self.parent, self.gid, "print_queue_on_edit"):
+            await self.text_channel.send(f"**ANALYSIS: Current queue:**")
+            for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
+                await self.text_channel.send(f"```{msg}```")
         if not self.is_playing:
             await self._play()
 
@@ -345,6 +311,10 @@ class GuildPlayer:
                     except ClientException:
                         pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
+        if get_guild_config(self.parent, self.gid, "print_queue_on_edit"):
+            await self.text_channel.send(f"**ANALYSIS: Current queue:**")
+            for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
+                await self.text_channel.send(f"```{msg}```")
 
     async def _process_video(self, vid):
         if not vid:
@@ -459,6 +429,42 @@ class GuildPlayer:
     def volume(self, val):
         self._volume = val
         self.voice_client.source.volume = val
+
+    def print_queue(self):
+        str_list = []
+        for i, vid in enumerate(self.queue):
+            # Duration formatting
+            duration = vid.get("duration", 0)
+            if duration <= 0:
+                duration = "--:--"
+            else:
+                duration = seconds_to_minutes(duration)
+                duration = f"{duration[0]:02d}:{duration[1]:02d}"
+            # Title truncating and padding
+            title = vid.get("title", "Unknown")
+            if len(title) >= 59:
+                title = title[:56] + "..."
+            str_list.append(f"[{i+1:02d}][{title:-<59}][{duration}]")
+        return str_list
+
+    def now_playing(self):
+        play_time = self.play_time()
+        play_time_tup = seconds_to_minutes(play_time)
+        duration = self.current_song.get("duration", 0)
+        dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
+        if duration > 0:
+            played = play_time / duration
+            duration= seconds_to_minutes(duration)
+            dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
+        else:
+            played = 0
+            dur_str += "--:--"
+        bars = floor(70 * played)
+        progress_bar = f"{'█'*bars}{'-'*(70-bars)}"
+        title = self.current_song.get("title", "Unknown")
+        if len(title) > 57:
+            title = title[:54] + "..."
+        return f"[{title:-<57}][{dur_str}]\n[{progress_bar}]"
 
 
 def seconds_to_minutes(secs, hours=False):

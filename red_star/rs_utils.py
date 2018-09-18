@@ -178,29 +178,30 @@ async def respond(msg, response, allow_mention_everyone=False, **kwargs):
     return m
 
 
-def split_message(message, splitter=None):
+def split_message(message_str, splitter=None, max_len=2000):
     """
     Split message into 2000-character blocks, optionally on specific character.
-    :param message: The message to split
-    :param splitter: Optional, the string to split on
+    :param message_str: The message to split
+    :param splitter: Optional, the string to split on. Default None.
+    :param max_len: The maximum length of the message blocks. Default 2000.
     """
     msgs = []
     searchpoint = 0
     if splitter:
-        while len(message) - searchpoint > 2000:
-            searchstr = message[searchpoint:searchpoint + 2000]
+        while len(message_str) - searchpoint > max_len:
+            searchstr = message_str[searchpoint:searchpoint + max_len]
             point = searchstr.rfind(splitter)
             if point >= 0:
                 point += 1
-                msgs.append(message[searchpoint:searchpoint + point])
+                msgs.append(message_str[searchpoint:searchpoint + point])
                 searchpoint += point
             else:
-                msgs.append(message[searchpoint:searchpoint + 2000])
-                searchpoint += 2000
-        msgs.append(message[searchpoint:])
+                msgs.append(message_str[searchpoint:searchpoint + max_len])
+                searchpoint += max_len
+        msgs.append(message_str[searchpoint:])
     else:
-        for x in range(0, len(message), 2000):
-            msgs.append(message[x:x + 2000])
+        for x in range(0, len(message_str), max_len):
+            msgs.append(message_str[x:x + max_len])
     return msgs
 
 
