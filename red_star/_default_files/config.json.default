@@ -4,7 +4,7 @@
     "BOT OWNER IDS HERE",
     "AS NUMBER, NOT STRING"
   ],
-  "shelve_save_interval": 600,
+  "global_tick_interval": 15,
   "disabled_plugins": [],
   "channel_manager": {},
   "command_dispatcher": {},
@@ -25,32 +25,17 @@
         "ping_messages_on_everyone": false
       }
     },
-    "console": {
-      "allow_stdout_errors": true,
-      "allow_stdout_logging": false
-    },
     "custom_commands": {
       "default": {
         "cc_prefix": "!!",
         "cc_limit": 25
       },
-      "rslisp_max_runtime": 5
-    },
-    "levelling": {
-      "default": {
-        "low_cutoff": 75,
-        "poll_every": 3600,
-        "skip_missing": false,
-        "xp_decay": 10,
-        "xp_decay_every": 86400,
-        "xp_max": 10,
-        "xp_min": 1
-      },
-      "poll_every": 3600
+      "rslisp_max_runtime": 5,
+      "rslisp_minify": true
     },
     "logger": {
       "default": {
-        "log_events": []
+        "log_event_blacklist": []
       }
     },
     "motd": {
@@ -60,35 +45,20 @@
     },
     "music_player": {
       "default": {
-        "allow_pause": true,
-        "allow_playlists": true,
-        "default_volume": 15,
-        "idle_terminate": 60,
-        "idle_time": 30,
         "max_queue_length": 30,
-        "max_video_length": 1800
+        "max_video_length": 1800,
+        "vote_skip_threshold": 0.5
       },
-      "download_songs": true,
-      "download_songs_timeout": 260000,
-      "no_permission_lines": [
-        "**NEGATIVE. Insufficient permissions for funky beats in channel: {}.**",
-        "**NEGATIVE. Insufficient permissions for rocking you like a hurricane in channel: {}.**",
-        "**NEGATIVE. Insufficient permissions for putting hands in the air in channel: {}.**",
-        "**NEGATIVE. Insufficient permissions for wanting to rock in channel: {}.**",
-        "**NEGATIVE. Insufficient permissions for dropping the beat in channel: {}.**"
-      ],
-      "twitch_stream": false,
-      "ytdl_options": {
+      "default_volume": 15,
+      "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
+      "save_audio": true,
+      "youtube_dl_config": {
         "audioformat": "mp3",
         "default_search": "auto",
         "extractaudio": true,
         "format": "bestaudio/best",
-        "ignoreerrors": false,
         "logtostderr": false,
-        "no_warnings": false,
         "nocheckcertificate": true,
-        "noplaylist": true,
-        "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
         "quiet": true,
         "restrictfilenames": true,
         "source_address": "0.0.0.0"

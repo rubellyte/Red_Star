@@ -1,12 +1,14 @@
 import logging
-from pathlib import Path
+from asyncio import create_task, sleep
+from datetime import datetime
 from discord import AutoShardedClient
 from discord.errors import ConnectionClosed
+from pathlib import Path
+from sys import exc_info
 from red_star.channel_manager import ChannelManager
 from red_star.command_dispatcher import CommandDispatcher
 from red_star.config_manager import ConfigManager
 from red_star.plugin_manager import PluginManager
-from sys import exc_info
 
 
 class RedStar(AutoShardedClient):
@@ -50,6 +52,7 @@ class RedStar(AutoShardedClient):
             self.logger.info("------------")
             if self.server_ready:
                 self.logger.info("Logged in with server; activating plugins.")
+                create_task(self.global_tick_dispatcher())
                 await self.plugin_manager.activate_all()
 
     async def stop_bot(self):
@@ -206,3 +209,9 @@ class RedStar(AutoShardedClient):
 
     async def on_group_remove(self, channel, user):
         await self.plugin_manager.hook_event("on_group_remove", channel, user)
+
+    async def global_tick_dispatcher(self):
+        timer = self.config.get("global_tick_interval", 15)
+        while self.logged_in:
+            await sleep(timer)
+            create_task(self.plugin_manager.hook_event("on_global_tick", datetime.utcnow(), timer))

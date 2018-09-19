@@ -9,46 +9,34 @@ from datetime import datetime, timedelta
 
 class DiscordLogger(BasePlugin):
     name = "logger"
+
     default_config = {
         "default": {
-            "log_events": [
+            "log_event_blacklist": [
             ]
         }
     }
-
     async def activate(self):
         self.log_items = {}
-        self.active = True
-        asyncio.ensure_future(self._dump_logs())
 
-    async def deactivate(self):
-        self.active = False
-
-    async def _dump_logs(self):
-        while self.active:
-            await asyncio.sleep(1)
-            if not self.active:
-                return
-            for guild in self.client.guilds:
-                gid = str(guild.id)
-                try:
-                    logchan = self.channel_manager.get_channel(guild, "logs")
-                except ChannelNotFoundError:
-                    continue
-                except AttributeError:
-                    self.logger.error("Failed to get channel.")
-                    return
-                if gid in self.log_items and self.log_items[gid]:
-                    logs = "\n".join(self.log_items[gid])
-                    for msg in split_message(logs, splitter="\n"):
-                        await logchan.send(msg)
-                    self.log_items[gid] = []
+    async def on_global_tick(self, *_):
+        for guild in self.client.guilds:
+            gid = str(guild.id)
+            try:
+                logchan = self.channel_manager.get_channel(guild, "logs")
+            except ChannelNotFoundError:
+                continue
+            if gid in self.log_items and self.log_items[gid]:
+                logs = "\n".join(self.log_items[gid])
+                for msg in split_message(logs, splitter="\n"):
+                    await logchan.send(msg)
+                self.log_items[gid].clear()
 
     async def on_message_delete(self, msg):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "message_delete" not in self.plugin_config[gid]["log_events"] and msg.author != self.client.user:
+        if "message_delete" not in self.plugin_config[gid]["log_event_blacklist"] and msg.author != self.client.user:
             uname = str(msg.author)
             contents = msg.clean_content if msg.clean_content else msg.system_content
             msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
@@ -69,7 +57,7 @@ class DiscordLogger(BasePlugin):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "message_edit" not in self.plugin_config[gid]["log_events"] and after.author != self.client.user:
+        if "message_edit" not in self.plugin_config[gid]["log_event_blacklist"] and after.author != self.client.user:
             uname = str(after.author)
             old_contents = before.clean_content
             contents = after.clean_content
@@ -89,7 +77,7 @@ class DiscordLogger(BasePlugin):
         gid = str(after.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "member_update" not in self.plugin_config[gid]["log_events"]:
+        if "member_update" not in self.plugin_config[gid]["log_event_blacklist"]:
             uname = str(after)
             t_str = ""
             t_log = ""
@@ -120,7 +108,7 @@ class DiscordLogger(BasePlugin):
         gid = str(channel.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "guild_channel_pins_update" not in self.plugin_config[gid]["log_events"]:
+        if "guild_channel_pins_update" not in self.plugin_config[gid]["log_event_blacklist"]:
             try:
                 new_pin = (datetime.utcnow() - last_pin < timedelta(seconds=5))
             except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
@@ -137,7 +125,7 @@ class DiscordLogger(BasePlugin):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "on_member_ban" not in self.plugin_config[gid]["log_events"]:
+        if "on_member_ban" not in self.plugin_config[gid]["log_event_blacklist"]:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.logger.info(f"User {str(member)} was banned on server {str(member.guild)}")
@@ -147,7 +135,7 @@ class DiscordLogger(BasePlugin):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "on_member_unban" not in self.plugin_config[gid]["log_events"]:
+        if "on_member_unban" not in self.plugin_config[gid]["log_event_blacklist"]:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.logger.info(f"User {str(member)} was unbanned on server {str(member.guild)}")
@@ -157,7 +145,7 @@ class DiscordLogger(BasePlugin):
         gid = str(member.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "on_member_join" not in self.plugin_config[gid]["log_events"]:
+        if "on_member_join" not in self.plugin_config[gid]["log_event_blacklist"]:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.logger.info(f"User {member} has joined server {str(member.guild)}")
@@ -168,7 +156,7 @@ class DiscordLogger(BasePlugin):
         gid = str(member.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "on_member_remove" not in self.plugin_config[gid]["log_events"]:
+        if "on_member_remove" not in self.plugin_config[gid]["log_event_blacklist"]:
             t_time = datetime.utcnow()
             # find audit log entries for kicking of member with our ID, created in last five seconds.
             # Hopefully five seconds is enough
@@ -190,7 +178,7 @@ class DiscordLogger(BasePlugin):
         gid = str(before.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if "on_guild_role_update" not in self.plugin_config[gid]["log_events"]:
+        if "on_guild_role_update" not in self.plugin_config[gid]["log_event_blacklist"]:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             diff = []
@@ -241,7 +229,7 @@ class DiscordLogger(BasePlugin):
         gid = str(guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        if log_type not in self.plugin_config[gid]["log_events"]:
+        if log_type not in self.plugin_config[gid]["log_event_blacklist"]:
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(string)
@@ -255,7 +243,7 @@ class DiscordLogger(BasePlugin):
         gid = str(msg.guild.id)
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.plugin_config["default"]
-        cfg = self.plugin_config[gid]["log_events"]
+        cfg = self.plugin_config[gid]["log_event_blacklist"]
         args = msg.clean_content.split(" ", 2)
         if len(args) > 2:
             if args[1].lower() == "remove":

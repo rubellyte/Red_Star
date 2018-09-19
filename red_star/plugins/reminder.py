@@ -4,11 +4,10 @@ from red_star.rs_utils import respond, RSArgumentParser, split_output
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
 import datetime
 import shlex
-import asyncio
-import threading
 import re
 from discord import Message
 from dataclasses import dataclass
+from asyncio import create_task
 
 
 class Reminder(BasePlugin):
@@ -75,16 +74,6 @@ class Reminder(BasePlugin):
         for guild in self.client.guilds:
             if str(guild.id) not in self.storage:
                 self.storage[str(guild.id)] = []
-
-        self.run_timer = True
-        loop = asyncio.new_event_loop()
-        t_loop = asyncio.get_event_loop()
-        self.timer = threading.Thread(target=self.start_timer, args=[loop, t_loop])
-        self.timer.setDaemon(True)
-        self.timer.start()
-
-    async def deactivate(self):
-        self.run_timer = False
 
     @Command("remind",
              syntax="(message) [-d/--delay DD//@HH:MM:SS] [-t/--time DD/MM/YYYY@HH:MM:SS] [-p/--private] ["
@@ -193,50 +182,34 @@ class Reminder(BasePlugin):
         else:
             raise CommandSyntaxError("No arguments or del/-/delete index required")
 
-    def start_timer(self, loop, t_loop):
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(self.tick_time(t_loop))
-        except Exception:
-            self.logger.exception("Error starting timer. ", exc_info=True)
+    async def on_global_tick(self, now, _):
+        save_flag = False
+        for guild in filter(lambda x: str(x.id) in self.storage, self.client.guilds):
+            gid = str(guild.id)
+            for reminder in filter(lambda x: x.time <= now, self.storage[gid]):
+                save_flag = True
+                try:
+                    channel = None if reminder.dm else self.channel_manager.get_channel(guild, "reminders")
+                except ChannelNotFoundError:
+                    channel = guild.get_channel(reminder.cid)
 
-    async def tick_time(self, t_loop):
-        """
-        Updates client status every ten seconds based on music status.
-        Also runs the every-few-second stuff
-        """
+                if channel:
+                    create_task(channel.send(f"**<@{reminder.uid}>:**\n{reminder.text}"))
+                else:
+                    usr = guild.get_member(reminder.uid)
+                    if usr:
+                        create_task(usr.send(f"**Reminder from {guild}:**\n{reminder.text}"))
 
-        while self.run_timer:
-            await asyncio.sleep(10)
-            dtnow = datetime.datetime.utcnow()
-            save_flag = False
-            for guild in filter(lambda x: str(x.id) in self.storage, self.client.guilds):
-                gid = str(guild.id)
-                for reminder in filter(lambda x: x.time <= dtnow, self.storage[gid]):
-                    save_flag = True
-                    try:
-                        channel = None if reminder.dm else self.channel_manager.get_channel(guild, "reminders")
-                    except ChannelNotFoundError:
-                        channel = guild.get_channel(reminder.cid)
-
-                    if channel:
-                        asyncio.ensure_future(channel.send(f"**<@{reminder.uid}>:**\n{reminder.text}"), loop=t_loop)
-                    else:
-                        usr = guild.get_member(reminder.uid)
-                        if usr:
-                            asyncio.ensure_future(usr.send(f"**Reminder from {guild}:**\n{reminder.text}"),
-                                                  loop=t_loop)
-
-                    if reminder.recurring:
-                        self.storage[gid].append(self.Rem(
-                                reminder.uid,
-                                reminder.cid,
-                                reminder.get_recurring(),
-                                reminder.text,
-                                reminder.dm,
-                                reminder.recurring
-                        ))
-                # it's easier to create a new list where everything fits rather than delete from old
-                self.storage[gid] = [x for x in self.storage[gid] if x.time > dtnow]
-            if save_flag:
-                self.storage.save()
+                if reminder.recurring:
+                    self.storage[gid].append(self.Rem(
+                            reminder.uid,
+                            reminder.cid,
+                            reminder.get_recurring(),
+                            reminder.text,
+                            reminder.dm,
+                            reminder.recurring
+                    ))
+            # it's easier to create a new list where everything fits rather than delete from old
+            self.storage[gid] = [x for x in self.storage[gid] if x.time > now]
+        if save_flag:
+            self.storage.save()

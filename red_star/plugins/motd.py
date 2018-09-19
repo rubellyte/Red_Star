@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import json
 from random import choice
@@ -20,6 +19,7 @@ class MOTD(BasePlugin):
         self.run_timer = True
         self.motds = {}
         self.motds_folder = self.client.storage_dir / "motds"
+        self.last_run = datetime.datetime.now().day
         for guild in self.client.guilds:
             motd_file = get_guild_config(self, str(guild.id), "motd_file")
             if motd_file not in self.motds:
@@ -33,7 +33,6 @@ class MOTD(BasePlugin):
                 except json.decoder.JSONDecodeError:
                     self.logger.error(f"MotD file {motd_file} for guild {guild.name} couldn't be decoded! Skipping...")
                     continue
-        asyncio.ensure_future(self._run_motd())
         self.valid_months = {
             "January", "February", "March", "April", "May", "June", "July",
             "August", "September", "October", "November", "December", "Any"
@@ -47,14 +46,10 @@ class MOTD(BasePlugin):
     async def deactivate(self):
         self.run_timer = False
 
-    async def _run_motd(self):
-        now = datetime.datetime.utcnow().time()
-        await asyncio.sleep(60 - now.second)
-        while self.run_timer:
-            now = datetime.datetime.utcnow().time()
-            if now.hour is 0 and now.minute is 0:
-                await self._display_motd()
-            await asyncio.sleep(60 - now.second)
+    async def on_global_tick(self, time, _):
+        if time.day != self.last_run:
+            self.last_run = time.day
+            await self._display_motd()
 
     async def _display_motd(self):
         today = datetime.date.today()
