@@ -75,7 +75,7 @@ class Reminder(BasePlugin):
             if str(guild.id) not in self.storage:
                 self.storage[str(guild.id)] = []
 
-    @Command("remind",
+    @Command("Remind",
              syntax="(message) [-d/--delay DD//@HH:MM:SS] [-t/--time DD/MM/YYYY@HH:MM:SS] [-p/--private] ["
                     "-r/--recurring y/m/d###]",
              doc="Store a reminder for the future. Message needs to come before the time options.\n"
@@ -155,7 +155,7 @@ class Reminder(BasePlugin):
         self.storage.save()
         await respond(msg, f"**AFFIRMATIVE: reminder set for {time.strftime('%Y-%m-%d @ %H:%M:%S')} UTC.**")
 
-    @Command("remindlist",
+    @Command("RemindList",
              syntax="[-/del/delete index]",
              doc="Prints out a list of all reminders of the user.\nUse del argument and an index from said list to "
                  "remove reminders.",

@@ -6,7 +6,6 @@
   ],
   "global_tick_interval": 15,
   "disabled_plugins": [],
-  "channel_manager": {},
   "command_dispatcher": {},
   "plugins": {
     "announcer": {
@@ -47,11 +46,13 @@
       "default": {
         "max_queue_length": 30,
         "max_video_length": 1800,
+        "print_queue_on_edit": true,
         "vote_skip_threshold": 0.5
       },
       "default_volume": 15,
       "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
       "save_audio": true,
+      "video_cache_clear_age": 259200,
       "youtube_dl_config": {
         "audioformat": "mp3",
         "default_search": "auto",

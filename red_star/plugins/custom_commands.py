@@ -92,8 +92,8 @@ class CustomCommands(BasePlugin):
 
     @Command("CreateCC", "NewCC",
              doc="Creates a custom command.\n"
-                 "Tag Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
-             syntax="(name) (content)",
+                 "RSLisp Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
+             syntax="[-s/--source [name]](name) (content)",
              category="custom_commands")
     async def _createcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
@@ -187,7 +187,7 @@ class CustomCommands(BasePlugin):
 
     @Command("EditCC",
              doc="Edits a custom command you created.",
-             syntax="(name) (content)",
+             syntax="[-s/--source [name]](name) (content)",
              category="custom_commands")
     async def _editcc(self, msg):
         gid = str(msg.guild.id)
@@ -295,7 +295,7 @@ class CustomCommands(BasePlugin):
 
     @Command("SearchCCs", "SearchCC", "ListCCs", "ListCC",
              doc="Searches CCs by name or author.",
-             syntax="(name or author)",
+             syntax="(name, author, or *)",
              category="custom_commands")
     async def _searchccs(self, msg):
         search = " ".join(msg.content.split(" ")[1:]).lower()
@@ -474,7 +474,6 @@ class CustomCommands(BasePlugin):
     @Command("EvalCC",
              doc="Evaluates the given string through RSLisp cc parser.",
              syntax="(custom command)",
-             run_anywhere=True,
              category="custom_commands",
              perms={"manage_messages"})
     async def _evalcc(self, msg):

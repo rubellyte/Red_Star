@@ -106,7 +106,8 @@ class Voting(BasePlugin):
                  "Use -v to allow users to vote for more than one option and -n to prevent users from changing their"
                  "mind.\nUses shlex for splitting, so multiple words can be wrapped into \"\".\n"
                  "HID is used to interact with the poll through other commands, keep it one word.",
-             run_anywhere=True)
+             run_anywhere=True,
+             category="voting")
     async def _startvote(self, msg: Message):
         """
         Generates a vote, posts a vote embed.
@@ -147,7 +148,8 @@ class Voting(BasePlugin):
     @Command("EndVote", run_anywhere=True,
              syntax="(HID)",
              doc="Ends the given vote. You must be the creator of the vote to end it.\n"
-                 "Alternatively, you must have manage_messages permission or be a bot maintainer.")
+                 "Alternatively, you must have manage_messages permission or be a bot maintainer.",
+             category="voting")
     async def _endvote(self, msg: Message):
         args = msg.clean_content.split(maxsplit=1)
         gid = str(msg.guild.id)
@@ -179,7 +181,8 @@ class Voting(BasePlugin):
     @Command("Vote", "UpVote", "DownVote", run_anywhere=True, delcall=True,
              syntax="(hid) (option, single letter from a to t)",
              doc="Allows users to vote without using reactions.\n"
-                 "Use \"DownVote\" variant to remove your vote, if possible.")
+                 "Use \"DownVote\" variant to remove your vote, if possible.",
+             category="voting")
     async def _vote(self, msg: Message):
         args = shlex.split(msg.clean_content)
         gid = str(msg.guild.id)

@@ -14,7 +14,8 @@ class AdminCommands(BasePlugin):
              doc="Purges messages from the channel in bulk.\nUse -r option for regexp match filtering.\nWARNING: "
                  "some special characters such as \"\\\" may need to be escaped - eg, use \"\\\\\" or wrap match "
                  "into quotation marks instead.",
-             syntax="(count) [match] [-u/--user mention/ID/Name] [-r/--regex] [-v/--verbose] [-e/--emulate/--dryrun]",
+             syntax="(count) [match] [-u/--user mention/ID/Name] [-r/--regex] [-v/--verbose] [-e/--emulate/--dryrun]"
+                    "[-b/--before message_id] [-a/--after message_id]",
              run_anywhere=True,
              delcall=True,
              perms={"manage_messages"},
