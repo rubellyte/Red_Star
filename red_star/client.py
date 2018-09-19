@@ -71,37 +71,53 @@ class RedStar(AutoShardedClient):
         await self.plugin_manager.hook_event("on_resumed")
 
     async def on_typing(self, channel, user, when):
+        if channel.guild is None:
+            return
         if self.channel_manager.channel_in_category(channel.guild, "noread", channel):
             return
         await self.plugin_manager.hook_event("on_typing", channel, user, when)
 
     async def on_message(self, msg):
-        if self.channel_manager.channel_in_category(msg.guild, "noread", msg.channel):
-            return
-        await self.command_dispatcher.command_check(msg)
-        await self.plugin_manager.hook_event("on_message", msg)
+        if msg.guild is not None:
+            if self.channel_manager.channel_in_category(msg.guild, "noread", msg.channel):
+                return
+            await self.command_dispatcher.command_check(msg)
+            await self.plugin_manager.hook_event("on_message", msg)
+        else:
+            await self.command_dispatcher.command_check(msg)
+            await self.plugin_manager.hook_event("on_dm_message", msg)
 
     async def on_message_delete(self, msg):
+        if msg.guild is None:
+            return
         if self.channel_manager.channel_in_category(msg.guild, "noread", msg.channel):
             return
         await self.plugin_manager.hook_event("on_message_delete", msg)
 
     async def on_message_edit(self, before, after):
+        if after.guild is None:
+            return
         if self.channel_manager.channel_in_category(after.guild, "noread", after.channel):
             return
         await self.plugin_manager.hook_event("on_message_edit", before, after)
 
     async def on_reaction_add(self, reaction, user):
+        if reaction.message.guild is None:
+            return
         if self.channel_manager.channel_in_category(reaction.message.guild, "noread", reaction.message.channel):
             return
         await self.plugin_manager.hook_event("on_reaction_add", reaction, user)
 
     async def on_reaction_remove(self, reaction, user):
+        if reaction.message.guild is None:
+            return
         if self.channel_manager.channel_in_category(reaction.message.guild, "noread", reaction.message.channel):
             return
         await self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
 
     async def on_reaction_clear(self, message, reactions):
+        if message.guild is None:
+            return
         if self.channel_manager.channel_in_category(message.guild, "noread", message.channel):
             return
         await self.plugin_manager.hook_event("on_reaction_clear", message, reactions)

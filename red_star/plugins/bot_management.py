@@ -14,29 +14,31 @@ from traceback import format_exception, format_exc
 class BotManagement(BasePlugin):
     name = "bot_management"
 
+    async def on_dm_message(self, msg):
+        if msg.author == self.client.user:
+            return
+        maintainers = [self.client.get_user(x) for x in self.config_manager.config.get("bot_maintainers", [])]
+        maintainers = filter(None, maintainers)
+        for user in maintainers:
+            await user.send(f"`{msg.author}:` {msg.system_content}\n"
+                            f"`Attachments: {', '.join(a.url for a in msg.attachments)}`")
+
     @Command("Shutdown",
              doc="Shuts down the bot.",
              syntax="N/A",
              category="bot_management",
-             perms={"manage_guild"})
+             perms={"manage_guild"},
+             dm_command=True)
     async def _shutdown(self, msg):
         await respond(msg, "**AFFIRMATIVE. SHUTTING DOWN.**")
         await self.client.stop_bot()
-
-    @Command("Save",
-             doc="Saves plugin storage data.",
-             category="bot_management",
-             perms={"manage_guild"})
-    async def _save(self, msg):
-        self.plugin_manager.shelve.sync()
-        self.logger.debug("Writing to shelve...")
-        await respond(msg, "**AFFIRMATIVE. Storage saved to disk.**")
 
     @Command("UpdateAvatar",
              doc="Updates the bot's avatar.",
              syntax="(URL)",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _update_avatar(self, msg):
         url = " ".join(msg.content.split()[1:])
         if url:
@@ -55,7 +57,8 @@ class BotManagement(BasePlugin):
              doc="Updates the bot's (nick)name.",
              syntax="[change username?] (name)",
              category="bot_management",
-             perms={"manage_guild"})
+             perms={"manage_guild"},
+             dm_command=True)
     async def _update_name(self, msg):
         args = msg.clean_content.split()[1:]
         edit_username = False
@@ -82,7 +85,8 @@ class BotManagement(BasePlugin):
              doc="Activates an inactive plugin.",
              syntax="(plugin) [permanent]",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _activate(self, msg):
         plgname = msg.content.split()[1]
         try:
@@ -106,7 +110,8 @@ class BotManagement(BasePlugin):
              doc="Deactivates an active plugin.",
              syntax="(plugin) [permanent]",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _deactivate(self, msg):
         plgname = msg.content.split()[1].lower()
         try:
@@ -128,7 +133,8 @@ class BotManagement(BasePlugin):
              doc="Reloads a plugin module, refreshing code changes.",
              syntax="(plugin)",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _reload_plugin(self, msg):
         plgname = msg.content.split()[1].lower()
         if plgname == self.name:
@@ -141,7 +147,8 @@ class BotManagement(BasePlugin):
              doc="Lists all plugins and their activation status.",
              syntax="(plugin)",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _list_plugins(self, msg):
         active_plgs = ", ".join(self.plugins.keys())
         if not active_plgs:
@@ -158,7 +165,8 @@ class BotManagement(BasePlugin):
                  "Use --file to view a different configuration file, such as music_player.json.",
              syntax="(path/to/value) [-f/--file file]",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _get_config(self, msg):
         args = msg.clean_content.split()[1:]
         if args[0] in ("-f", "--file"):
@@ -175,7 +183,10 @@ class BotManagement(BasePlugin):
             path = args[0]
         except IndexError:
             path = ""
-        path = path.replace("<server>", str(msg.guild.id))
+        try:
+            path = path.replace("<server>", str(msg.guild.id))
+        except AttributeError:
+            path = path.replace("<server>", "default")
         if path.startswith("/"):
             path = path[1:]
         path_list = path.split("/")
@@ -208,7 +219,8 @@ class BotManagement(BasePlugin):
              syntax="(path/to/edit) (value or -r/--remove) [-a/--append] [-k/--addkey key_name] [-t/--type type]"
                     "[-f/--file file]",
              category="bot_management",
-             bot_maintainers_only=True)
+             bot_maintainers_only=True,
+             dm_command=True)
     async def _set_config(self, msg):
         parser = RSArgumentParser()
         parser.add_argument("path")
@@ -245,7 +257,10 @@ class BotManagement(BasePlugin):
 
         try:
             path = args.path
-            path = path.replace("<server>", str(msg.guild.id))
+            try:
+                path = path.replace("<server>", str(msg.guild.id))
+            except AttributeError:
+                path = path.replace("<server>", "default")
             if path.startswith("/"):
                 path = path[1:]
             path_list = path.split("/")
@@ -322,7 +337,8 @@ class BotManagement(BasePlugin):
              doc="Gets the last error to occur in the specified context.",
              syntax="(command/event/unhandled)",
              category="debug",
-             perms={"manage_guild"})
+             perms={"manage_guild"},
+             dm_command=True)
     async def _last_error(self, msg):
         try:
             args = msg.clean_content.split(" ", 1)[1].lower()
@@ -350,7 +366,8 @@ class BotManagement(BasePlugin):
              category="debug",
              perms={"manage_guild"},
              bot_maintainers_only=True,
-             run_anywhere=True)
+             run_anywhere=True,
+             dm_command=True)
     async def _execute(self, msg):
         try:
             arg = re.split(r"\s+", msg.content, 1)[1]
