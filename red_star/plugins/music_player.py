@@ -6,6 +6,7 @@ from discord import FFmpegPCMAudio, PCMVolumeTransformer
 from discord.errors import ClientException
 from math import floor, ceil
 from functools import partial
+from os import remove as remove_file
 from random import randint
 from time import monotonic as time
 from youtube_dl import YoutubeDL
@@ -22,6 +23,7 @@ class MusicPlayer(BasePlugin):
     default_config = {
         "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
         "save_audio": True,
+        "video_cache_clear_age": 259200,
         "default_volume": 15,
         "youtube_dl_config": {
             "quiet": True,
@@ -55,6 +57,8 @@ class MusicPlayer(BasePlugin):
 
         self.ydl_options = self.plugin_config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
+        self.ydl_options["outtmpl"] = str(self.client.storage_dir / "music_cache" /
+                                          self.ydl_options.get("outtmpl", "%(id)s-%(extractor)s.%(ext)s"))
 
     async def deactivate(self):
         for player in self.players.values():
@@ -283,6 +287,21 @@ class MusicPlayer(BasePlugin):
 
     # Utility functions
 
+    async def on_global_tick(self, *_):
+        save_required = False
+        for file, dl_time in self.storage["downloaded_songs"].copy().items():
+            if time() - dl_time > self.plugin_config["video_cache_clear_age"]:
+                try:
+                    remove_file(file)
+                    del self.storage["downloaded_songs"][file]
+                    self.logger.debug(f"Deleted old video cache file {file}.")
+                    save_required = True
+                except OSError:
+                    continue
+        if save_required:
+            self.storage.save()
+
+
     async def create_player(self, voice_channel, text_channel):
         voice_client = await voice_channel.connect()
         player = GuildPlayer(self, voice_client, text_channel)
@@ -391,6 +410,8 @@ class GuildPlayer:
                 try:
                     await self._loop.run_in_executor(None, partial(ydl.process_info, vid))
                     vid["filename"] = ydl.prepare_filename(vid)
+                    self.parent.storage["downloaded_songs"][vid["filename"]] = time()
+                    self.parent.storage.save()
                 except YoutubeDLError as e:
                     await self.text_channel.send(f"**WARNING. An error occurred while downloading video"
                                                  f"{vid['title']}. It will not be queued.\nError details:** `{e}`")
