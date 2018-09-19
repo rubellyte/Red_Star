@@ -374,9 +374,6 @@ def standard_env(*_, **kwargs):
     return env
 
 
-global_env = standard_env()
-
-
 # recursively access the list and set the last item
 def _lset(lst, val, *indexes):
     if len(indexes) == 1:
@@ -403,8 +400,11 @@ def isnum(test):
         return False
 
 
-# Evaluate an expression in an environment.f
-def lisp_eval(x, env=global_env):
+# Evaluate an expression in an environment.
+# noinspection PyDefaultArgument
+def lisp_eval(x, env=None):
+    if env is None:
+        env = standard_env()
     if env.max_runtime != 0 and time() - env.timestamp > env.max_runtime:
         raise CustomCommandSyntaxError("The command ran too long.")
     try:

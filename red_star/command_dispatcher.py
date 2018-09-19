@@ -147,7 +147,7 @@ class CommandDispatcher:
         try:
             gid = str(msg.guild.id)
             if gid not in self.conf:
-               self.conf[gid] = self.default_config.copy()
+                self.conf[gid] = self.default_config.copy()
             deco = self.conf[gid]["command_prefix"]
             dm_cmd = False
         except AttributeError:  # Oops, it's a DM isn't it

@@ -29,7 +29,7 @@ setuptools.setup(
     license='MIT',
     platforms='any',
     install_requires=get_requirements(),
-    dependency_links=['https://github.com/Rapptz/discord.py/archive/rewrite.zip#egg=discord.py'],
+    dependency_links=['https://github.com/Rapptz/discord.py/tarball/rewrite#egg=discord.py[voice]'],
     entry_points={
         'console_scripts': ['red_star = red_star:main']
     },

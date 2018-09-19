@@ -5,7 +5,7 @@ from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
 import datetime
 import shlex
 import re
-from discord import Message
+from discord import Message, HTTPException
 from dataclasses import dataclass
 from asyncio import create_task
 
@@ -116,12 +116,12 @@ class Reminder(BasePlugin):
             's': 0
         }
 
-        time = {k: int(v or _t[k]) for k, v in self.pattern.match(time).groupdict(0).items()}
+        time = {k: int(v or _t[k]) for k, v in self.pattern.match(time).groupdict().items()}
 
         if args['private']:
             try:
                 await msg.delete()
-            except Exception:
+            except HTTPException:
                 pass
 
         if args['recurring'] and args['recurring'][0].lower() in 'ymd':

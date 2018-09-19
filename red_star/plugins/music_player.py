@@ -142,8 +142,8 @@ class MusicPlayer(BasePlugin):
             await respond(msg, "**ANALYSIS: There is no song currently playing.**")
             return
         vid = player.current_song
-        embed = discord.Embed(title=vid["title"], description=vid.get("description", "*No description.*"),
-                              url=vid["url"])
+        embed = Embed(title=vid["title"], description=vid.get("description", "*No description.*"),
+                      url=vid["url"])
         if "thumbnail" in vid:
             embed.set_thumbnail(url=vid["thumbnail"])
         if "uploader" in vid:
@@ -363,7 +363,6 @@ class MusicPlayer(BasePlugin):
                     continue
         if save_required:
             self.storage.save()
-
 
     async def create_player(self, voice_channel, text_channel):
         voice_client = await voice_channel.connect()
