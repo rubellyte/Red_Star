@@ -140,6 +140,7 @@ class MusicPlayer(BasePlugin):
         player = self.get_guild_player(msg)
         if not player or not player.current_song:
             await respond(msg, "**ANALYSIS: There is no song currently playing.**")
+            return
         vid = player.current_song
         embed = discord.Embed(title=vid["title"], description=vid.get("description", "*No description.*"),
                               url=vid["url"])
@@ -160,7 +161,6 @@ class MusicPlayer(BasePlugin):
             rating_field += f" (Average rating: {vid['average_rating']:.2f})"
         embed.add_field(name="Ratings", value=rating_field)
         await respond(msg, embed=embed)
-
 
     @Command("DeleteSong", "DelSong", "RMSong",
              doc="Removes a song from the bot's queue.",
@@ -572,12 +572,15 @@ class GuildPlayer:
 
     @property
     def volume(self):
-        return self.volume
+        return self._volume
 
     @volume.setter
     def volume(self, val):
         self._volume = val
-        self.voice_client.source.volume = val
+        try:
+            self.voice_client.source.volume = val
+        except AttributeError:
+            pass
 
     def print_queue(self):
         str_list = []
