@@ -323,7 +323,8 @@ def is_positive(string):
     elif string.lower() in ["on", "enable", "yes", "affirmative", "true"]:
         return True
     else:
-        raise CommandSyntaxError("Expected positive/negative input. Allowed inputs: off/disable/no/negative/false, "
+        raise CommandSyntaxError(f"{string} is not valid positive/negative input. "
+                                 f"Allowed inputs: off/disable/no/negative/false, "
                                  "on/enable/yes/affirmatie/true.")
 
 

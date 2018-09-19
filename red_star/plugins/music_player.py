@@ -14,7 +14,7 @@ from youtube_dl.utils import YoutubeDLError
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
-from red_star.rs_utils import respond, split_output, get_guild_config, split_message, find_user
+from red_star.rs_utils import respond, split_output, get_guild_config, split_message, find_user, is_positive
 
 
 class MusicPlayer(BasePlugin):
@@ -162,7 +162,7 @@ class MusicPlayer(BasePlugin):
         except IndexError:
             raise CommandSyntaxError("Integer provided is not a valid index")
         await respond(msg, f"**AFFIRMATIVE. Deleted song at position {index + 1} ({del_song['title']}).**")
-        if get_guild_config(self, str(msg.guild.id), "print_queue_on_edit"):
+        if get_guild_config(self, str(msg.guild.id), "print_queue_on_edit") and player.queue:
             await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
 
     @Command("SongVolume", "Volume",
@@ -285,6 +285,40 @@ class MusicPlayer(BasePlugin):
         else:
             raise CommandSyntaxError(f"No such user {msg.clean_content.split(None, 1)[1]}")
 
+    @Command("MusicConfig",
+             doc="Allows the configuration of per-server music bot options.\n"
+                 "Valid options: 'max_queue_length', 'max_video_length', 'vote_skip_threshold', 'print_queue_on_edit'",
+             syntax="[(option) (value)]",
+             perms="manage_guild",
+             category="music_player")
+    async def _music_config(self, msg):
+        gid = str(msg.guild.id)
+        try:
+            opt, val = msg.clean_content.split(None, 2)[1:]
+        except ValueError:
+            current_conf = "\n".join(f"{k}: {v}" for k, v in self.plugin_config[gid].items())
+            await respond(msg, f"**ANALYSIS: Current configuration:**```{current_conf}```")
+            return
+        opt = opt.lower()
+        if opt in ("max_queue_length", "max_video_length"):
+            try:
+                val = int(val)
+            except ValueError:
+                raise CommandSyntaxError(f"{val} is not a valid integer")
+        elif opt == "vote_skip_threshold":
+            try:
+                val = float(val)
+                if not 0 < val <= 1:
+                    raise ValueError
+            except ValueError:
+                raise CommandSyntaxError("Value must be a number between 0 and 1.")
+        elif opt == "print_queue_on_edit":
+            val = is_positive(val)
+        else:
+            raise CommandSyntaxError(f"Option {opt} does not exist")
+        self.plugin_config[gid][opt] = val
+        await respond(msg, f"**AFFIRMATIVE. Option `{opt}` edited to `{val}` successfully.**")
+
     # Utility functions
 
     async def on_global_tick(self, *_):
@@ -365,7 +399,7 @@ class GuildPlayer:
                 else:
                     await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.**")
-        if get_guild_config(self.parent, self.gid, "print_queue_on_edit"):
+        if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
             await self.text_channel.send(f"**ANALYSIS: Current queue:**")
             for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
                 await self.text_channel.send(f"```{msg}```")
@@ -397,7 +431,7 @@ class GuildPlayer:
                     except ClientException:
                         pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
-        if get_guild_config(self.parent, self.gid, "print_queue_on_edit"):
+        if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
             await self.text_channel.send(f"**ANALYSIS: Current queue:**")
             for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
                 await self.text_channel.send(f"```{msg}```")
