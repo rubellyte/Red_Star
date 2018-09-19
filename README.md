@@ -1,5 +1,5 @@
 # Red Star Bot
-![PyPI](https://img.shields.io/badge/Python-3.6--3.7-blue.svg)
+![PyPI](https://img.shields.io/badge/Python-3.7-blue.svg)
 
 A general-purpose Discord bot with administration and entertainment functions. Now with added **shouting.**
 
@@ -7,13 +7,11 @@ A general-purpose Discord bot with administration and entertainment functions. N
 - Event logging, including message edits, deletions, and pins, user joins/leaves, and more
 - Role administration by commands
 - Message of the Day with configurable holidays and messages based on day, weekday, or month
-- Bios for RP servers
-- Levelling system with configurable XP by post length
 - New member announcer
 - Music playing
 - Custom commands
-- Dumping messages from channels into a text file
 - Message purging by content (regex supported) and author
+- And more, with extra plugins available [here](https://github.com/medeor413/Red_Star_Plugins).
 
 # Installation
 - Install [Python 3.6+](https://www.python.org/)
