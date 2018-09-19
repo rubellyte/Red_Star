@@ -153,7 +153,7 @@ def find_role(guild, search, return_all=False):
         return final
 
 
-async def respond(msg, response, allow_mention_everyone=False, **kwargs):
+async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message.

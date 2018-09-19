@@ -2,7 +2,7 @@ import enum
 import discord.opus
 import logging
 from asyncio import get_event_loop
-from discord import FFmpegPCMAudio, PCMVolumeTransformer
+from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed
 from discord.errors import ClientException
 from math import floor, ceil
 from functools import partial
@@ -132,6 +132,35 @@ class MusicPlayer(BasePlugin):
             await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.now_playing()}```")
         if player.queue:
             await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
+
+    @Command("NowPlaying", "SongInfo",
+             doc="Displays detailed information about the currently playing song.",
+             category="music_player")
+    async def _song_info(self, msg):
+        player = self.get_guild_player(msg)
+        if not player or not player.current_song:
+            await respond(msg, "**ANALYSIS: There is no song currently playing.**")
+        vid = player.current_song
+        embed = discord.Embed(title=vid["title"], description=vid.get("description", "*No description.*"),
+                              url=vid["url"])
+        if "thumbnail" in vid:
+            embed.set_thumbnail(url=vid["thumbnail"])
+        if "uploader" in vid:
+            embed.set_author(name=vid["uploader"])
+        if "tags" in vid:
+            embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
+        progress_time = player.now_playing().split("\n")[0].split("]", 1)[1]
+        embed.add_field(name="Duration", value=f"`{progress_time}`")
+        rating_field = f"Views: {vid.get('view_count', 'Unknown'):,}."
+        if "like_count" in vid:
+            rating_field += f" {vid['like_count']:,}👍"
+        if "dislike_count" in vid:
+            rating_field += f"/{vid['dislike_count']:,}👎"
+        if "average_rating" in vid:
+            rating_field += f" (Average rating: {vid['average_rating']:.2f})"
+        embed.add_field(name="Ratings", value=rating_field)
+        await respond(msg, embed=embed)
+
 
     @Command("DeleteSong", "DelSong", "RMSong",
              doc="Removes a song from the bot's queue.",
