@@ -281,7 +281,6 @@ class MusicPlayer(BasePlugin):
         else:
             raise CommandSyntaxError(f"No such user {msg.clean_content.split(None, 1)[1]}")
 
-
     # Utility functions
 
     async def create_player(self, voice_channel, text_channel):
@@ -520,7 +519,7 @@ class GuildPlayer:
         dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
         if duration > 0:
             played = play_time / duration
-            duration= seconds_to_minutes(duration)
+            duration = seconds_to_minutes(duration)
             dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
         else:
             played = 0

@@ -10,12 +10,12 @@ from sys import exc_info
 
 
 class RedStar(AutoShardedClient):
-    def __init__(self, storage_dir, debug):
+    def __init__(self, storage_dir, argv):
         self.logger = logging.getLogger("red_star")
         dpy_logger = logging.getLogger("discord")
-        if debug > 0:
+        if argv.verbose > 0:
             self.logger.setLevel(logging.DEBUG)
-            dpy_logger.setLevel(logging.DEBUG if debug >= 2 else logging.INFO)
+            dpy_logger.setLevel(logging.DEBUG if argv.verbose >= 2 else logging.INFO)
         else:
             self.logger.setLevel(logging.INFO)
             dpy_logger.setLevel(logging.INFO)
@@ -33,6 +33,8 @@ class RedStar(AutoShardedClient):
 
         self.plugin_manager = PluginManager(self)
         self.plugin_manager.load_from_path(Path(__file__).parent / "plugins")
+        if not argv.portable:
+            self.plugin_manager.load_from_path(self.storage_dir / "plugins")
         self.plugin_manager.final_load()
 
         self.logged_in = False

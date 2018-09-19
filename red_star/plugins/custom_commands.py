@@ -14,7 +14,7 @@ from red_star.command_dispatcher import Command
 from discord import Embed, File
 from discord.errors import Forbidden
 
-from red_star.plugins.rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
+from red_star.rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
 
 
 # noinspection PyBroadException

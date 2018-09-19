@@ -64,7 +64,7 @@ def main():
     else:
         logging.getLogger("asyncio").setLevel(logging.INFO)
 
-    bot = RedStar(storage_dir=storage_dir, debug=args.verbose)
+    bot = RedStar(storage_dir, args)
     task = loop.create_task(bot.start(bot.config["token"]))
     try:
         loop.run_until_complete(task)
