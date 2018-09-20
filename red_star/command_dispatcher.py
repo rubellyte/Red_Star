@@ -100,9 +100,9 @@ class CommandDispatcher:
             except CommandSyntaxError as e:
                 err = e if e else "Invalid syntax."
                 if fn.syntax:
-                    await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: !{fn.name} {fn.syntax}.**")
+                    await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {fn.name} {fn.syntax}.**")
                 else:
-                    await respond(msg, f"**WARNING: {err}.**")
+                    await respond(msg, f"**WARNING: {err}**")
             except Exception:
                 self.last_error = exc_info()
                 self.logger.exception("Exception occurred in command. ", exc_info=True)

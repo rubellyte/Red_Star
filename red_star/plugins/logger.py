@@ -156,8 +156,8 @@ class DiscordLogger(BasePlugin):
             # find audit log entries for kicking of member with our ID, created in last five seconds.
             # Hopefully five seconds is enough
             kicker = [f"{str(log_item.user)} for reasons: {log_item.reason or 'None'}"
-                     async for log_item in member.guild.audit_logs(action=AuditLogAction.kick)
-                     if log_item.target.id == member.id and (t_time - log_item.created_at < timedelta(seconds=5))]
+                      async for log_item in member.guild.audit_logs(action=AuditLogAction.kick)
+                      if log_item.target.id == member.id and (t_time - log_item.created_at < timedelta(seconds=5))]
             if gid not in self.log_items:
                 self.log_items[gid] = []
             if kicker:
@@ -178,8 +178,8 @@ class DiscordLogger(BasePlugin):
                 self.log_items[gid] = []
             diff = []
             audit_event = [log_item async for log_item in after.guild.audit_logs(action=AuditLogAction.role_update) if
-                     log_item.target.id == after.id and
-                     (datetime.utcnow() - log_item.created_at < timedelta(seconds=5))]
+                           log_item.target.id == after.id and
+                           (datetime.utcnow() - log_item.created_at < timedelta(seconds=5))]
 
             if audit_event:
                 editor_user = str(audit_event[0].user)
@@ -212,9 +212,9 @@ class DiscordLogger(BasePlugin):
                 before_perms = {x: y for x, y in before.permissions}
                 after_perms = {x: y for x, y in after.permissions}
                 perm_diff = "Added permissions: " + ", ".join([x.upper() for x, y in after.permissions if y and not
-                                                          before_perms[x]])
+                before_perms[x]])
                 perm_diff = perm_diff + "\nRemoved permissions: " \
-                    + ", ".join([x.upper() for x, y in before.permissions if y and not after_perms[x]])
+                            + ", ".join([x.upper() for x, y in before.permissions if y and not after_perms[x]])
                 diff.append(perm_diff)
             diff = '\n'.join(diff)
             result = f"**ANALYSIS: Role {before.name} was changed by {editor_user}:**```\n{diff}```"
