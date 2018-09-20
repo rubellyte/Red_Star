@@ -3,11 +3,12 @@ import json
 import re
 import shlex
 import urllib.request
+from io import BytesIO
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_output
 from red_star.command_dispatcher import Command
-from discord import InvalidArgument
+from discord import InvalidArgument, HTTPException
 from traceback import format_exception, format_exc
 
 
@@ -35,34 +36,41 @@ class BotManagement(BasePlugin):
 
     @Command("UpdateAvatar",
              doc="Updates the bot's avatar.",
-             syntax="(URL)",
+             syntax="(URL or file)",
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
     async def _update_avatar(self, msg):
-        url = " ".join(msg.content.split()[1:])
-        if url:
-            try:
-                img = urllib.request.urlopen(url).read()
-                await self.client.user.edit(avatar=img)
-                await respond(msg, "**AVATAR UPDATED.**")
-            except (urllib.request.URLError, ValueError):
-                await respond(msg, "**WARNING: Invalid URL provided.**")
-            except InvalidArgument:
-                await respond(msg, "**NEGATIVE. Image must be a PNG or JPG.**")
-        else:
-            raise CommandSyntaxError("No URL provided.")
+        try:
+            url = msg.content.split(None, 1)[1]
+            img = urllib.request.urlopen(url).read()
+        except IndexError:
+            if msg.attachments:
+                fp = BytesIO()
+                await msg.attachments[0].save(fp)
+                img = fp.getvalue()
+            else:
+                raise CommandSyntaxError("No URL or file provided.")
+        except (urllib.request.URLError, ValueError):
+            raise CommandSyntaxError("Invalid URL provided.")
+        try:
+            await self.client.user.edit(avatar=img)
+            await respond(msg, "**AVATAR UPDATED.**")
+        except InvalidArgument:
+            raise CommandSyntaxError("Image must be a PNG or JPG")
+        except HTTPException:
+            raise UserPermissionError("Cannot change avatar at this time.")
 
     @Command("UpdateName",
              doc="Updates the bot's (nick)name.",
-             syntax="[change username?] (name)",
+             syntax="[-p/--permanent] (name)",
              category="bot_management",
              perms={"manage_guild"},
              dm_command=True)
     async def _update_name(self, msg):
         args = msg.clean_content.split()[1:]
         edit_username = False
-        if is_positive(args[0]):
+        if args[0].lower() in ("-p", "--permanent"):
             args.pop(0)
             edit_username = True
         elif args[0].lower() == "reset":
@@ -341,7 +349,7 @@ class BotManagement(BasePlugin):
              dm_command=True)
     async def _last_error(self, msg):
         try:
-            args = msg.clean_content.split(" ", 1)[1].lower()
+            args = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
             raise CommandSyntaxError("No error context specified.")
         if args == "command":

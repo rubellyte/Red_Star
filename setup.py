@@ -10,6 +10,7 @@ def get_requirements():
     with open("requirements.txt", encoding="utf-8") as fd:
         return fd.read()
 
+
 def long_description():
     with open("README.md", encoding="utf-8") as fd:
         return fd.read()

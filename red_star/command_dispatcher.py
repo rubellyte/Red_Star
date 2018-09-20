@@ -128,7 +128,7 @@ class CommandDispatcher:
                     deco = self.conf[gid]["command_prefix"]
                     await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{fn.name} {fn.syntax}.**")
                 else:
-                    await respond(msg, f"**WARNING: {err}.**")
+                    await respond(msg, f"**WARNING: {err}**")
             except UserPermissionError as e:
                 err = f"\nANALYSIS: {e}" if str(e) else ""
                 await respond(msg, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")

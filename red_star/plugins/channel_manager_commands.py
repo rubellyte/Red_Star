@@ -11,7 +11,7 @@ class ChannelManagerCommands(BasePlugin):
     default_config = {}
 
     async def activate(self):
-        self.chan_conf = self.config_manager.config["channel_manager"]
+        self.chan_conf = self.config_manager.get_plugin_config_file("channel_manager.json")
 
     @Command("GetChannel",
              doc="Gets information on the specified channel type (or all channel types if none specified) in this "
@@ -21,7 +21,7 @@ class ChannelManagerCommands(BasePlugin):
              perms={"manage_guild"})
     async def _get_channel_cmd(self, msg):
         gid = str(msg.guild.id)
-        chantype = " ".join(msg.clean_content.split()[1:]).lower()
+        chantype = msg.clean_content.split(None, 1)[1].lower()
         if chantype:
             try:
                 chan = self.channel_manager.get_channel(msg.guild, chantype)
@@ -55,12 +55,12 @@ class ChannelManagerCommands(BasePlugin):
                 channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
                                      msg.guild.channels)
                 if not channel:
-                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
+                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found")
             else:
                 if msg.channel_mentions:
                     channel = msg.channel_mentions[0]
                 else:
-                    raise CommandSyntaxError("No channel provided.")
+                    raise CommandSyntaxError("No channel provided")
         else:
             channel = None
 
@@ -79,7 +79,7 @@ class ChannelManagerCommands(BasePlugin):
              perms={"manage_guild"})
     async def _get_category(self, msg):
         gid = str(msg.guild.id)
-        category = " ".join(msg.clean_content.split()[1:]).lower()
+        category = msg.clean_content.split(None, 1)[1].lower()
         if category:
             if category in self.chan_conf[gid].categories:
                 catestr = ", ".join([msg.guild.get_channel(x).name for x in self.chan_conf[gid].categories[
@@ -122,11 +122,11 @@ class ChannelManagerCommands(BasePlugin):
                         if self.channel_manager.add_channel_to_category(msg.guild, category, channel):
                             res = f"{res}{str(channel)}\n"
                 else:
-                    raise CommandSyntaxError("No channel provided.")
+                    raise CommandSyntaxError("No channel provided")
 
-            await respond(msg, f"**ANALYSIS: Following channels were added to category {category}:**```\n{res}```")
+            await respond(msg, f"**ANALYSIS: The following channels were added to category {category}:**```\n{res}```")
         else:
-            raise CommandSyntaxError("No channel provided.")
+            raise CommandSyntaxError("No channel provided")
 
     @Command("RMFromCategory",
              doc="Removes the given channel from the specified category from the server.\n"
@@ -149,7 +149,7 @@ class ChannelManagerCommands(BasePlugin):
                     channel = arg.lower()
                     channel = utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
                     if not channel:
-                        raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
+                        raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found")
                     if self.channel_manager.remove_channel_from_category(msg.guild, category, channel):
                         res += f"✓ - {str(channel)}\n"
                     else:
@@ -162,8 +162,8 @@ class ChannelManagerCommands(BasePlugin):
                         else:
                             res += f"✗ - {str(channel)}\n"
                 else:
-                    raise CommandSyntaxError("No channel provided.")
+                    raise CommandSyntaxError("No channel provided")
 
             await respond(msg, f"**ANALYSIS: Processed channel removals from category {category}:**\n```\n{res}```")
         else:
-            raise CommandSyntaxError("No channel provided.")
+            raise CommandSyntaxError("No channel provided")

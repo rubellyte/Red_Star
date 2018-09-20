@@ -45,7 +45,7 @@ class Announcer(BasePlugin):
 
     async def _ping_response(self, msg):
         gid = str(msg.guild.id)
-        response = choice(get_guild_config(self, gid, "ping_message_options"))
+        response = sub_user_data(msg.author, choice(get_guild_config(self, gid, "ping_message_options")))
         await respond(msg, response)
 
     # Event hooks

@@ -164,9 +164,10 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
     """
     text = None
     if response:
-        text = sub_user_data(msg.author, response)
         if not allow_mention_everyone:  # Filter these out just in case we miss it somehow
-            text = text.replace("@everyone", "@\u200beveryone").replace("@here", "@\u200bhere")
+            text = response.replace("@everyone", "@\u200beveryone").replace("@here", "@\u200bhere")
+        else:
+            text = response
         if len(text) > 2000:
             # should've split it first
             # this is just a last-ditch error check
@@ -174,8 +175,7 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
     elif not kwargs:
         # It's empty, raise an error.
         raise SyntaxError
-    m = await msg.channel.send(text, **kwargs)
-    return m
+    return await msg.channel.send(text, **kwargs)
 
 
 def split_message(message_str, splitter=None, max_len=2000):
@@ -186,26 +186,27 @@ def split_message(message_str, splitter=None, max_len=2000):
     :param max_len: The maximum length of the message blocks. Default 2000.
     """
     msgs = []
-    searchpoint = 0
+    search_point = 0
     if splitter:
-        while len(message_str) - searchpoint > max_len:
-            searchstr = message_str[searchpoint:searchpoint + max_len]
+        while len(message_str) - search_point > max_len:
+            searchstr = message_str[search_point:search_point + max_len]
             point = searchstr.rfind(splitter)
             if point >= 0:
                 point += 1
-                msgs.append(message_str[searchpoint:searchpoint + point])
-                searchpoint += point
+                msgs.append(message_str[search_point:search_point + point])
+                search_point += point
             else:
-                msgs.append(message_str[searchpoint:searchpoint + max_len])
-                searchpoint += max_len
-        msgs.append(message_str[searchpoint:])
+                msgs.append(message_str[search_point:search_point + max_len])
+                search_point += max_len
+        msgs.append(message_str[search_point:])
     else:
         for x in range(0, len(message_str), max_len):
             msgs.append(message_str[x:x + max_len])
     return msgs
 
 
-async def split_output(message, title, items, *, header="```\n", footer="```", f=lambda x: str(x)+"\n"):
+async def split_output(message, title, items, *, header="```\n", footer="```",
+                       string_processor=lambda x: str(x) + "\n"):
     """
     :type title: str
     :type header: str
@@ -215,19 +216,19 @@ async def split_output(message, title, items, *, header="```\n", footer="```", f
     :param items: a list of items to iterate over
     :param header: a header string, put between title and items
     :param footer: a footer string, capping up the lists
-    :param f: a function to run on the items. Must take one argument (the item) and return a string
+    :param string_processor: a function to run on the items. Must take one argument (the item) and return a string
     :return:
     """
-    t_str = title + header
-    t_l = len(footer)
+    final_str = title + header
+    footer_len = len(footer)
     for i in items:
-        t_s = f(i)
-        if len(t_str+t_s) > 2000-t_l:
-            await respond(message, t_str+footer)
-            t_str = header+t_s
+        processed_str = string_processor(i)
+        if len(final_str+processed_str) > 2000-footer_len:
+            await respond(message, final_str+footer)
+            final_str = header+processed_str
         else:
-            t_str += t_s
-    await respond(message, t_str+footer)
+            final_str += processed_str
+    await respond(message, final_str+footer)
 
 
 def ordinal(n):
@@ -239,76 +240,76 @@ def ordinal(n):
     return "%d%s" % (n, "tsnrhtdd"[((n//10) % 10 != 1)*(n % 10 < 4)*n % 10::4])
 
 
-def decode_json(t_bytes):
+def decode_json(data):
     try:
         try:
-            t_string = t_bytes.decode()
+            json_str = data.decode()
         except UnicodeDecodeError:
             try:
-                t_string = t_bytes.decode(encoding="windows-1252")
+                json_str = data.decode(encoding="windows-1252")
             except UnicodeDecodeError:
                 try:
-                    t_string = t_bytes.decode(encoding="windows-1250")
+                    json_str = data.decode(encoding="windows-1250")
                 except UnicodeDecodeError:
                     raise ValueError("Unable to parse file encoding. Please use UTF-8")
         else:
-            if t_string[0] != "{":
-                t_string = t_bytes.decode(encoding="utf-8-sig")
-        t_data = json.loads(t_string)
+            if json_str[0] != "{":
+                json_str = data.decode(encoding="utf-8-sig")
+        json_object = json.loads(json_str)
     except json.decoder.JSONDecodeError as e:
         raise ValueError(f"Not a valid JSON file: {e}")
-    return t_data
+    return json_object
 
 
-def p_time(seconds):
+def pretty_time(seconds):
     """
     Pretty time display function
     :param seconds: time in seconds
     :return: time in weeks, days and h:mm:ss
     """
-    minute = 60
-    hour = minute*60
-    day = hour*24
-    week = day*7
+    MINUTE_SECONDS = 60
+    HOUR_SECONDS = 3600
+    DAY_SECONDS = 86400
+    WEEK_SECONDS = 604800
 
-    t_w, t_d = divmod(int(seconds), week)
-    t_d, t_h = divmod(t_d, day)
-    t_h, t_m = divmod(t_h, hour)
-    t_m, t_s = divmod(t_m, minute)
+    weeks, days = divmod(int(seconds), WEEK_SECONDS)
+    days, hours = divmod(days, DAY_SECONDS)
+    hours, minutes = divmod(hours, HOUR_SECONDS)
+    minutes, seconds = divmod(minutes, MINUTE_SECONDS)
 
-    t_string = []
-    if t_w > 1:
-        t_string.append(f"{t_w} weeks")
-    elif t_w == 1:
-        t_string.append("1 week")
+    result_list = []
+    if weeks > 1:
+        result_list.append(f"{weeks} weeks")
+    elif weeks == 1:
+        result_list.append("1 week")
 
-    if t_d > 1:
-        t_string.append(f"{t_d} days")
-    elif t_d == 1:
-        t_string.append("1 day")
+    if days > 1:
+        result_list.append(f"{days} days")
+    elif days == 1:
+        result_list.append("1 day_seconds")
 
-    if t_h > 0:
-        if t_m == t_s == 0:
-            if t_h > 1:
-                t_string.append(f"{t_h} hours")
+    if hours > 0:
+        if minutes == seconds == 0:
+            if hours > 1:
+                result_list.append(f"{hours} hours")
             else:
-                t_string.append("1 hour")
+                result_list.append("1 hour")
         else:
-            t_string.append(f"{t_h}:{t_m:02d}:{t_s:02d}")
-    elif t_m > 0:
-        if t_s == 0:
-            if t_m > 1:
-                t_string.append(f"{t_m} minutes")
+            result_list.append(f"{hours}:{minutes:02d}:{seconds:02d}")
+    elif minutes > 0:
+        if seconds == 0:
+            if minutes > 1:
+                result_list.append(f"{minutes} minutes")
             else:
-                t_string.append("1 minute")
+                result_list.append("1 minute")
         else:
-            t_string.append(f"{t_m}:{t_s:02d}")
-    elif t_s > 1:
-        t_string.append(f"{t_s:02d} seconds")
-    elif t_s == 1:
-        t_string.append("1 second")
+            result_list.append(f"{minutes}:{seconds:02d}")
+    elif seconds > 1:
+        result_list.append(f"{seconds:02d} seconds")
+    elif seconds == 1:
+        result_list.append("1 second")
 
-    return ", ".join(t_string)
+    return ", ".join(result_list)
 
 
 def is_positive(string):
@@ -328,8 +329,8 @@ def is_positive(string):
                                  "on/enable/yes/affirmatie/true.")
 
 
-def parse_roll(dicestr, roll=None):
-    dice_data = re.search(r"^(\d*)d(\d+|f)([ad]?)", dicestr)
+def parse_roll(dice_str, roll=None):
+    dice_data = re.search(r"^(\d*)d(\d+|f)([ad]?)", dice_str)
     if dice_data:
         # checking for optional dice number
         if dice_data.group(1):
@@ -341,12 +342,12 @@ def parse_roll(dicestr, roll=None):
             def roll_function(): return randint(1, min(max(int(dice_data.group(2)), 2), 10000))
         else:
             def roll_function(): return randint(1, 3) - 2
-        t_adv = dice_data.group(3)
+        advantage = dice_data.group(3)
         dice_set_a = [roll_function() for _ in range(num_dice)]
         dice_set_b = [roll_function() for _ in range(num_dice)]
-        if t_adv == "a":
+        if advantage == "a":
             rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
-        elif t_adv == "d":
+        elif advantage == "d":
             rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
         else:
             rolled_dice = dice_set_a
@@ -355,9 +356,9 @@ def parse_roll(dicestr, roll=None):
         return rolled_dice
     else:
         try:
-            return int(dicestr)
+            return int(dice_str)
         except ValueError:
-            return dicestr
+            return dice_str
 
 
 def parse_tokens(tokens, roll=None):
@@ -369,36 +370,36 @@ def parse_tokens(tokens, roll=None):
     :param roll:
     :return:
     """
-    t_tokens = [sum(t) if type(t) == list else t for t in tokens]
+    tokens = [sum(t) if type(t) == list else t for t in tokens]
 
     # improved :dn support to allow repeated parsing (since the regex nature of :dn makes it hard to prioritize
     rerun = True
     while rerun:
         rerun = False
-        for i in range(len(t_tokens))[::-1]:
+        for i in range(len(tokens))[::-1]:
             try:
-                if t_tokens[i] == '*':
-                    t_tokens[i - 1:i + 2] = [t_tokens[i - 1] * t_tokens[i + 1]]
-                elif t_tokens[i] == "/":
-                    t_tokens[i - 1:i + 2] = [t_tokens[i - 1] / t_tokens[i + 1]]
-                elif t_tokens[i] == "+":
-                    t_tokens[i - 1:i + 2] = [t_tokens[i - 1] + t_tokens[i + 1]]
-                elif t_tokens[i] == "-":
-                    if type(t_tokens[i-1]) in [int, float]:  # it may just be denoting the number to be negative
-                        t_tokens[i - 1:i + 2] = [t_tokens[i - 1] - t_tokens[i + 1]]
+                if tokens[i] == '*':
+                    tokens[i - 1:i + 2] = [tokens[i - 1] * tokens[i + 1]]
+                elif tokens[i] == "/":
+                    tokens[i - 1:i + 2] = [tokens[i - 1] / tokens[i + 1]]
+                elif tokens[i] == "+":
+                    tokens[i - 1:i + 2] = [tokens[i - 1] + tokens[i + 1]]
+                elif tokens[i] == "-":
+                    if type(tokens[i-1]) in [int, float]:  # it may just be denoting the number to be negative
+                        tokens[i - 1:i + 2] = [tokens[i - 1] - tokens[i + 1]]
                     else:
-                        t_tokens[i:i+2] = [-t_tokens[i+1]]
-                elif type(t_tokens[i]) == str and re.match(':d[\df]+', t_tokens[i]):
-                    if type(t_tokens[i-1]) == int:
-                        t_tokens[i-1:i+1] = [sum(parse_roll(f"{t_tokens[i-1]}{t_tokens[i][1:]}", roll=roll))]
+                        tokens[i:i+2] = [-tokens[i+1]]
+                elif type(tokens[i]) == str and re.match(':d[\df]+', tokens[i]):
+                    if type(tokens[i-1]) == int:
+                        tokens[i-1:i+1] = [sum(parse_roll(f"{tokens[i-1]}{tokens[i][1:]}", roll=roll))]
                     else:
                         rerun = True
             except IndexError:
-                del t_tokens[i]
+                del tokens[i]
             except TypeError:
                 rerun = True
 
-    return t_tokens
+    return tokens
 
 
 def parse_roll_string(string):
@@ -415,17 +416,17 @@ def parse_roll_string(string):
     tokens = list(map(lambda x: parse_roll(x, roll=rolled_dice),
                       re.findall(r':d[\df]+|\d*d[\df]+[ad]?|[+\-*/()]|\d+', args)))
     brackets = [p for p, t in enumerate(tokens) if t == '('][::-1]
-    for o_br in brackets:
+    for open_bracket in brackets:
         try:
-            c_br = o_br + tokens[o_br:].index(')')
-            if c_br-o_br == 1:
-                del tokens[c_br]
-                del tokens[o_br]
+            close_bracket = open_bracket + tokens[open_bracket:].index(')')
+            if close_bracket - open_bracket == 1:
+                del tokens[close_bracket]
+                del tokens[open_bracket]
             else:
-                r = parse_tokens(tokens[o_br+1:c_br], roll=rolled_dice)
-                tokens[o_br:c_br+1] = [r[0]]
+                r = parse_tokens(tokens[open_bracket + 1:close_bracket], roll=rolled_dice)
+                tokens[open_bracket:close_bracket + 1] = [r[0]]
 
         except ValueError:
-            tokens.pop(o_br)
+            tokens.pop(open_bracket)
 
     return parse_tokens(tokens, roll=rolled_dice), rolled_dice

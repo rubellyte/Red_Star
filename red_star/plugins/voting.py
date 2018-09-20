@@ -53,16 +53,16 @@ class Voting(BasePlugin):
             """
             self.query = query
 
-        async def addoption(self, option):
+        async def add_option(self, option):
             if len(self.options) < 20:
                 self.vote_count[self._abc[len(self.options)]] = 0
                 await self.message.add_reaction(self._emo[len(self.options)])
                 self.options[self._abc[len(self.options)]] = option
 
         async def update(self):
-            await self.message.edit(content="", embed=self._buildembed())
+            await self.message.edit(content="", embed=self._build_embed())
 
-        def _buildembed(self):
+        def _build_embed(self):
             t_embed = Embed(type="rich", colour=16711680)
             t_embed.title = f"\"{self.hid}\""
             t_embed.description = f"{self.query}\n\nBy <@{self.author}>"
@@ -70,12 +70,12 @@ class Voting(BasePlugin):
                 t_embed.add_field(name=f"{self._a_e[k]}", value=f"{v} : {self.vote_count[k]}")
             return t_embed
 
-        async def p_add(self, reaction, user):
+        async def add_reaction(self, reaction, user):
             if type(reaction.emoji) == str and self.active:
                 if reaction.emoji not in self._emo or not await self.vote(self._e_a[reaction.emoji], user):
                     await reaction.message.remove_reaction(reaction.emoji, user)
 
-        async def p_remove(self, reaction, user):
+        async def remove_reaction(self, reaction, user):
             if type(reaction.emoji) == str and reaction.emoji in self._emo and self.active:
                 await self.vote(self._e_a[reaction.emoji], user, False)
 
@@ -139,7 +139,7 @@ class Voting(BasePlugin):
                            allow_retracting=args['no_retracting'])
         t_poll.setquery(args['query'])
         for opt in [*args['questions'], *args['question']]:
-            await t_poll.addoption(opt)
+            await t_poll.add_option(opt)
 
         await t_poll.update()
         t_poll.active = True
@@ -163,7 +163,7 @@ class Voting(BasePlugin):
             results = []
             for k, c in candidates:
                 if c.author != msg.author.id and \
-                                msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
+                        msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
                         not msg.channel.permissions_for(msg.author).manage_messages:
                     continue
                 max_votes = sorted(c.vote_count.items(), key=lambda x: x[1]).pop()[1]
@@ -213,7 +213,7 @@ class Voting(BasePlugin):
         """
         gid = str(reaction.message.guild.id)
         if gid in self.polls and reaction.message.id in self.polls[gid]:
-            await self.polls[gid][reaction.message.id].p_add(reaction, user)
+            await self.polls[gid][reaction.message.id].add_reaction(reaction, user)
 
     async def on_reaction_remove(self, reaction, user):
         """
@@ -224,4 +224,4 @@ class Voting(BasePlugin):
         """
         gid = str(reaction.message.guild.id)
         if gid in self.polls and reaction.message.id in self.polls[gid]:
-            await self.polls[gid][reaction.message.id].p_remove(reaction, user)
+            await self.polls[gid][reaction.message.id].remove_reaction(reaction, user)

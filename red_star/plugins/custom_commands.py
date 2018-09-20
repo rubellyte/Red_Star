@@ -1,20 +1,18 @@
-import random
-import json
+import discord.utils
 import datetime
+import json
 import math
+import random
 import re
 from asyncio import ensure_future, sleep
-from red_star.plugin_manager import BasePlugin
-import discord.utils
 from io import BytesIO
-
-from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from red_star.rs_utils import respond, find_user
-from red_star.command_dispatcher import Command
+from red_star.plugin_manager import BasePlugin
 from discord import Embed, File
 from discord.errors import Forbidden
-
+from red_star.command_dispatcher import Command
+from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
 from red_star.rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
+from red_star.rs_utils import respond, find_user, split_output
 
 
 # noinspection PyBroadException
@@ -47,8 +45,8 @@ class CustomCommands(BasePlugin):
             if cnt.startswith(deco):
                 if msg.author.id in self.bans[gid]["cc_use_ban"]:
                     try:
-                        await msg.author.send(f"**WARNING: You are banned from usage of custom commands on the server "
-                                              f"{str(msg.guild)}**")
+                        await msg.author.send(f"**WARNING: You are banned from usage of custom commands on this "
+                                              f"server.**")
                     except Forbidden:
                         pass
                     return
@@ -72,10 +70,9 @@ class CustomCommands(BasePlugin):
                                 break
                         else:
                             await self.plugin_manager.hook_event("on_log_event", msg.guild,
-                                                                 f"**WARNING: Attempted CC use "
-                                                                 f"outside of it's categories in"
-                                                                 f" {msg.channel.mention} by: "
-                                                                 f"{msg.author.display_name}**",
+                                                                 f"**WARNING: Attempted CC use outside of it's "
+                                                                 f"categories in {msg.channel.mention} by: "
+                                                                 f"{msg.author}.**",
                                                                  log_type="cc_event")
                             return
                     await self.run_cc(cmd, msg)
@@ -103,7 +100,6 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            # self.logger.debug(fp.getvalue())
             args = msg.clean_content.split()[1:]
             if args and args[0].lower() in ("-s", "--source"):
                 name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
@@ -130,12 +126,12 @@ class CustomCommands(BasePlugin):
         if name in self.ccs[gid]:
             await respond(msg, f"**WARNING: Custom command {name} already exists.**")
         else:
-            t_count = len([True for i in self.ccs[gid].values() if i["author"] == msg.author.id])
+            user_cc_count = len([True for cc in self.ccs[gid].values() if cc["author"] == msg.author.id])
+            cc_limit = self.plugin_config[gid].get("cc_limit", 100)
 
-            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
-                    not msg.author.permissions_in(msg.channel).manage_messages and \
-                    t_count >= self.plugin_config[gid].get("cc_limit", 100):
-                raise UserPermissionError(f"Exceeded cc limit of {self.plugin_config[gid].get('cc_limit', 100)}.")
+            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and not \
+                    msg.author.permissions_in(msg.channel).manage_messages and user_cc_count >= cc_limit:
+                raise UserPermissionError(f"Exceeded per-user custom command limit of {cc_limit}.")
             try:
                 if not re.match(r"^\s*\(.*\)\s*$", content, re.DOTALL):
                     content = content.replace('"', '\\"')
@@ -167,23 +163,21 @@ class CustomCommands(BasePlugin):
         self._initialize(gid)
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from editing custom commands.")
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-        args = msg.content.split(" ", 1)
-        if len(args) < 2:
+        try:
+            name = msg.content.split(" ", 1)[1].lower()
+        except IndexError:
             raise CommandSyntaxError("No name provided.")
-        name = args[1].lower()
         if name in self.ccs[gid]:
-            t_cc = {
+            cc = {
                 "name": name,
                 "content": self.ccs[gid][name]["content"]
             }
-            t_cc = json.dumps(t_cc, indent=2, ensure_ascii=False)
+            cc = json.dumps(cc, indent=2, ensure_ascii=False)
             async with msg.channel.typing():
                 await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                              file=File(BytesIO(bytes(t_cc, encoding="utf-8")), filename=name + ".json"))
+                              file=File(BytesIO(bytes(cc, encoding="utf-8")), filename=name + ".json"))
         else:
-            raise CommandSyntaxError("No such custom command.")
+            raise CommandSyntaxError(f"No such custom command {name}.")
 
     @Command("EditCC",
              doc="Edits a custom command you created.",
@@ -197,8 +191,7 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            # self.logger.debug(fp.getvalue())
-            args = msg.clean_content.split()[1:]
+            args = msg.clean_content.split(None, 2)[1:]
             if args and args[0].lower() in ("-s", "--source"):
                 name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
                 content = fp.getvalue().decode()
@@ -206,38 +199,33 @@ class CustomCommands(BasePlugin):
                 try:
                     jsdata = json.loads(fp.getvalue().decode())
                 except json.JSONDecodeError:
-                    raise CommandSyntaxError("Uploaded file is not valid JSON!")
+                    raise CommandSyntaxError("Uploaded file is not valid JSON.")
                 name = jsdata["name"].lower()
                 content = jsdata["content"]
         else:
             try:
-                args = msg.clean_content.split(" ")[1:]
-                name = args[0].lower()
-            except IndexError:
-                raise CommandSyntaxError("No name provided.")
-            try:
-                content = " ".join(args[1:])
-            except IndexError:
-                raise CommandSyntaxError("No content provided.")
+                name, content = msg.clean_content.split(" ", 2)
+            except ValueError:
+                raise CommandSyntaxError
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
-            ccdata = self.ccs[gid][name]
-            if ccdata["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
+            cc_data = self.ccs[gid][name]
+            if cc_data["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
                 try:
                     parse(content)
                 except Exception as err:
                     await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
                     return
-                ccdata["content"] = reprint(parse(content)) if self.plugin_config['rslisp_minify'] else content
-                ccdata["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
-                self.ccs[gid][name] = ccdata
+                cc_data["content"] = reprint(parse(content)) if self.plugin_config['rslisp_minify'] else content
+                cc_data["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
+                self.ccs[gid][name] = cc_data
                 self.ccs.save()
                 await respond(msg, f"**ANALYSIS: Custom command {name} edited successfully.**")
             else:
-                await respond(msg, f"**WARNING: No permission to edit custom command {name}.**")
+                raise UserPermissionError(f"You don't own custom command {name}.")
         else:
-            await respond(msg, f"**WARNING: No such custom command {name}**")
+            await respond(msg, f"**WARNING: No such custom command {name}.**")
 
     @Command("DeleteCC", "DelCC", "RMCC",
              doc="Deletes a custom command.",
@@ -249,19 +237,18 @@ class CustomCommands(BasePlugin):
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
             raise UserPermissionError("You are banned from deleting custom commands.")
         try:
-            name = msg.clean_content.split()[1].lower()
+            name = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
             raise CommandSyntaxError("No name provided.")
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
-            if self.ccs[gid][name]["author"] == msg.author.id or \
-                    msg.author.guild_permissions.manage_messages:
+            if self.ccs[gid][name]["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
                 del self.ccs[gid][name]
                 self.ccs.save()
                 await respond(msg, f"**ANALYSIS: Custom command {name} deleted successfully.**")
             else:
-                await respond(msg, f"**WARNING: No permission to delete custom command {name}.**")
+                raise UserPermissionError(f"You don't own custom command {name}.")
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
@@ -271,64 +258,50 @@ class CustomCommands(BasePlugin):
              category="custom_commands")
     async def _ccinfo(self, msg):
         try:
-            name = msg.clean_content.split()[1].lower()
+            name = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
             raise CommandSyntaxError("No name provided.")
         gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
-            ccdata = self.ccs[gid][name]
-            last_edited = f"Last Edited: {ccdata['last_edited']}\n" if ccdata["last_edited"] else ""
-            cc_locked = "Yes" if ccdata["locked"] else "No"
-            author = discord.utils.get(msg.guild.members, id=ccdata["author"])
+            cc_data = self.ccs[gid][name]
+            last_edited = f"Last Edited: {cc_data['last_edited']}\n" if cc_data["last_edited"] else ""
+            cc_locked = "Yes" if cc_data["locked"] else "No"
+            author = discord.utils.get(msg.guild.members, id=cc_data["author"])
             if author:
                 author = str(author)
             else:
                 author = "<Unknown user>"
             datastr = f"**ANALYSIS: Information for custom command {name}:**```\nName: {name}\nAuthor: {author}\n" \
-                      f"Date Created: {ccdata['date_created']}\n{last_edited}Locked: {cc_locked}\n" \
-                      f"Times Run: {ccdata['times_run']}```"
+                      f"Date Created: {cc_data['date_created']}\n{last_edited}Locked: {cc_locked}\n" \
+                      f"Times Run: {cc_data['times_run']}```"
             await respond(msg, datastr)
         else:
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
     @Command("SearchCCs", "SearchCC", "ListCCs", "ListCC",
              doc="Searches CCs by name or author.",
-             syntax="(name, author, or *)",
+             syntax="(name, author, or */all)",
              category="custom_commands")
     async def _searchccs(self, msg):
-        search = " ".join(msg.content.split(" ")[1:]).lower()
-        user = find_user(msg.guild, search)
-        by_author = False
-        get_all = False
-        if search == "*":
-            get_all = True
-        elif user:
-            by_author = True
-            user = user.id
+        search = msg.content.split(None, 1)[1].lower()
         if not search:
             raise CommandSyntaxError("No search provided.")
-        res = []
+        user = find_user(msg.guild, search)
         gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
-        for cc, info in self.ccs[gid].items():
-            if get_all:
-                res.append(cc)
-            elif not by_author and search in cc.lower():
-                res.append(cc)
-            elif info["author"] == user:
-                res.append(cc)
-        if res:
-            t_str = f"**ANALYSIS: The following custom commands match your search:** `{res[0]}"
-            for r in res[1:]:
-                if len(t_str) + len(r) > 1999:
-                    await respond(msg, f"{t_str}`")
-                    t_str = f"`{r}"
-                else:
-                    t_str += f", {r}"
-            await respond(msg, t_str + "`")
+        ccs_list = list(self.ccs[gid].keys())
+        if search in ("*", "all"):
+            matched_ccs = ccs_list
+        elif user:
+            matched_ccs = filter(lambda x: self.ccs[gid][x]["author"] == user.id, ccs_list)
+        else:
+            matched_ccs = filter(lambda x: search in x.lower(), ccs_list)
+        if matched_ccs:
+            await split_output(msg, "**ANALYSIS: The following custom commands match your search:**", matched_ccs,
+                               string_processor=lambda x: x + ", ")
         else:
             await respond(msg, "**WARNING: No results found for your search.**")
 
@@ -339,7 +312,7 @@ class CustomCommands(BasePlugin):
              perms={"manage_messages"})
     async def _lockcc(self, msg):
         try:
-            name = msg.clean_content.split()[1].lower()
+            name = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
             raise CommandSyntaxError("No name provided.")
         gid = str(msg.guild.id)
@@ -362,25 +335,24 @@ class CustomCommands(BasePlugin):
         gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
-        args = msg.content.split(" ", 2)
-        if len(args) < 3:
+        try:
+            name, category = msg.content.split(None, 2)
+        except ValueError:
             raise CommandSyntaxError("Two arguments required.")
-        t_name = args[1].lower()
-        t_cat = args[2].lower()
-        if t_name in self.ccs[gid]:
-            if "restricted" in self.ccs[gid][t_name]:
-                if t_cat not in self.ccs[gid][t_name]["restricted"]:
-                    self.ccs[gid][t_name]["restricted"].append(t_cat)
-                    await respond(msg, f"**AFFIRMATIVE. Custom command {t_name} restricted to category {t_cat}.**")
+        if name in self.ccs[gid]:
+            if "restricted" in self.ccs[gid][name]:
+                if category not in self.ccs[gid][name]["restricted"]:
+                    self.ccs[gid][name]["restricted"].append(category)
+                    await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
                 else:
-                    self.ccs[gid][t_name]["restricted"].remove(t_cat)
-                    await respond(msg, f"**AFFIRMATIVE. Custom command {t_name} no longer restricted to category "
-                                       f"{t_cat}.**")
+                    self.ccs[gid][name]["restricted"].remove(category)
+                    await respond(msg, f"**AFFIRMATIVE. Custom command {name} no longer restricted to category "
+                                       f"{category}.**")
             else:
-                self.ccs[gid][t_name]["restricted"] = [t_cat]
-                await respond(msg, f"**AFFIRMATIVE. Custom command {t_name} restricted to category {t_cat}.**")
+                self.ccs[gid][name]["restricted"] = [category]
+                await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
         else:
-            raise CommandSyntaxError(f"No custom command by name of {t_name}.")
+            raise CommandSyntaxError(f"No custom command by name of {name}.")
 
     @Command("CCMute", "MuteCC",
              doc="Toggles users ability to use custom commands.",
@@ -390,20 +362,15 @@ class CustomCommands(BasePlugin):
     async def _mutecc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-
-        args = msg.content.split(" ", 1)
-
-        t_member = find_user(msg.guild, args[1])
-
-        if not t_member:
+        user = find_user(msg.guild, msg.content.split(None, 1)[1])
+        if not user:
             raise CommandSyntaxError("Not a user, or user not found.")
-
-        if t_member.id in self.bans[gid]["cc_use_ban"]:
-            self.bans[gid]["cc_use_ban"].remove(t_member.id)
-            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was allowed the usage of custom commands.**")
+        if user.id in self.bans[gid]["cc_use_ban"]:
+            self.bans[gid]["cc_use_ban"].remove(user.id)
+            await respond(msg, f"**AFFIRMATIVE. User {user} was allowed the usage of custom commands.**")
         else:
-            self.bans[gid]["cc_use_ban"].append(t_member.id)
-            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from using custom commands.**")
+            self.bans[gid]["cc_use_ban"].append(user.id)
+            await respond(msg, f"**AFFIRMATIVE. User {user} was banned from using custom commands.**")
 
     @Command("CCBan", "BanCC",
              doc="Toggles users ability to create and alter custom commands.",
@@ -413,20 +380,15 @@ class CustomCommands(BasePlugin):
     async def _bancc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-
-        args = msg.content.split(" ", 1)
-
-        t_member = find_user(msg.guild, args[1])
-
-        if not t_member:
+        user = find_user(msg.guild, msg.content.split(None, 1)[1])
+        if not user:
             raise CommandSyntaxError("Not a user, or user not found.")
-
-        if t_member.id in self.bans[gid]["cc_create_ban"]:
-            self.bans[gid]["cc_create_ban"].remove(t_member.id)
-            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was allowed creation of custom commands.**")
+        if user.id in self.bans[gid]["cc_create_ban"]:
+            self.bans[gid]["cc_create_ban"].remove(user.id)
+            await respond(msg, f"**AFFIRMATIVE. User {user} was allowed creation of custom commands.**")
         else:
-            self.bans[gid]["cc_create_ban"].append(t_member.id)
-            await respond(msg, f"**AFFIRMATIVE. User {t_member.mention} was banned from creating custom commands.**")
+            self.bans[gid]["cc_create_ban"].append(user.id)
+            await respond(msg, f"**AFFIRMATIVE. User {user} was banned from creating custom commands.**")
 
     @Command("ListCCbans",
              doc="Lists users banned from using or creating CCs",
@@ -436,26 +398,19 @@ class CustomCommands(BasePlugin):
     async def _listccban(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
-
-        t_dict = {}
-
-        for t_id in self.bans[gid]["cc_create_ban"]:
-            if t_id in self.bans[gid]["cc_use_ban"]:
-                t_dict[t_id] = (True, True)
+        banned_users = {}
+        for uid in self.bans[gid]["cc_create_ban"]:
+            if uid in self.bans[gid]["cc_use_ban"]:
+                banned_users[uid] = (True, True)
             else:
-                t_dict[t_id] = (True, False)
-        for t_id in self.bans[gid]["cc_use_ban"]:
-            if t_id not in t_dict:
-                t_dict[t_id] = (False, True)
-        t_string = f"**ANALYSIS: Currently banned members:**\n```{'Username'.ljust(32)} |  Ban  |  Mute\n"
-        for k, v in t_dict.items():
-            t_s = f"{msg.guild.get_member(k).display_name.ljust(32)} | {str(v[0]).ljust(5)} | {str(v[1]).ljust(5)}\n"
-            if len(t_string + t_s) < 1997:
-                t_string += t_s
-            else:
-                await respond(msg, t_string + "```")
-                t_string = "```" + t_s
-        await respond(msg, t_string + "```")
+                banned_users[uid] = (True, False)
+        for uid in self.bans[gid]["cc_use_ban"]:
+            if uid not in banned_users:
+                banned_users[uid] = (False, True)
+        result_list = [f"{msg.guild.get_member(k).display_name.ljust(32)} | {str(v[0]).ljust(5)} |" \
+                       f" {str(v[1]).ljust(5)}\n" for k, v in banned_users.items()]
+        result_list.insert(0, f"{'Username'.ljust(32)} |  Ban  |  Mute")
+        await split_output(msg, "**ANALYSIS: Currently banned members:**", result_list)
 
     @Command("RPN",
              doc="Calculates an expression in extended reverse polish notation.\n"
@@ -510,9 +465,9 @@ class CustomCommands(BasePlugin):
 
     @staticmethod
     def _parse_rpn(args):
-        t_args = args.lower().split()
-        if len(t_args) == 0:
-            raise CustomCommandSyntaxError("<rpn> tag requires arguments")
+        args = args.lower().split()
+        if len(args) == 0:
+            raise CustomCommandSyntaxError("<rpn> tag requires arguments.")
         stack = []
         out = []
 
@@ -529,7 +484,7 @@ class CustomCommands(BasePlugin):
             stack.append(v)
             stack.append(v1)
 
-        b_ops = {
+        binary_ops = {
             "+": lambda x, y: stack.append(x + y),
             "-": lambda x, y: stack.append(y - x),
             "*": lambda x, y: stack.append(x * y),
@@ -543,7 +498,7 @@ class CustomCommands(BasePlugin):
             "min": lambda x, y: stack.append(min(x, y)),
             "max": lambda x, y: stack.append(max(x, y)),
         }
-        u_ops = {
+        unary_ops = {
             "sin": lambda x: stack.append(math.sin(x)),
             "cos": lambda x: stack.append(math.cos(x)),
             "tan": lambda x: stack.append(math.tan(x)),
@@ -556,7 +511,7 @@ class CustomCommands(BasePlugin):
             "round": lambda x: stack.append(round(x)),
             "rndint": lambda x: stack.append(random.randint(0, x))
         }
-        c_ops = {
+        constants = {
             "e": lambda: stack.append(math.e),
             "pi": lambda: stack.append(math.pi),
             "tau": lambda: stack.append(math.tau),
@@ -564,23 +519,23 @@ class CustomCommands(BasePlugin):
             "m2i": lambda: stack.append(39.37007874),
             "rnd": lambda: stack.append(random.random())
         }
-        for arg in t_args:
+        for arg in args:
             try:
-                a = int(arg, 0)
+                value = int(arg, 0)
             except ValueError:
                 try:
-                    a = float(arg)
+                    value = float(arg)
                 except ValueError:
-                    if arg in b_ops and len(stack) > 1:
-                        b_ops[arg](stack.pop(), stack.pop())
-                    elif arg in u_ops and len(stack) >= 1:
-                        u_ops[arg](stack.pop())
-                    elif arg in c_ops:
-                        c_ops[arg]()
+                    if arg in binary_ops and len(stack) > 1:
+                        binary_ops[arg](stack.pop(), stack.pop())
+                    elif arg in unary_ops and len(stack) >= 1:
+                        unary_ops[arg](stack.pop())
+                    elif arg in constants:
+                        constants[arg]()
                 else:
-                    stack.append(a)
+                    stack.append(value)
             else:
-                stack.append(a)
+                stack.append(value)
         return [*out, *stack]
 
     async def run_cc(self, cmd, msg):
@@ -590,9 +545,9 @@ class CustomCommands(BasePlugin):
         else:
             env = self._env(msg)
 
-            ccdat = self.ccs[gid][cmd]["content"]
+            cc_data = self.ccs[gid][cmd]["content"]
             try:
-                res = lisp_eval(parse(ccdat), env)
+                res = lisp_eval(parse(cc_data), env)
             except CustomCommandSyntaxError as e:
                 err = e if e else "Syntax error."
                 await respond(msg, f"**WARNING: Author made syntax error: {err}**")
@@ -627,9 +582,9 @@ class CustomCommands(BasePlugin):
             env['authornick'] = author.display_name
         except AttributeError:
             env['authorname'] = env['authornick'] = '<Unknown user>'
-        a = msg.clean_content.split(" ", 1)
-        env['argstring'] = a[1] if len(a) > 1 else ''
-        env['args'] = a[1].split(" ") if len(a) > 1 else []
+        args = msg.clean_content.split(" ", 1)
+        env['argstring'] = args[1] if len(args) > 1 else ''
+        env['args'] = args[1].split(" ") if len(args) > 1 else []
 
         env['hasrole'] = lambda *x: self._hasrole(msg, *x)
         env['delcall'] = lambda: self._delcall(msg)
@@ -647,35 +602,34 @@ class CustomCommands(BasePlugin):
 
     @staticmethod
     def _embed(msg, _, kwargs):
-        t_embed = Embed(type="rich", colour=16711680)
-        t_post = False
+        embed = Embed(type="rich", colour=16711680)
+        can_post = False
         for name, value in kwargs.items():
-            t_post = True
+            can_post = True
             if name.lower() == "!title":
-                t_embed.title = value
+                embed.title = value
             elif name.lower() in ["!color", "!colour"]:
                 try:
-                    t_embed.colour = value if isinstance(value, int) else discord.Colour(int(value, 16))
+                    embed.colour = value if isinstance(value, int) else discord.Colour(int(value, 16))
                 except ValueError:
                     pass
             elif name.lower() == "!url":
-                t_embed.url = value
+                embed.url = value
             elif name.lower() == "!thumbnail":
-                t_embed.set_thumbnail(url=value)
+                embed.set_thumbnail(url=value)
             elif name.lower() == "!image":
-                t_embed.set_image(url=value)
+                embed.set_image(url=value)
             elif name.lower() in ["!desc", "!description"]:
-                t_embed.description = value
+                embed.description = value
             elif name.lower() == "!footer":
-                t_embed.set_footer(text=value)
+                embed.set_footer(text=value)
             else:
-                t_name = name
                 if type(value) == list:
-                    t_val = value[0]
-                    t_inline = value[1]
+                    content = value[0]
+                    is_inline = value[1]
                 else:
-                    t_val = value
-                    t_inline = False
-                t_embed.add_field(name=t_name, value=t_val, inline=t_inline)
-        if t_post:
-            ensure_future(respond(msg, None, embed=t_embed))
+                    content = value
+                    is_inline = False
+                embed.add_field(name=name, value=content, inline=is_inline)
+        if can_post:
+            ensure_future(respond(msg, None, embed=embed))

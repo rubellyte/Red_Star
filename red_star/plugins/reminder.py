@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from asyncio import create_task
 
 
-class Reminder(BasePlugin):
+class ReminderPlugin(BasePlugin):
     name = "reminder"
     run_timer = False
     timer = None
@@ -20,7 +20,7 @@ class Reminder(BasePlugin):
         r"(?:(?P<D>\d{0,2})/(?P<M>\d{0,2})/(?P<Y>\d{0,4}))?[^\d]*(?:(?P<h>\d{0,2}):(?P<m>\d{0,2}):(?P<s>\d{0,2}))")
 
     @dataclass
-    class Rem:
+    class Reminder:
         uid: int
         cid: int
         time: datetime.datetime
@@ -65,12 +65,10 @@ class Reminder(BasePlugin):
                 return False
 
     async def activate(self):
-        self.storage = self.config_manager.get_plugin_config_file("reminders.json",
-                                                                  json_load_args={
-                                                                      'object_hook': lambda x: self.Rem(
-                                                                          *x["remind"]) if "remind" in x else x
-                                                                  },
-                                                                  json_save_args={'default': lambda x: x.dump()})
+        self.storage = self.config_manager.get_plugin_config_file(
+                "reminders.json", json_load_args={
+                    'object_hook': lambda x: self.Reminder(*x["remind"]) if "remind" in x else x
+                }, json_save_args={'default': lambda x: x.dump()})
         for guild in self.client.guilds:
             if str(guild.id) not in self.storage:
                 self.storage[str(guild.id)] = []
@@ -107,7 +105,7 @@ class Reminder(BasePlugin):
         utcnow = datetime.datetime.utcnow()
 
         # just a way to default skipped values to "today"
-        _t = {
+        default_time = {
             'D': 0 if args['delay'] else utcnow.day,
             'M': utcnow.month,
             'Y': utcnow.year,
@@ -116,7 +114,7 @@ class Reminder(BasePlugin):
             's': 0
         }
 
-        time = {k: int(v or _t[k]) for k, v in self.pattern.match(time).groupdict().items()}
+        time = {k: int(v or default_time[k]) for k, v in self.pattern.match(time).groupdict().items()}
 
         if args['private']:
             try:
@@ -144,14 +142,10 @@ class Reminder(BasePlugin):
             raise CommandSyntaxError(e)
 
         if time < utcnow:
-            raise CommandSyntaxError("Can not alter past")
+            raise CommandSyntaxError("Red Star cannot presently alter the past.")
 
-        self.storage[str(msg.guild.id)].append(self.Rem(msg.author.id,
-                                                        msg.channel.id,
-                                                        time,
-                                                        ' '.join(args['reminder']),
-                                                        args['private'],
-                                                        _recur))
+        self.storage[str(msg.guild.id)].append(self.Reminder(msg.author.id, msg.channel.id, time,
+                                                             ' '.join(args['reminder']), args['private'], _recur))
         self.storage.save()
         await respond(msg, f"**AFFIRMATIVE: reminder set for {time.strftime('%Y-%m-%d @ %H:%M:%S')} UTC.**")
 
@@ -164,18 +158,19 @@ class Reminder(BasePlugin):
         uid = msg.author.id
         gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
-        r_list = [r for r in self.storage[gid] if r.uid == uid]
+        reminder_list = [r for r in self.storage[gid] if r.uid == uid]
+        reminder_str_list = [f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
+                             f"{'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
+                             for i, r in enumerate(reminder_list)]
         if len(args) == 1:
-            await split_output(msg, "**Following reminders found:**", enumerate(r_list),
-                               f=lambda r: f"{r[0]:2}|{r[1].time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r[1].text:50} in "
-                                           f"{'Direct Messages' if r[1].dm else msg.guild.get_channel(r[1].cid)}\n")
+            await split_output(msg, "**Following reminders found:**", reminder_str_list)
         elif len(args) == 3 and args[1].lower() in ("del", "-", "delete"):
             try:
                 index = int(args[2])
             except ValueError:
                 raise CommandSyntaxError("Non-integer syntax provided")
-            if 0 <= index < len(r_list):
-                self.storage[gid] = [x for x in self.storage[gid] if x != r_list[index]]
+            if 0 <= index < len(reminder_list):
+                self.storage[gid] = [x for x in self.storage[gid] if x != reminder_list[index]]
                 await respond(msg, "**AFFIRMATIVE. Reminder removed.**")
             else:
                 raise CommandSyntaxError("Index out of range")
@@ -201,14 +196,8 @@ class Reminder(BasePlugin):
                         create_task(usr.send(f"**Reminder from {guild}:**\n{reminder.text}"))
 
                 if reminder.recurring:
-                    self.storage[gid].append(self.Rem(
-                            reminder.uid,
-                            reminder.cid,
-                            reminder.get_recurring(),
-                            reminder.text,
-                            reminder.dm,
-                            reminder.recurring
-                    ))
+                    self.storage[gid].append(self.Reminder(reminder.uid, reminder.cid, reminder.get_recurring(),
+                                                           reminder.text, reminder.dm, reminder.recurring))
             # it's easier to create a new list where everything fits rather than delete from old
             self.storage[gid] = [x for x in self.storage[gid] if x.time > now]
         if save_flag:

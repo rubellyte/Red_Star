@@ -85,8 +85,7 @@ class MOTD(BasePlugin):
                 except IndexError:
                     continue
                 except ValueError:
-                    pass
-                # noinspection PyUnboundLocalVariable
+                    line = choice(lines)
                 await chan.send(line)
 
     @staticmethod
@@ -111,13 +110,10 @@ class MOTD(BasePlugin):
              category="bot_management",
              syntax="(month/Any) (day/weekday/Any) (message)")
     async def _addmotd(self, msg):
-        args = msg.clean_content.split(" ")[1:]
         try:
-            month = args[0].capitalize()
-            day = args[1].capitalize()
-            newmotd = " ".join(args[2:])
-        except IndexError:
-            raise CommandSyntaxError
+            month, day, new_motd = msg.clean_content.split(None, 3)[1:]
+        except ValueError:
+            raise CommandSyntaxError("Not enough arguments.")
         if month not in self.valid_months or day not in self.valid_days:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
         try:
@@ -128,7 +124,7 @@ class MOTD(BasePlugin):
                 motds[month] = {}
             if day not in motds[month]:
                 motds[month][day] = []
-            motds[month][day].append(newmotd)
+            motds[month][day].append(new_motd)
             with motd_file.open("w", encoding="utf8") as fd:
                 json.dump(motds, fd, indent=2, ensure_ascii=False)
             await respond(msg, f"**ANALYSIS: MotD for {month} {day} added successfully.**")
@@ -141,11 +137,9 @@ class MOTD(BasePlugin):
              category="bot_management",
              syntax="(month/Any) (day/weekday/Any)")
     async def _addholiday(self, msg):
-        args = msg.clean_content.split()[1:]
         try:
-            month = args[0].capitalize()
-            day = args[1].capitalize()
-        except IndexError:
+            month, day = msg.clean_content.split(None, 2)[1:]
+        except ValueError:
             raise CommandSyntaxError
         if month not in self.valid_months or day not in self.valid_days:
             raise CommandSyntaxError("Month or day is invalid. Please use full names.")
@@ -168,16 +162,13 @@ class MOTD(BasePlugin):
              syntax="(month/Any) (day/Any) (weekday/Any)")
     async def _testmotd(self, msg):
         try:
-            args = msg.clean_content.split()[1:]
-            month = args[0].capitalize()
-            day = args[1].capitalize()
-            weekday = args[2].capitalize()
+            month, day, weekday = msg.clean_content.split(None, 3)[1:]
             if month not in self.valid_months or day not in self.valid_days or weekday not in self.valid_days:
                 raise CommandSyntaxError("One of the arguments is not valid.")
             month = "" if month == "Any" else month
             day = "" if day == "Any" else day
             weekday = "" if weekday == "Any" else weekday
-        except IndexError:
+        except ValueError:
             raise CommandSyntaxError("Missing arguments.")
         motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
         motds = self.motds[motd_path]

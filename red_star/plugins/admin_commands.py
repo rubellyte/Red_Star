@@ -87,7 +87,7 @@ class AdminCommands(BasePlugin):
                                                  log_type="purge_event")
             for d in deleted[::-1]:
                 await self.plugin_manager.hook_event("on_log_event", msg.guild,
-                                                     f"{d.author}({d.author.id}) @ {d.created_at}:\n{d.content}",
+                                                     f"`{d.author}({d.author.id}) @ {d.created_at}:`\n{d.content}",
                                                      log_type="purge_event")
             await self.plugin_manager.hook_event("on_log_event", msg.guild,
                                                  "**Verbose purge dump complete.**",
