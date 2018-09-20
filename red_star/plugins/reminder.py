@@ -20,8 +20,12 @@ class ReminderPlugin(BasePlugin):
     timer = None
     reminder_file_path = None
 
+    # Searches for a DD/MM/YYYY@hh:mm:ss pattern.
+    # All the options are optional (searching for 0 to 2/4 digits), and are in named groups for ease of use of results.
+    # It *has* to be formatted // for date and :: for time though.
+    # The bit between the two just has to be non-numeric, but since shlex kills whitespace it also has to be a thing.
     pattern = re.compile(
-        r"(?:(?P<D>\d{0,2})/(?P<M>\d{0,2})/(?P<Y>\d{0,4}))?[^\d]*(?:(?P<h>\d{0,2}):(?P<m>\d{0,2}):(?P<s>\d{0,2}))")
+        r"(?:(?P<D>\d{0,2})/(?P<M>\d{0,2})/(?P<Y>\d{0,4}))?[^\d]*(?:(?P<h>\d{0,2}):(?P<m>\d{0,2}):(?P<s>\d{0,2}))?")
 
     @dataclass
     class Reminder:

@@ -29,9 +29,14 @@ _while = 'while'
 _print = 'print'
 _try = 'try'
 
+# temporarily swap a bunch of escaped character into some temporarily values and into un-escaped versions
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
+# search for lisp instances -
+# > comments - ;.*?(?:\n|$) - start with ;, end at line end/end of file, whichever's shorter.
+# > strings  - \".*?\"      - start and end with quotes, gets the shortest option.
+# > brackets - \(|\)        - get closing and opening bracket symbols as separate tokens.
+# > tokens   - [^()\";\S]   - get everything that isn't a special char or whitespace.
 tokenizer = re.compile(r";.*?(?:\n|$)|\".*?\"|\(|\)|[^()\";\s]+", re.DOTALL)
-strip_extra_whitespace = re.compile("\s*([()])\s*")
 
 
 class Empty:
@@ -113,6 +118,7 @@ def read_from_tokens(tokens):
     elif ')' == token:
         raise CustomCommandSyntaxError('unexpected )')
     else:
+        # regexp strips leading/trailing whitespace
         return atom(re.sub(r"^\s+|\s+$", "", token))
 
 
@@ -191,6 +197,8 @@ def eztime(*args):
     if args:
         strf = args[0] if args[0] else "%Y-%m-%d @ %H:%M:%S"
         if len(args) > 1:
+            # regexp searches for offset in h:m:s format.
+            # each number is allowed to be negative and can pretty much stretch into forever.
             o_time = re.match(r"(?P<h>-?\d*):(?P<m>-?\d*):(?P<s>-?\d*)", args[1])
             if o_time:
                 o_time = o_time.groupdict()
