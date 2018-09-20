@@ -8,6 +8,9 @@ import shlex
 
 class ChannelManagerCommands(BasePlugin):
     name = "channel_manager_commands"
+    version = "1.0.1"
+    author = "medeor413"
+    description = "A plugin that provides commands for interfacing with Red Star's channel_manager."
     default_config = {}
 
     async def activate(self):

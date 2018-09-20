@@ -18,6 +18,10 @@ from red_star.rs_utils import respond, find_user, split_output
 # noinspection PyBroadException
 class CustomCommands(BasePlugin):
     name = "custom_commands"
+    version = "2.0"
+    author = "GTG3000, medeor413"
+    description = "A plugin that allows users to create custom commands using Red Star's " \
+                  "custom RSLisp language dialect."
     default_config = {
         "default": {
             "cc_prefix": "!!",
@@ -408,8 +412,8 @@ class CustomCommands(BasePlugin):
         for uid in self.bans[gid]["cc_use_ban"]:
             if uid not in banned_users:
                 banned_users[uid] = (False, True)
-        result_list = [f"{msg.guild.get_member(k).display_name.ljust(32)} | {str(v[0]).ljust(5)} |" \
-                       f" {str(v[1]).ljust(5)}\n" for k, v in banned_users.items()]
+        result_list = [f"{msg.guild.get_member(k).display_name:<32} | {str(v[0]):<5)} | "
+                       f"{str(v[1]):<5}\n" for k, v in banned_users.items()]
         result_list.insert(0, f"{'Username'.ljust(32)} |  Ban  |  Mute")
         await split_output(msg, "**ANALYSIS: Currently banned members:**", result_list)
 

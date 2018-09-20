@@ -9,6 +9,9 @@ from red_star.command_dispatcher import Command
 
 class AdminCommands(BasePlugin):
     name = "admin_commands"
+    version = "1.0"
+    author = "medeor413"
+    description = "A plugin that adds useful administrative commands. Currently only features Purge."
 
     @Command("Purge", "Prune",
              doc="Purges messages from the channel in bulk.\nUse -r option for regexp match filtering.\nWARNING: "

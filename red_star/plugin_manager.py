@@ -20,29 +20,28 @@ class PluginManager:
         self.active_plugins = {}
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.logger.debug("Initialized plugin manager.")
-        self.shutting_down = False
         self.last_error = None
 
     def __repr__(self):
         return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
 
     def load_from_path(self, plugin_path):
-        ignores = ("__init__", "__pycache__")
+        ignores = ("__init__", "__pycache__", ".git")
         loaded = set()
         for file in plugin_path.iterdir():
-            if file.stem in ignores:
+            if file.stem in ignores or file.stem.startswith("_"):
                 continue
-            if (file.suffix == ".py" or file.is_dir()) \
-                    and str(file) not in loaded \
-                    and not file.stem.startswith("_"):
+            if (file.suffix == ".py" or file.is_dir()) and str(file) not in loaded:
                 try:
                     modul = self._load_module(file)
                     self.load_plugin(modul)
                     loaded.add(str(file))
                 except (SyntaxError, ImportError):
                     self.logger.exception(f"Exception encountered loading plugin {file.stem}: ", exc_info=True)
+                    continue
                 except FileNotFoundError:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
+                    continue
 
     def _load_module(self, module_path):
         if module_path.is_dir():
@@ -71,10 +70,10 @@ class PluginManager:
 
     def load_plugin(self, modul):
         classes = self._get_plugin_class(modul)
-        for i in classes:
-            self.plugins[i.name] = i()
-            self.modules[i.name] = modul
-            self.logger.debug(f"Loaded plugin {i.name}")
+        for cls in classes:
+            self.plugins[cls.name] = cls()
+            self.modules[cls.name] = modul
+            self.logger.debug(f"Loaded plugin {cls.name}")
 
     def final_load(self):
         self.logger.debug("Performing final plugin load pass...")
@@ -91,13 +90,13 @@ class PluginManager:
             self.config_manager.config["disabled_plugins"] = []
             self.config_manager.save_config()
         disabled_plugins = self.config_manager.config["disabled_plugins"]
-        for n, plugin in self.plugins.items():
-            if n not in self.active_plugins and n not in disabled_plugins:
+        for name, plugin in self.plugins.items():
+            if name not in self.active_plugins and name not in disabled_plugins:
                 self.logger.info("Activating " + plugin.name)
                 # noinspection PyBroadException
                 try:
                     await plugin.activate()
-                    self.active_plugins[n] = plugin
+                    self.active_plugins[name] = plugin
                     self.command_dispatcher.register_plugin(plugin)
                 except Exception:
                     self.logger.exception(f"Error occurred while activating plugin {plugin.name}: ", exc_info=True)
@@ -115,7 +114,6 @@ class PluginManager:
                     self.logger.exception(f"Error occurred while deactivating plugin {plugin.name}: ", exc_info=True)
                 del self.active_plugins[n]
                 self.command_dispatcher.deregister_plugin(plugin)
-        self.shutting_down = True
 
     async def activate(self, name):
         try:
@@ -198,6 +196,7 @@ class BasePlugin:
     name = "Base Plugin"
     description = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
     version = "1.0"
+    author = "Unknown"
     default_config = {}
     plugins = set()
     client = None

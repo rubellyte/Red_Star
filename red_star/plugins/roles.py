@@ -9,6 +9,9 @@ from red_star.command_dispatcher import Command
 
 class RoleCommands(BasePlugin):
     name = "role_commands"
+    version = "1.1"
+    author = "GTG3000"
+    description = "A plugin for manipulating server roles via commands."
 
     @Command("EditRole",
              perms={"manage_roles"},
