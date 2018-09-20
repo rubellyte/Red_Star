@@ -8,6 +8,9 @@ from discord import Embed, Message
 
 class Voting(BasePlugin):
     name = "voting"
+    version = "1.0"
+    author = "GTG3000"
+    description = "A plugin for creating, voting in, and automatically tallying the results of polls."
 
     polls = {}  # dict of lists of polls {gid:{msg.id:Poll}}
 

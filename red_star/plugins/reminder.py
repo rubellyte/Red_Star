@@ -12,6 +12,10 @@ from asyncio import create_task
 
 class ReminderPlugin(BasePlugin):
     name = "reminder"
+    version = "1.0"
+    author = "GTG3000"
+    description = "A plugin for setting messages that the bot will send you at a configurable time."
+
     run_timer = False
     timer = None
     reminder_file_path = None

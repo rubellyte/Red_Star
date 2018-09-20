@@ -10,6 +10,9 @@ from red_star.command_dispatcher import Command
 
 class Info(BasePlugin):
     name = "info"
+    version = "1.1"
+    author = "medeor413"
+    description = "A plugin that provides commands for fetching information about other commands, or the bot itself."
 
     async def activate(self):
         self.commands = {}

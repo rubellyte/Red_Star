@@ -8,7 +8,10 @@ from red_star.command_dispatcher import Command
 
 class DiscordLogger(BasePlugin):
     name = "logger"
-
+    version = "1.3"
+    author = "medeor413, GTG3000"
+    description = "A plugin that logs certain events and prints them to a defined log channel " \
+                  "in an easily-readable manner."
     default_config = {
         "default": {
             "log_event_blacklist": [

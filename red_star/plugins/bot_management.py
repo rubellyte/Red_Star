@@ -14,6 +14,9 @@ from traceback import format_exception, format_exc
 
 class BotManagement(BasePlugin):
     name = "bot_management"
+    version = "1.3"
+    author = "medeor413"
+    description = "A plugin that allows bot maintainers to interface with core bot options through Discord."
 
     async def on_dm_message(self, msg):
         if msg.author == self.client.user:

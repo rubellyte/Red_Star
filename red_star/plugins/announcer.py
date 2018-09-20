@@ -6,6 +6,10 @@ from random import choice
 
 class Announcer(BasePlugin):
     name = "announcer"
+    version = "1.1"
+    author = "medeor413"
+    description = "A plugin for basic automated announcements, triggering messages when the bot starts, " \
+                  "a new member joins, or the bot is pinged."
     default_config = {
         "default": {
             "greeting_message": "Sample message to be broadcasted on bot load.",

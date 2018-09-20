@@ -9,6 +9,9 @@ from red_star.command_dispatcher import Command
 
 class MOTD(BasePlugin):
     name = "motd"
+    version = "1.2"
+    author = "medeor413"
+    description = "A plugin for flexibly displaying messages at date change."
     default_config = {
         "default": {
             "motd_file": "motds.json"

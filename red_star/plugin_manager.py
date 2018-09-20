@@ -196,6 +196,7 @@ class BasePlugin:
     name = "Base Plugin"
     description = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
     version = "1.0"
+    author = "Unknown"
     default_config = {}
     plugins = set()
     client = None

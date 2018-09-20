@@ -18,6 +18,10 @@ from red_star.rs_utils import respond, find_user, split_output
 # noinspection PyBroadException
 class CustomCommands(BasePlugin):
     name = "custom_commands"
+    version = "2.0"
+    author = "GTG3000, medeor413"
+    description = "A plugin that allows users to create custom commands using Red Star's " \
+                  "custom RSLisp language dialect."
     default_config = {
         "default": {
             "cc_prefix": "!!",

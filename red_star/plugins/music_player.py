@@ -20,6 +20,8 @@ from red_star.rs_utils import respond, split_output, get_guild_config, split_mes
 class MusicPlayer(BasePlugin):
     name = "music_player"
     version = "2.0"
+    author = "medeor413 (original by GTG3000)"
+    description = "A plugin for playing audio from videos in a voice channel."
     default_config = {
         "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
         "save_audio": True,
