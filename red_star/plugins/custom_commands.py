@@ -133,6 +133,7 @@ class CustomCommands(BasePlugin):
                     msg.author.permissions_in(msg.channel).manage_messages and user_cc_count >= cc_limit:
                 raise UserPermissionError(f"Exceeded per-user custom command limit of {cc_limit}.")
             try:
+                # check to see if there's something inside parenthesis floating in all the whitespace
                 if not re.match(r"^\s*\(.*\)\s*$", content, re.DOTALL):
                     content = content.replace('"', '\\"')
                     content = f'"{content}"'
@@ -580,7 +581,7 @@ class CustomCommands(BasePlugin):
             author = discord.utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
             env['authorname'] = author.name
             env['authornick'] = author.display_name
-        except AttributeError:
+        except (AttributeError, KeyError):
             env['authorname'] = env['authornick'] = '<Unknown user>'
         args = msg.clean_content.split(" ", 1)
         env['argstring'] = args[1] if len(args) > 1 else ''
