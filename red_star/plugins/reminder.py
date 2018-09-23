@@ -44,7 +44,8 @@ class ReminderPlugin(BasePlugin):
                 self.time = datetime.datetime.fromisoformat(self.time)
 
         def as_dict(self):
-            return {"remind": (self.uid, self.cid, self.time.isoformat(), self.text, self.dm, self.recurring)}
+            return {"__classhint__": "reminder",
+                    "reminder": (self.uid, self.cid, self.time.isoformat(), self.text, self.dm, self.recurring)}
 
         def get_recurring(self):
             if self.recurring:
