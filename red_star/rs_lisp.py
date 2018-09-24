@@ -28,6 +28,7 @@ _access = '>>'
 _while = 'while'
 _print = 'print'
 _try = 'try'
+_raise = 'raise'
 
 # temporarily swap a bunch of escaped character into some temporarily values and into un-escaped versions
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
@@ -494,6 +495,8 @@ def lisp_eval(x, env=None):
                     return e
         elif x[0] == _unquote:
             return lisp_eval(lisp_eval(x[1], env), env)
+        elif x[0] == _raise:
+            raise CustomCommandSyntaxError(lisp_eval(x[1], env))
         else:  # procedure call
             proc = lisp_eval(x[0], env)
             args = [lisp_eval(arg, env) for arg in x[1:]]
