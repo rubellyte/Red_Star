@@ -209,7 +209,7 @@ class CustomCommands(BasePlugin):
                 content = jsdata["content"]
         else:
             try:
-                name, content = msg.clean_content.split(" ", 2)
+                _, name, content = msg.clean_content.split(" ", 2)
             except ValueError:
                 raise CommandSyntaxError
         if gid not in self.ccs:
