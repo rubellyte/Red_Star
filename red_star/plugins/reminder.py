@@ -43,8 +43,9 @@ class ReminderPlugin(BasePlugin):
             if isinstance(self.time, str):
                 self.time = datetime.datetime.fromisoformat(self.time)
 
-        def dump(self):
-            return {"remind": (self.uid, self.cid, self.time.isoformat(), self.text, self.dm, self.recurring)}
+        def as_dict(self):
+            return {"__classhint__": "reminder",
+                    "reminder": (self.uid, self.cid, self.time.isoformat(), self.text, self.dm, self.recurring)}
 
         def get_recurring(self):
             if self.recurring:
@@ -73,10 +74,15 @@ class ReminderPlugin(BasePlugin):
                 return False
 
     async def activate(self):
+        def _load(cls: ReminderPlugin, obj: dict):
+            if obj.pop('__classhint__', None) == 'reminder':
+                return cls.Reminder(*obj['reminder'])
+            else:
+                return obj
+
         self.storage = self.config_manager.get_plugin_config_file(
-                "reminders.json", json_load_args={
-                    'object_hook': lambda x: self.Reminder(*x["remind"]) if "remind" in x else x
-                }, json_save_args={'default': lambda x: x.dump()})
+                "reminders.json", json_load_args={'object_hook': lambda o: _load(self, o)},
+                json_save_args={'default': lambda x: x.as_dict()})
         for guild in self.client.guilds:
             if str(guild.id) not in self.storage:
                 self.storage[str(guild.id)] = []

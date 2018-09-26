@@ -152,7 +152,7 @@ class MusicPlayer(BasePlugin):
             embed.set_author(name=vid["uploader"])
         if "tags" in vid:
             embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
-        progress_time = player.now_playing().split("\n")[0].split("]", 1)[1]
+        progress_time = player.now_playing().rsplit("\n")[0].split("]", 2)[1] + ']'
         embed.add_field(name="Duration", value=f"`{progress_time}`")
         rating_field = f"Views: {vid.get('view_count', 'Unknown'):,}."
         if "like_count" in vid:

@@ -61,7 +61,7 @@ class ConfigManager:
         new_config.update(current_config)
         self.config["plugins"][name] = new_config
 
-    def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None):
+    def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None)-> JsonFileDict:
         file_path = self.config_path / filename
         if not file_path.exists():
             default_config = Path.cwd() / "_default_files" / (filename + ".default")
