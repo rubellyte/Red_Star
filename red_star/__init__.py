@@ -40,9 +40,9 @@ def main():
 
     if not storage_dir.exists():
         base_logger.warning(f"Specified config directory {storage_dir} does not exist! Creating now...")
-        config_folder = args.config / "config"
+        config_folder = storage_dir / "config"
         config_folder.mkdir(parents=True)
-        plugins_folder = args.config / "plugins"
+        plugins_folder = storage_dir / "plugins"
         plugins_folder.mkdir(parents=True)
         plugin_init = plugins_folder / "__init__.py"
         plugin_init.touch()

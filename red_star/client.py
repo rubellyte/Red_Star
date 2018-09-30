@@ -34,7 +34,7 @@ class RedStar(AutoShardedClient):
         self.command_dispatcher = CommandDispatcher(self)
 
         self.plugin_manager = PluginManager(self)
-        self.plugin_manager.load_from_path(Path(__file__).parent / "plugins")
+        self.plugin_manager.load_from_path(Path.cwd() / "plugins")
         if not argv.portable:
             self.plugin_manager.load_from_path(self.storage_dir / "plugins")
         self.plugin_manager.final_load()

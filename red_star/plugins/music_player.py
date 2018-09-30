@@ -420,7 +420,7 @@ class GuildPlayer:
                     await self.text_channel.send(f"**WARNING: The queue is full. {vid_info['title']} "
                                                  f"will not be added.")
                     return
-                elif vid_info["duration"] > get_guild_config(self.parent, self.gid, "max_video_length"):
+                elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
                     max_len = seconds_to_minutes(get_guild_config(self.parent, self.gid, "max_video_length"))
                     max_len_str = f"{max_len[0]:02d}:{max_len[1]:02d}"
                     await self.text_channel.send(f"**WARNING: Your video exceeds the maximum video length "
