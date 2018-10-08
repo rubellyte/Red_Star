@@ -94,10 +94,9 @@ class ReminderPlugin(BasePlugin):
                  "-d/--delay    : remind after a set delay. Does NOT support months or years due to varying time.\n"
                  "-t/--time     : remind on a given date. Date must be in the future.\n"
                  "-r/--recurring: repeat the reminder every day/month/year, format is d/m/y## with ## being an "
-                 "integer number."
+                 "integer number.\n"
                  "Time format   : DD/MM/YYYY@hh:mm:ss. Numbers may be skipped, but a date needs two slashes and a "
-                 "time "
-                 "needs two colons, with some non-whitespace symbol separating the two.\n"
+                 "time needs two colons, with some non-whitespace symbol separating the two.\n"
                  "Valid input includes '23//', ':30:' and '1/1/@12::'",
              category="reminder")
     async def _remind(self, msg: Message):

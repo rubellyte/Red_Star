@@ -15,11 +15,9 @@ class CommandDispatcher:
         try:
             self.conf = client.config_manager.config["command_dispatcher"]
         except KeyError:
-            client.config_manager.config["command_dispatcher"] = {}
+            client.config_manager.config["command_dispatcher"] = {"default": {"command_prefix": "!"}}
             self.conf = client.config_manager.config["command_dispatcher"]
-        self.default_config = {
-            "command_prefix": "!"
-        }
+        self.default_config = self.conf.get("default", {"command_prefix": "!"})
 
         self.commands = {}
         self.last_error = None

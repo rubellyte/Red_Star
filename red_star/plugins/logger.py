@@ -48,7 +48,7 @@ class DiscordLogger(BasePlugin):
                 links = ", ".join([x.url for x in msg.attachments])
                 attaches = f"\n**Attachments:** `{links}`"
             self.logger.debug(f"User {user_name}'s message at {msgtime} in {msg.channel.name} of {msg.guild.name} was "
-                              f"deleted.\nContents: {contents}\nAttachments: {links}")
+                              f"deleted.\nContents: {contents}\nAttachments: {attaches}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**WARNING: User {user_name}'s message at `{msgtime}` in {msg.channel.mention}"
