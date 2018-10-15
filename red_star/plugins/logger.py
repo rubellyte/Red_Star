@@ -47,7 +47,7 @@ class DiscordLogger(BasePlugin):
             if msg.attachments:
                 links = ", ".join([x.url for x in msg.attachments])
                 attaches = f"\n**Attachments:** `{links}`"
-            self.logger.debug(f"User {user_name}'s message at {msgtime} in {msg.channel.name} of {msg.guild.name} was "
+            self.logger.info(f"User {user_name}'s message at {msgtime} in {msg.channel.name} of {msg.guild.name} was "
                               f"deleted.\nContents: {contents}\nAttachments: {attaches}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
@@ -65,7 +65,7 @@ class DiscordLogger(BasePlugin):
                 return
             msgtime = after.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             user_name = str(after.author)
-            self.logger.debug(f"User {user_name} edited their message at {msgtime} in {after.channel.name} of "
+            self.logger.info(f"User {user_name} edited their message at {msgtime} in {after.channel.name} of "
                               f"{after.guild.name}. \n"
                               f"Old contents: {old_contents}\nNew contents: {contents}")
             if gid not in self.log_items:
@@ -98,7 +98,7 @@ class DiscordLogger(BasePlugin):
                 console_string = f"{discord_string}Old roles: [ {old_roles} ]\nNew roles:[ {new_roles} ]\n"
             if discord_string == "":
                 return
-            self.logger.debug(f"User {after} was modified:\n{console_string}")
+            self.logger.info(f"User {after} was modified:\n{console_string}")
             if gid not in self.log_items:
                 self.log_items[gid] = []
             self.log_items[gid].append(f"**ANALYSIS: User {after} was modified:**\n{discord_string}")
@@ -215,7 +215,7 @@ class DiscordLogger(BasePlugin):
                 before_perms = {x: y for x, y in before.permissions}
                 after_perms = {x: y for x, y in after.permissions}
                 perm_diff = "Added permissions: " + ", ".join([x.upper() for x, y in after.permissions if y and not
-                before_perms[x]])
+                                                              before_perms[x]])
                 perm_diff = perm_diff + "\nRemoved permissions: " \
                             + ", ".join([x.upper() for x, y in before.permissions if y and not after_perms[x]])
                 diff.append(perm_diff)
