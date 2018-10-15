@@ -168,10 +168,9 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
             text = response.replace("@everyone", "@\u200beveryone").replace("@here", "@\u200bhere")
         else:
             text = response
-        if len(text) > 2000:
-            # should've split it first
-            # this is just a last-ditch error check
-            text = text[:2000]
+        # should've split it first
+        # this is just a last-ditch error check
+        text = text[:2000]
     elif not kwargs:
         # It's empty, raise an error.
         raise SyntaxError
