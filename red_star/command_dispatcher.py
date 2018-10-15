@@ -4,7 +4,7 @@ from asyncio import sleep
 from sys import exc_info
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
-from red_star.rs_utils import respond
+from red_star.rs_utils import respond, sub_user_data
 
 
 class CommandDispatcher:
@@ -129,7 +129,8 @@ class CommandDispatcher:
                     await respond(msg, f"**WARNING: {err}**")
             except UserPermissionError as e:
                 err = f"\nANALYSIS: {e}" if str(e) else ""
-                await respond(msg, f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**")
+                await respond(msg, sub_user_data(msg.author,
+                                                 f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**"))
             except Forbidden:
                 await respond(msg, "**NEGATIVE. This unit does not have permission to perform that action.**")
             except ChannelNotFoundError as e:
@@ -204,17 +205,13 @@ class Command:
                 return await f(s, msg)
             user_perms = msg.author.permissions_in(msg.channel)
             user_perms = {x for x, y in user_perms if y}
-            try:
-                if not user_perms >= self.perms and msg.author.id \
-                        not in s.config_manager.config.get("bot_maintainers", []):
-                    raise PermissionError
-                if self.bot_maintainers_only and msg.author.id \
-                        not in s.config_manager.config.get("bot_maintainers", []):
-                    raise PermissionError
-                return await f(s, msg)
-            except PermissionError:
-                return await respond(msg, "**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.**")
-
+            if not user_perms >= self.perms and msg.author.id \
+                    not in s.config_manager.config.get("bot_maintainers", []):
+                raise UserPermissionError
+            if self.bot_maintainers_only and msg.author.id \
+                    not in s.config_manager.config.get("bot_maintainers", []):
+                raise UserPermissionError
+            return await f(s, msg)
         wrapped._command = True
         wrapped.aliases = self.aliases
         wrapped.__doc__ = self.doc
