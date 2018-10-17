@@ -1,7 +1,7 @@
 import enum
 import discord.opus
 import logging
-from asyncio import get_event_loop
+from asyncio import get_event_loop, TimeoutError
 from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed
 from discord.errors import ClientException
 from math import floor, ceil
@@ -75,13 +75,15 @@ class MusicPlayer(BasePlugin):
         try:
             voice_channel = msg.author.voice.channel
         except AttributeError:
-            await respond(msg, "**ANALYSIS: User is not connected to voice channel.**")
-            return
-        if msg.guild.id in self.players:
-            player = self.players[msg.guild.id]
-            await player.voice_client.move_to(voice_channel)
-        else:
-            player = await self.create_player(voice_channel, msg.channel)
+            raise UserPermissionError("**ANALYSIS: User is not connected to voice channel.**")
+        try:
+            if msg.guild.id in self.players:
+                player = self.players[msg.guild.id]
+                await player.voice_client.move_to(voice_channel)
+            else:
+                player = await self.create_player(voice_channel, msg.channel)
+        except TimeoutError:
+            raise CommandSyntaxError("Bot failed to join channel. Make sure bot can access the channel.")
         await respond(msg, f"**AFFIRMATIVE. Connected to channel {voice_channel.name}.**")
         return player
 
