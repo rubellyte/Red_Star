@@ -1,6 +1,6 @@
 import re
 import shlex
-from discord import NotFound
+from discord import NotFound, Forbidden
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_utils import respond, find_user, RSArgumentParser
 from red_star.rs_errors import CommandSyntaxError
@@ -9,7 +9,7 @@ from red_star.command_dispatcher import Command
 
 class AdminCommands(BasePlugin):
     name = "admin_commands"
-    version = "1.0"
+    version = "1.1.1"
     author = "medeor413"
     description = "A plugin that adds useful administrative commands. Currently only features Purge."
 
@@ -38,8 +38,8 @@ class AdminCommands(BasePlugin):
 
         args = parser.parse_args(shlex.split(msg.content))
 
-        # Clamp the count. No negatives (duh), not more than 250 (don't get trigger happy)
-        args['count'] = min(max(args['count'], 0), 250)
+        if not 0 < args.count <= 250:
+            raise CommandSyntaxError("Count must be between 1 and 250.")
 
         if args['match']:
             args['match'] = ' '.join(args['match'])
@@ -68,20 +68,23 @@ class AdminCommands(BasePlugin):
         else:
             after_msg = None
 
+        def check(check_msg):
+            if members and check_msg.author.id not in members:
+                return False
+            if args.regex:
+                return self.match_regex(check_msg, args.match)
+            else:
+                return self.match_simple(check_msg, args.match)
+
         if not args['emulate']:
             # actual purging
-            deleted = await msg.channel.purge(limit=args['count'], before=before_msg, after=after_msg,
-                                              check=((lambda x: self.rsearch(x, args['match'], members)) if
-                                                     args['regex'] else
-                                                     (lambda x: self.search(x, args['match'], members))))
+            if not msg.channel.permissions_for(msg.guild.me).manage_messages:
+                raise Forbidden
+            deleted = await msg.channel.purge(limit=args['count'], before=before_msg, after=after_msg, check=check)
         else:
             # dry run to test your query
-            deleted = []
-            check = ((lambda x: self.rsearch(x, args['match'], members)) if args['regex'] else
-                     (lambda x: self.search(x, args['match'], members)))
-            async for m in msg.channel.history(limit=args['count'], before=before_msg, after=after_msg):
-                if check(m):
-                    deleted.append(m)
+            deleted = [m async for m in msg.channel.history(limit=args['count'], before=before_msg,
+                                                            after=after_msg).filter(check)]
 
         # if you REALLY want those messages
         if args['verbose']:
@@ -100,15 +103,9 @@ class AdminCommands(BasePlugin):
                       (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
 
     @staticmethod
-    def search(msg, searchstr, members=None):
-        if not members:
-            members = []
-        return ((not searchstr) or (searchstr.lower() in msg.content.lower())) and \
-               ((msg.author.id in members) or not members)
+    def match_simple(msg, searchstr):
+        return not searchstr or searchstr.lower() in msg.content.lower()
 
     @staticmethod
-    def rsearch(msg, searchstr, members=None):
-        if not members:
-            members = []
-        return ((not searchstr) or re.match(searchstr.lower(), msg.content.lower())) and \
-               ((msg.author.id in members) or not members)
+    def match_regex(msg, searchstr):
+        return not searchstr or re.match(searchstr.lower(), msg.content.lower())
