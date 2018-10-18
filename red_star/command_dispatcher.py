@@ -119,7 +119,10 @@ class CommandDispatcher:
                 await fn(msg)
                 if fn.delcall:
                     await sleep(1)
-                    await msg.delete()
+                    try:
+                        await msg.delete()
+                    except Forbidden:
+                        pass
             except CommandSyntaxError as e:
                 err = e if e else "Invalid syntax."
                 if fn.syntax:
