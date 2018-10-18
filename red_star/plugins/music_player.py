@@ -133,9 +133,10 @@ class MusicPlayer(BasePlugin):
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
         if player.current_song:
-            await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.now_playing()}```")
+            await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.print_now_playing()}```")
         if player.queue:
-            await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
+            queue_duration = "{:02d}:{:02d}".format(*seconds_to_minutes(player.queue_duration))
+            await split_output(msg, f"**ANALYSIS: Current queue: ({queue_duration})**\n", player.print_queue())
 
     @Command("NowPlaying", "SongInfo",
              doc="Displays detailed information about the currently playing song.",
@@ -369,9 +370,10 @@ class MusicPlayer(BasePlugin):
             self.storage.save()
 
     async def create_player(self, voice_channel, text_channel):
-        voice_client = await voice_channel.connect()
-        player = GuildPlayer(self, voice_client, text_channel)
-        self.players[voice_channel.guild.id] = player
+        with text_channel.typing():
+            voice_client = await voice_channel.connect()
+            player = GuildPlayer(self, voice_client, text_channel)
+            self.players[voice_channel.guild.id] = player
         return player
 
     def check_user_permission(self, user, player):
@@ -429,8 +431,11 @@ class GuildPlayer:
                                                  f"({max_len_str}). It will not be added.**")
                     return
                 else:
+                    time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
+                    time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
                     await self._process_video(vid_info)
-        await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.**")
+        await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.\n"
+                                     f"Time until your song: {time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
             await self.text_channel.send(f"**ANALYSIS: Current queue:**")
             for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
@@ -439,8 +444,10 @@ class GuildPlayer:
             await self._play()
 
     async def _enqueue_playlist(self, entries):
+        time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
+        time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
-                                     f"begin shortly.**")
+                                     f"begin shortly.\nTime until your songs: {time_until_song}**")
         orig_len = len(self.queue)
         with self.text_channel.typing():
             for vid in entries:
@@ -556,11 +563,15 @@ class GuildPlayer:
             pass
         self.voice_client.stop()
 
+    @property
     def play_time(self):
-        if self.voice_client.is_paused():
-            return self._song_pause_time - self._song_start_time
-        else:
-            return time() - self._song_start_time
+        try:
+            if self.voice_client.is_paused():
+                return self._song_pause_time - self._song_start_time
+            else:
+                return time() - self._song_start_time
+        except TypeError:
+            return 0
 
     async def skip_vote(self):
         self._skip_votes += 1
@@ -585,6 +596,13 @@ class GuildPlayer:
         except AttributeError:
             pass
 
+    @property
+    def queue_duration(self):
+        try:
+            return sum(vid["duration"] for vid in self.queue)
+        except TypeError:
+            return 0
+
     def print_queue(self):
         str_list = []
         for i, vid in enumerate(self.queue):
@@ -602,13 +620,12 @@ class GuildPlayer:
             str_list.append(f"[{i+1:02d}][{title:-<59}][{duration}]")
         return str_list
 
-    def now_playing(self):
-        play_time = self.play_time()
-        play_time_tup = seconds_to_minutes(play_time)
+    def print_now_playing(self):
+        play_time_tup = seconds_to_minutes(self.play_time)
         duration = self.current_song.get("duration", 0)
         dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
         if duration > 0:
-            played = play_time / duration
+            played = self.play_time / duration
             duration = seconds_to_minutes(duration)
             dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
         else:

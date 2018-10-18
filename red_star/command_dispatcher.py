@@ -205,11 +205,8 @@ class Command:
                 return await f(s, msg)
             user_perms = msg.author.permissions_in(msg.channel)
             user_perms = {x for x, y in user_perms if y}
-            if not user_perms >= self.perms and msg.author.id \
-                    not in s.config_manager.config.get("bot_maintainers", []):
-                raise UserPermissionError
-            if self.bot_maintainers_only and msg.author.id \
-                    not in s.config_manager.config.get("bot_maintainers", []):
+            if (not user_perms >= self.perms or self.bot_maintainers_only) \
+                    and msg.author.id not in s.config_manager.config.get("bot_maintainers", []):
                 raise UserPermissionError
             return await f(s, msg)
         wrapped._command = True
