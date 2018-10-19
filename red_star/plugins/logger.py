@@ -174,7 +174,7 @@ class DiscordLogger(BasePlugin):
             self.emit_log(string, guild)
 
     def emit_log(self, log_str, guild):
-        guild_log_queue = self.log_items.setdefault([str(guild.id)], [])
+        guild_log_queue = self.log_items.setdefault(str(guild.id), [])
         stdout_log_str = log_str.replace("`", "").replace("**", "").replace("ANALYSIS: ", "")
         guild_log_queue.append(log_str)
         self.logger.info(stdout_log_str)

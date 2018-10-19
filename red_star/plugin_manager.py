@@ -26,10 +26,10 @@ class PluginManager:
         return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
 
     def load_from_path(self, plugin_path):
-        ignores = ("__init__", "__pycache__", ".git")
+        ignores = ("__init__", "__pycache__")
         loaded = set()
         for file in plugin_path.iterdir():
-            if file.stem in ignores or file.stem.startswith("_"):
+            if file.stem in ignores or file.stem.startswith(("_", ".")):
                 continue
             if (file.suffix == ".py" or file.is_dir()) and str(file) not in loaded:
                 try:
@@ -43,16 +43,17 @@ class PluginManager:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
                     continue
 
+
     def _load_module(self, module_path):
         if module_path.is_dir():
-            module_path /= "__init__.py"
+            raise FileNotFoundError(f"{module_path} is a directory.")
         if not module_path.exists():
             raise FileNotFoundError(f"{module_path} does not exist.")
         name = "plugins." + module_path.stem
         spec = importlib.util.spec_from_file_location(name, module_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        self.logger.debug(mod)
+        self.modules[name] = mod
         self.logger.debug(f"Imported module {name}.")
         return mod
 
@@ -72,7 +73,6 @@ class PluginManager:
         classes = self._get_plugin_class(modul)
         for cls in classes:
             self.plugins[cls.name] = cls()
-            self.modules[cls.name] = modul
             self.logger.debug(f"Loaded plugin {cls.name}")
 
     def final_load(self):
@@ -82,6 +82,14 @@ class PluginManager:
             if plugin.default_config:
                 self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
                 plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
+            if plugin.imports:
+                try:
+                    for mod_name, objs in plugin.imports.items():
+                        self.import_from(plugin, mod_name, *objs)
+                except (ModuleNotFoundError, AttributeError):
+                    self.logger.exception(f"Plugin {plugin.name}'s imports were invalid.", exc_info=True)
+                    del self.plugins[plugin.name]
+                    continue
         self.config_manager.save_config()
 
     async def activate_all(self):
@@ -167,6 +175,25 @@ class PluginManager:
         except KeyError:
             self.logger.error(f"Attempted to reload non-existent plugin module {name}.")
 
+    def import_from(self, plg, mod, *objs):
+        """
+        A helper function to fetch objects from other modules, which may not necessarily be accessible from the plugin.
+        More or less a slightly janky version of "from mod import obj" that doesn't care about import order or location
+        :param plg: the plugin calling the function.
+        :param mod: The name of the module to fetch from.
+        :param objs: The name of the objects you want to import.
+        :return: A tuple containing the objects you asked for.
+        """
+        print(plg, mod, objs)
+        try:
+            mod = self.modules["plugins." + mod]
+        except KeyError:
+            raise ModuleNotFoundError(f"Module {mod} does not exist.")
+        plg_mod = self.modules[plg.__module__]
+        for name, obj in ((obj, getattr(mod, obj)) for obj in objs):  # This is done this way so we don't partially
+            setattr(plg_mod, name, obj)                               # import the functions if there's an error
+
+
     async def hook_event(self, event, *args, **kwargs):
         """
         Dispatches an event, with its data, to all plugins.
@@ -198,6 +225,7 @@ class BasePlugin:
     version = "1.0"
     author = "Unknown"
     default_config = {}
+    imports = {}
     plugins = set()
     client = None
     config_manager = None
