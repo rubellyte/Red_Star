@@ -24,16 +24,16 @@ class ChannelManagerCommands(BasePlugin):
              perms={"manage_guild"})
     async def _get_channel_cmd(self, msg):
         gid = str(msg.guild.id)
-        chantype = msg.clean_content.split(None, 1)[1].lower()
-        if chantype:
+        try:
+            chantype = msg.clean_content.split(None, 1)[1].lower()
             try:
                 chan = self.channel_manager.get_channel(msg.guild, chantype)
                 await respond(msg, f"**ANALYSIS: The {chantype} channel for this server is {chan.mention}.**")
             except ChannelNotFoundError:
                 await respond(msg, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
-        else:
+        except IndexError:
             chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name}"
-                                   for x, y in self.chan_conf[gid].channels.items() if y is not None])
+                                   for x, y in self.chan_conf[gid]['channels'].items() if y is not None])
             await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
     @Command("SetChannel",
