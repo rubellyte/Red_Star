@@ -3,6 +3,7 @@ import argparse
 import re
 import json
 from red_star.rs_errors import CommandSyntaxError
+from urllib.parse import urlparse
 from random import randint
 
 
@@ -429,3 +430,87 @@ def parse_roll_string(string):
             tokens.pop(open_bracket)
 
     return parse_tokens(tokens, roll=rolled_dice), rolled_dice
+
+
+def verify_embed(embed: dict):
+    """
+    A big ugly function to verify the embed dict as best as we can.
+    Made even uglier by the verbosity I choose to include in the verification.
+    :param embed:
+    :return:
+    """
+
+    class EmbedDict(dict):
+        # A simple class that allows the output of this command to be used in place of discord.py Embed class for
+        # channel.send() purposes.
+        def to_dict(self):
+            return self
+
+    def option(res: dict, key: str, target: dict, scheme: (dict, int, None)):
+        """
+        Verification function.
+        Scheme can be a length for text fields or None for url verification.
+        Otherwise, it may be a dict of fields with either lengths or None for urls.
+        :param res: "result" dict to put the values into
+        :param key: Key to be verified
+        :param target: The "embed" dict to pull values from
+        :param scheme: Verification scheme
+        :return: No returns, the result is added to res parameter. To prevent adding empty fields.
+        """
+        if key in target:
+            if isinstance(scheme, dict):
+                res[key] = {}
+                for field in scheme:
+                    if field not in target[key]:
+                        continue
+                    if scheme[field]:
+                        if len(target[key][field]) > scheme[field]:
+                            raise ValueError(f"{key}[{field}] too long. (limit {scheme[field]})")
+                    else:
+                        url = urlparse(target[key][field])
+                        if not (url.scheme and url.netloc and url.path):
+                            raise ValueError(f"{key}[{field}] invalid url.")
+                    res[key][field] = target[key][field]
+            else:
+                if scheme:
+                    if len(target[key]) > scheme:
+                        raise ValueError(f"{key} too long. (limit {scheme})")
+                else:
+                    url = urlparse(target[key])
+                    if not (url.scheme and url.netloc and url.path):
+                        raise ValueError(f"{key} invalid url.")
+                res[key] = target[key]
+
+    result = EmbedDict(type='rich')
+    option(result, 'title', embed, 256)
+    option(result, 'description', embed, 2048)
+    option(result, 'url', embed, None)
+    option(result, 'image', embed, {"url": None})
+    option(result, 'thumbnail', embed, {"url": None})
+    option(result, 'footer', embed, {"text": 2048, "icon_url": None})
+    option(result, 'author', embed, {"name": 256, "url": None, "icon_url": None})
+
+    if 'color' in embed:
+        try:
+            result['color'] = int(embed['color'], 0)
+        except TypeError:
+            try:
+                result['color'] = int(embed['color'])
+            except ValueError:
+                raise ValueError("Invalid color value.")
+
+    if 'fields' in embed:
+        result['fields'] = []
+        for i, field in enumerate(embed['fields']):
+            if not isinstance(field['inline'], bool):
+                raise ValueError(f"Field {i+1}, \"inline\" must be true or false.")
+            if len(str(field['name'])) > 256:
+                raise ValueError(f"Field {i+1} \"name\" too long. (Limit 256)")
+            if len(str(field['value'])) > 1024:
+                raise ValueError(f"Field {i+1} \"value\" too long. (Limit 1024)")
+            result['fields'].append({
+                                        'name': str(field['name']), 'value': str(field['value']),
+                                        'inline': field['inline']
+                                    })
+
+    return result
