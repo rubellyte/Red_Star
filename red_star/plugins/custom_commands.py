@@ -29,6 +29,7 @@ class CustomCommands(BasePlugin):
         "rslisp_max_runtime": 5,
         "rslisp_minify": True
     }
+    dependencies = {"rs_lisp"}
     imports = {
         "rs_lisp": ("lisp_eval", "parse", "reprint", "standard_env", "get_args")
     }

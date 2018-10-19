@@ -43,7 +43,6 @@ class PluginManager:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
                     continue
 
-
     def _load_module(self, module_path):
         if module_path.is_dir():
             raise FileNotFoundError(f"{module_path} is a directory.")
@@ -53,7 +52,7 @@ class PluginManager:
         spec = importlib.util.spec_from_file_location(name, module_path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        self.modules[name] = mod
+        self.modules[module_path.stem] = mod
         self.logger.debug(f"Imported module {name}.")
         return mod
 
@@ -77,19 +76,24 @@ class PluginManager:
 
     def final_load(self):
         self.logger.debug("Performing final plugin load pass...")
-        for plugin in self.plugins.values():
+        for plugin in tuple(self.plugins.values()):
             plugin.plugins = self.active_plugins
             if plugin.default_config:
                 self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
                 plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
-            if plugin.imports:
-                try:
-                    for mod_name, objs in plugin.imports.items():
-                        self.import_from(plugin, mod_name, *objs)
-                except (ModuleNotFoundError, AttributeError):
-                    self.logger.exception(f"Plugin {plugin.name}'s imports were invalid.", exc_info=True)
-                    del self.plugins[plugin.name]
-                    continue
+            try:
+                if plugin.dependencies:
+                    loaded_mods = set(self.modules.keys())
+                    missing = plugin.dependencies - loaded_mods
+                    if missing:
+                        raise ModuleNotFoundError(f"Missing dependency plugin(s) {', '.join(missing)}.")
+                if plugin.imports:
+                        for mod_name, objs in plugin.imports.items():
+                            self.import_from(plugin, mod_name, *objs)
+            except (ModuleNotFoundError, AttributeError):
+                self.logger.exception(f"Plugin {plugin.name} is missing dependencies.", exc_info=True)
+                del self.plugins[plugin.name]
+                continue
         self.config_manager.save_config()
 
     async def activate_all(self):
@@ -184,15 +188,13 @@ class PluginManager:
         :param objs: The name of the objects you want to import.
         :return: A tuple containing the objects you asked for.
         """
-        print(plg, mod, objs)
         try:
-            mod = self.modules["plugins." + mod]
+            mod = self.modules[mod]
         except KeyError:
             raise ModuleNotFoundError(f"Module {mod} does not exist.")
-        plg_mod = self.modules[plg.__module__]
+        plg_mod = self.modules[plg.__module__.rsplit(".")[-1]]
         for name, obj in ((obj, getattr(mod, obj)) for obj in objs):  # This is done this way so we don't partially
             setattr(plg_mod, name, obj)                               # import the functions if there's an error
-
 
     async def hook_event(self, event, *args, **kwargs):
         """
@@ -216,42 +218,48 @@ class PluginManager:
 
 class BasePlugin:
     """
-    Base plugin class from which all plugins should inherit from. Remember to
-    change the "name" variable, or else you'll have some serious issues! Note
-    that the ConfigManager, PluginManager, and logger are inserted on load.
+    The base plugin class from which all plugin classes must inherit in order to be detected by the plugin manager.
+    It is recommended you set all meta-fields (name, description, version, author), but only name is necessary.
+    In most circumstances you're going to want the plugin name and the module name to be the same.
+    The plugin manager will install various useful things to the class.
     """
-    name = "Base Plugin"
-    description = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
-    version = "1.0"
-    author = "Unknown"
-    default_config = {}
-    imports = {}
-    plugins = set()
-    client = None
-    config_manager = None
-    channel_manager = None
-    plugin_manager = None
-    logger = None
-
-    def __init__(self):
-        self.plugin_config = self.config_manager.get_plugin_config(self.name)
+    name: str = "Base Plugin"
+    description: str = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
+    version: str = "1.0"
+    author: str = "Unknown"
+    plugin_config: dict = {}
+    default_config: dict = {}
+    imports: dict = {}
+    dependencies: set = set()
+    plugins: dict = {}
+    client: "client.RedStar"
+    config_manager: "config_manager.ConfigManager"
+    channel_manager: "channel_manager.ChannelManager"
+    plugin_manager: PluginManager
+    logger = logging.Logger
 
     async def activate(self):
-        pass
+        """
+        The method called when the plugin is initialized. Should be used to get all of the Discord-related
+        initialization out of the way.
+        Raise an exception in this method to cancel activation, say if a required package isn't installed.
+        """
 
     async def deactivate(self):
-        pass
+        """
+        The method called when the plugin is uninitalized. Should be used to perform any necessary cleanup.
+        """
 
     def __str__(self):
         """
         Method to return something a little less nasty.
-        :return: String: The string to return when str() is called on this object.
+        :return: string: The string to return when str() is called on this object.
         """
         return f"<Plugin {self.name} (Version {self.version})>"
 
     def __repr__(self):
         """
         Method to return something a little less nasty.
-        :return: String: The string to return when str() is called on this object.
+        :return: string: The string to return when repr() is called on this object.
         """
         return f"<Plugin {self.name} (Version {self.version})>"
