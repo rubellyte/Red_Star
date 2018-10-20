@@ -56,6 +56,12 @@ def l_restore(string: str) -> str:
     return string
 
 
+def l_revert(string: str) -> str:
+    for r, _, p in escapes:
+        string = string.replace(p, r)
+    return string
+
+
 def tokenize(string: str) -> list:
     return tokenizer.findall(l_escape(string))
 
@@ -77,13 +83,13 @@ def reprint(ast: [list, int, str, float])-> str:
     if isinstance(ast, list):
         if len(ast) > 0:
             if ast[0] == 'quote' and isinstance(ast[1], str):
-                return f'"{ast[1]}"'
+                return f'"{l_revert(ast[1])}"'
             else:
                 return '('+joiner([reprint(x) for x in ast])+')'
         else:
             return "()"
     else:
-        return str(ast)
+        return l_revert(str(ast))
 
 
 def minify(program: [str, list]):
