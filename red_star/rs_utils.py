@@ -451,12 +451,14 @@ def verify_embed(embed: dict):
         Verification function.
         Scheme can be a length for text fields or None for url verification.
         Otherwise, it may be a dict of fields with either lengths or None for urls.
+        URLs are limited to 2048 symbols by default.
         :param res: "result" dict to put the values into
         :param key: Key to be verified
         :param target: The "embed" dict to pull values from
         :param scheme: Verification scheme
         :return: No returns, the result is added to res parameter. To prevent adding empty fields.
         """
+        _len = 0
         if key in target:
             if isinstance(scheme, dict):
                 res[key] = {}
@@ -466,7 +468,11 @@ def verify_embed(embed: dict):
                     if scheme[field]:
                         if len(target[key][field]) > scheme[field]:
                             raise ValueError(f"{key}[{field}] too long. (limit {scheme[field]})")
+                        _len += len(target[key][field])
                     else:
+                        # verify URL
+                        if len(target[key][field]) > 2048:
+                            raise ValueError(f"{key}[{field}] tool long. (limit 2048)")
                         url = urlparse(target[key][field])
                         if not (url.scheme and url.netloc and url.path):
                             raise ValueError(f"{key}[{field}] invalid url.")
@@ -475,20 +481,26 @@ def verify_embed(embed: dict):
                 if scheme:
                     if len(target[key]) > scheme:
                         raise ValueError(f"{key} too long. (limit {scheme})")
+                    _len += len(target[key])
                 else:
+                    if len(target[key]) > 2048:
+                        raise ValueError(f"{key} too long. (limit 2048)")
                     url = urlparse(target[key])
                     if not (url.scheme and url.netloc and url.path):
                         raise ValueError(f"{key} invalid url.")
                 res[key] = target[key]
+        return _len
 
     result = EmbedDict(type='rich')
-    option(result, 'title', embed, 256)
-    option(result, 'description', embed, 2048)
-    option(result, 'url', embed, None)
-    option(result, 'image', embed, {"url": None})
-    option(result, 'thumbnail', embed, {"url": None})
-    option(result, 'footer', embed, {"text": 2048, "icon_url": None})
-    option(result, 'author', embed, {"name": 256, "url": None, "icon_url": None})
+    _len = 0
+
+    _len += option(result, 'title', embed, 256)
+    _len += option(result, 'description', embed, 2048)
+    _len += option(result, 'url', embed, None)
+    _len += option(result, 'image', embed, {"url": None})
+    _len += option(result, 'thumbnail', embed, {"url": None})
+    _len += option(result, 'footer', embed, {"text": 2048, "icon_url": None})
+    _len += option(result, 'author', embed, {"name": 256, "url": None, "icon_url": None})
 
     if 'color' in embed:
         try:
@@ -502,15 +514,19 @@ def verify_embed(embed: dict):
     if 'fields' in embed:
         result['fields'] = []
         for i, field in enumerate(embed['fields']):
-            if not isinstance(field['inline'], bool):
+            if not isinstance(field.get('inline', False), bool):
                 raise ValueError(f"Field {i+1}, \"inline\" must be true or false.")
             if len(str(field['name'])) > 256:
                 raise ValueError(f"Field {i+1} \"name\" too long. (Limit 256)")
             if len(str(field['value'])) > 1024:
                 raise ValueError(f"Field {i+1} \"value\" too long. (Limit 1024)")
+            _len += len(str(field['name'])) + len(str(field['value']))
             result['fields'].append({
                                         'name': str(field['name']), 'value': str(field['value']),
-                                        'inline': field['inline']
+                                        'inline': field.get('inline', False)
                                     })
+
+    if _len > 6000:
+        raise ValueError("Embed size exceed maximum size of 6000.")
 
     return result
