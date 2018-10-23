@@ -216,5 +216,5 @@ class RoleCommands(BasePlugin):
         lists all roles along with position and color
         """
         role_str_list = [f"[{role.position:03d} | {role.colour} | {role.name[:40].ljust(40,'·')}]"
-                         for role in msg.guild.role_hierarchy]
+                         for role in msg.guild.roles[::-1]]
         await split_output(msg, "**AFFIRMATIVE. Listing roles :**", role_str_list)
