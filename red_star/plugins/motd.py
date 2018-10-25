@@ -22,6 +22,7 @@ class MOTD(BasePlugin):
         self.run_timer = True
         self.motds = {}
         self.motds_folder = self.client.storage_dir / "motds"
+        self.motds_folder.mkdir(parents=True, exist_ok=True)
         self.last_run = datetime.datetime.now().day
         for guild in self.client.guilds:
             motd_file = get_guild_config(self, str(guild.id), "motd_file")

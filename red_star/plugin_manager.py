@@ -28,6 +28,7 @@ class PluginManager:
     def load_from_path(self, plugin_path):
         ignores = ("__init__", "__pycache__")
         loaded = set()
+        plugin_path.mkdir(parents=True, exist_ok=True)
         for file in plugin_path.iterdir():
             if file.stem in ignores or file.stem.startswith(("_", ".")):
                 continue

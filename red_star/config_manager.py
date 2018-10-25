@@ -27,6 +27,7 @@ class ConfigManager:
         except FileNotFoundError:
             self.logger.warning(f"Couldn't find {self.config_file_path}! Copying default configuration...")
             default_path = Path.cwd() / "_default_files/config.json.default"
+            self.config_path.mkdir(parents=True, exist_ok=True)
             copyfile(str(default_path), str(self.config_file_path))
             self.logger.info(f"A default configuration has been copied to {self.config_path}.\n"
                              f"Please configure the bot before continuing.")
