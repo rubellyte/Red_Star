@@ -36,7 +36,8 @@ class MusicPlayer(BasePlugin):
             "extractaudio": True,
             "logtostderr": False,
             "nocheckcertificate": True,
-            "format": "bestaudio/best"
+            "format": "bestaudio/best",
+            "noplaylist": True
         },
         "default": {
             "max_queue_length": 30,
@@ -431,11 +432,13 @@ class GuildPlayer:
                                                  f"({max_len_str}). It will not be added.**")
                     return
                 else:
-                    time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-                    time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
+                    time_until_song = ""
+                    if len(self.queue) > 0:
+                        time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
+                        time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
+                        time_until_song = f"\nTime until your song: {time_until_song}"
                     await self._process_video(vid_info)
-        await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.\n"
-                                     f"Time until your song: {time_until_song}**")
+        await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
             await self.text_channel.send(f"**ANALYSIS: Current queue:**")
             for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
@@ -444,10 +447,13 @@ class GuildPlayer:
             await self._play()
 
     async def _enqueue_playlist(self, entries):
-        time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-        time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
+        time_until_song = ""
+        if len(self.queue) > 0:
+            time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
+            time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
+            time_until_song = f"\nTime until your song: {time_until_song}."
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
-                                     f"begin shortly.\nTime until your songs: {time_until_song}**")
+                                     f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
         with self.text_channel.typing():
             for vid in entries:
@@ -499,9 +505,15 @@ class GuildPlayer:
     async def _play(self):
         try:
             if self.song_mode == SongMode.SHUFFLE_REPEAT:
-                next_song = self.queue[randint(0, len(self.queue) - 1)]
+                try:
+                    next_song = self.queue[randint(0, len(self.queue) - 1)]
+                except ValueError:
+                    next_song = self.queue[0]
             elif self.song_mode == SongMode.SHUFFLE:
-                next_song = self.queue.pop(randint(0, len(self.queue) - 1))
+                try:
+                    next_song = self.queue.pop(randint(0, len(self.queue) - 1))
+                except ValueError:
+                    next_song = self.queue.pop()
             elif self.song_mode == SongMode.REPEAT_QUEUE:
                 if self.current_song:
                     self.queue.append(self.current_song)
