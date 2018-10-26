@@ -504,9 +504,15 @@ class GuildPlayer:
     async def _play(self):
         try:
             if self.song_mode == SongMode.SHUFFLE_REPEAT:
-                next_song = self.queue[randint(0, len(self.queue) - 1)]
+                try:
+                    next_song = self.queue[randint(0, len(self.queue) - 1)]
+                except ValueError:
+                    next_song = self.queue[0]
             elif self.song_mode == SongMode.SHUFFLE:
-                next_song = self.queue.pop(randint(0, len(self.queue) - 1))
+                try:
+                    next_song = self.queue.pop(randint(0, len(self.queue) - 1))
+                except ValueError:
+                    next_song = self.queue.pop()
             elif self.song_mode == SongMode.REPEAT_QUEUE:
                 if self.current_song:
                     self.queue.append(self.current_song)
