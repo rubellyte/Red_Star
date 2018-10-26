@@ -36,7 +36,8 @@ class MusicPlayer(BasePlugin):
             "extractaudio": True,
             "logtostderr": False,
             "nocheckcertificate": True,
-            "format": "bestaudio/best"
+            "format": "bestaudio/best",
+            "noplaylist": True
         },
         "default": {
             "max_queue_length": 30,
