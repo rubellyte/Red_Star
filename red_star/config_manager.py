@@ -10,7 +10,7 @@ class ConfigManager:
     """
     Manages the loading and modification of the configuration files.
     """
-    def __init__(self, config_path):
+    def __init__(self, config_path: Path):
         self.logger = logging.getLogger("red_star.config_manager")
         self.logger.debug("Initialized config manager.")
         self.config = {}
@@ -27,6 +27,7 @@ class ConfigManager:
         except FileNotFoundError:
             self.logger.warning(f"Couldn't find {self.config_file_path}! Copying default configuration...")
             default_path = Path.cwd() / "_default_files/config.json.default"
+            self.config_path.mkdir(parents=True, exist_ok=True)
             copyfile(str(default_path), str(self.config_file_path))
             self.logger.info(f"A default configuration has been copied to {self.config_path}.\n"
                              f"Please configure the bot before continuing.")
@@ -75,3 +76,6 @@ class ConfigManager:
         file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
         self.plugin_config_files[filename] = file_obj
         return file_obj
+
+    def is_maintainer(self, member):
+        return member.id in self.config.get('bot_maintainers', [])

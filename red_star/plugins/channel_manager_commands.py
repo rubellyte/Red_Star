@@ -8,13 +8,10 @@ import shlex
 
 class ChannelManagerCommands(BasePlugin):
     name = "channel_manager_commands"
-    version = "1.0.1"
+    version = "1.0.2"
     author = "medeor413"
     description = "A plugin that provides commands for interfacing with Red Star's channel_manager."
     default_config = {}
-
-    async def activate(self):
-        self.chan_conf = self.config_manager.get_plugin_config_file("channel_manager.json")
 
     @Command("GetChannel",
              doc="Gets information on the specified channel type (or all channel types if none specified) in this "
@@ -33,7 +30,7 @@ class ChannelManagerCommands(BasePlugin):
                 await respond(msg, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
         except IndexError:
             chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name}"
-                                   for x, y in self.chan_conf[gid]['channels'].items() if y is not None])
+                                   for x, y in self.channel_manager.conf[gid]['channels'].items() if y is not None])
             await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
     @Command("SetChannel",
@@ -82,17 +79,17 @@ class ChannelManagerCommands(BasePlugin):
              perms={"manage_guild"})
     async def _get_category(self, msg):
         gid = str(msg.guild.id)
-        category = msg.clean_content.split(None, 1)[1].lower()
-        if category:
-            if category in self.chan_conf[gid].categories:
-                catestr = ", ".join([msg.guild.get_channel(x).name for x in self.chan_conf[gid].categories[
-                    category]])
+        try:
+            category = msg.clean_content.split(None, 1)[1].lower()
+            if category in self.channel_manager.conf[gid]['categories']:
+                catestr = ", ".join([msg.guild.get_channel(x).name for
+                                     x in self.channel_manager.conf[gid]['categories'][category]])
                 await respond(msg, f"**ANALYSIS: Category {category} contains the following channels:**\n"
                                    f"```\n{catestr}```")
             else:
                 await respond(msg, f"**ANALYSIS: No such category {category}.**")
-        else:
-            catestr = "\n".join(self.chan_conf[gid].categories.keys())
+        except IndexError:
+            catestr = "\n".join(self.channel_manager.conf[gid]['categories'].keys())
             await respond(msg, f"**ANALYSIS: Available categories:**\n```\n{catestr}```")
 
     @Command("AddToCategory",
