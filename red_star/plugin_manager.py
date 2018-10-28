@@ -2,7 +2,8 @@ import inspect
 import logging
 import importlib
 import importlib.util
-from sys import exc_info
+from sys import exc_info, modules
+from types import ModuleType
 
 
 class PluginManager:
@@ -21,22 +22,33 @@ class PluginManager:
         self.logger = logging.getLogger("red_star.plugin_manager")
         self.logger.debug("Initialized plugin manager.")
         self.last_error = None
+        self.plugin_package = ModuleType("red_star_plugins")
+        self.plugin_package.__path__ = []
+        modules["red_star_plugins"] = self.plugin_package
 
     def __repr__(self):
         return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
 
-    def load_from_path(self, plugin_path):
-        ignores = ("__init__", "__pycache__")
+    def load_all_plugins(self, plugin_paths):
+        self.logger.debug("Loading plugins...")
+        self.plugin_package.__path__.extend(str(x) for x in plugin_paths)
+        for path in plugin_paths:
+            self._load_plugin_folder(path)
+        self.config_manager.save_config()
+        self.logger.info(f"Loaded {len(self.plugins)} plugins from {len(self.modules)} modules.")
+
+    def _load_plugin_folder(self, plugin_path):
+        self.logger.debug(f"Loading plugins from {plugin_path}...")
         loaded = set()
         plugin_path.mkdir(parents=True, exist_ok=True)
         for file in plugin_path.iterdir():
-            if file.stem in ignores or file.stem.startswith(("_", ".")):
+            if file.stem.startswith(("_", ".")):
                 continue
-            if (file.suffix == ".py" or file.is_dir()) and str(file) not in loaded:
+            if (file.suffix == ".py" or file.is_dir()) and file not in loaded:
                 try:
-                    modul = self._load_module(file)
+                    modul = self._load_module(file.stem)
                     self.load_plugin(modul)
-                    loaded.add(str(file))
+                    loaded.add(file)
                 except (SyntaxError, ImportError):
                     self.logger.exception(f"Exception encountered loading plugin {file.stem}: ", exc_info=True)
                     continue
@@ -44,58 +56,35 @@ class PluginManager:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
                     continue
 
-    def _load_module(self, module_path):
-        if module_path.is_dir():
-            raise FileNotFoundError(f"{module_path} is a directory.")
-        if not module_path.exists():
-            raise FileNotFoundError(f"{module_path} does not exist.")
-        name = "plugins." + module_path.stem
-        spec = importlib.util.spec_from_file_location(name, module_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        self.modules[module_path.stem] = mod
-        self.logger.debug(f"Imported module {name}.")
+    def _load_module(self, module_name):
+        mod = importlib.import_module(f"red_star_plugins.{module_name}")
+        self.modules[module_name] = mod
+        self.logger.debug(f"Imported module {module_name}.")
         return mod
 
-    def _get_plugin_class(self, modul):
+    def _get_plugin_class(self, plugin_module):
+        def predicate(cls):
+            return inspect.isclass(cls) and issubclass(cls, BasePlugin) and cls is not BasePlugin
+
         class_list = set()
-        for name, obj in inspect.getmembers(modul, predicate=inspect.isclass):
-            if issubclass(obj, BasePlugin) and obj is not BasePlugin:
-                obj.client = self.client
-                obj.config_manager = self.config_manager
-                obj.channel_manager = self.channel_manager
-                obj.plugin_manager = self
-                obj.logger = logging.getLogger("red_star.plugin." + obj.name)
-                class_list.add(obj)
+        for name, obj in inspect.getmembers(plugin_module, predicate=predicate):
+            obj.client = self.client
+            obj.config_manager = self.config_manager
+            if obj.default_config:
+                self.config_manager.init_plugin_config(obj.name, obj.default_config)
+                obj.plugin_config = self.config_manager.get_plugin_config(obj.name)
+            obj.channel_manager = self.channel_manager
+            obj.plugin_manager = self
+            obj.plugins = self.active_plugins
+            obj.logger = logging.getLogger("red_star.plugin." + obj.name)
+            class_list.add(obj)
         return class_list
 
-    def load_plugin(self, modul):
-        classes = self._get_plugin_class(modul)
+    def load_plugin(self, plugin_module):
+        classes = self._get_plugin_class(plugin_module)
         for cls in classes:
             self.plugins[cls.name] = cls()
             self.logger.debug(f"Loaded plugin {cls.name}")
-
-    def final_load(self):
-        self.logger.debug("Performing final plugin load pass...")
-        for plugin in tuple(self.plugins.values()):
-            plugin.plugins = self.active_plugins
-            if plugin.default_config:
-                self.config_manager.init_plugin_config(plugin.name, plugin.default_config)
-                plugin.plugin_config = self.config_manager.get_plugin_config(plugin.name)
-            try:
-                if plugin.dependencies:
-                    loaded_mods = set(self.modules.keys())
-                    missing = plugin.dependencies - loaded_mods
-                    if missing:
-                        raise ModuleNotFoundError(f"Missing dependency plugin(s) {', '.join(missing)}.")
-                if plugin.imports:
-                        for mod_name, objs in plugin.imports.items():
-                            self.import_from(plugin, mod_name, *objs)
-            except (ModuleNotFoundError, AttributeError):
-                self.logger.exception(f"Plugin {plugin.name} is missing dependencies.", exc_info=True)
-                del self.plugins[plugin.name]
-                continue
-        self.config_manager.save_config()
 
     async def activate_all(self):
         self.logger.info("Activating plugins.")
@@ -180,23 +169,6 @@ class PluginManager:
         except KeyError:
             self.logger.error(f"Attempted to reload non-existent plugin module {name}.")
 
-    def import_from(self, plg, mod, *objs):
-        """
-        A helper function to fetch objects from other modules, which may not necessarily be accessible from the plugin.
-        More or less a slightly janky version of "from mod import obj" that doesn't care about import order or location
-        :param plg: the plugin calling the function.
-        :param mod: The name of the module to fetch from.
-        :param objs: The name of the objects you want to import.
-        :return: A tuple containing the objects you asked for.
-        """
-        try:
-            mod = self.modules[mod]
-        except KeyError:
-            raise ModuleNotFoundError(f"Module {mod} does not exist.")
-        plg_mod = self.modules[plg.__module__.rsplit(".")[-1]]
-        for name, obj in ((obj, getattr(mod, obj)) for obj in objs):  # This is done this way so we don't partially
-            setattr(plg_mod, name, obj)                               # import the functions if there's an error
-
     async def hook_event(self, event, *args, **kwargs):
         """
         Dispatches an event, with its data, to all plugins.
@@ -230,8 +202,6 @@ class BasePlugin:
     author: str = "Unknown"
     plugin_config: dict = {}
     default_config: dict = {}
-    imports: dict = {}
-    dependencies: set = set()
     plugins: dict = {}
     client: "client.RedStar"
     config_manager: "config_manager.ConfigManager"

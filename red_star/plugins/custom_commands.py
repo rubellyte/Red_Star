@@ -12,6 +12,7 @@ from discord.errors import Forbidden
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
 from red_star.rs_utils import respond, find_user, split_output
+from .rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
 
 
 # noinspection PyBroadException
@@ -28,10 +29,6 @@ class CustomCommands(BasePlugin):
         },
         "rslisp_max_runtime": 5,
         "rslisp_minify": True
-    }
-    dependencies = {"rs_lisp"}
-    imports = {
-        "rs_lisp": ("lisp_eval", "parse", "reprint", "standard_env", "get_args")
     }
 
     async def activate(self):

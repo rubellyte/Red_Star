@@ -26,6 +26,9 @@ class RedStar(AutoShardedClient):
         super().__init__()
 
         self.storage_dir = storage_dir
+        self.plugin_directories = [Path.cwd() / "plugins"]
+        if not argv.portable:
+            self.plugin_directories.append(self.storage_dir / "plugins")
 
         self.config_manager = ConfigManager(storage_dir / "config")
         self.config = self.config_manager.config
@@ -34,10 +37,7 @@ class RedStar(AutoShardedClient):
         self.command_dispatcher = CommandDispatcher(self)
 
         self.plugin_manager = PluginManager(self)
-        self.plugin_manager.load_from_path(Path.cwd() / "plugins")
-        if not argv.portable:
-            self.plugin_manager.load_from_path(self.storage_dir / "plugins")
-        self.plugin_manager.final_load()
+        self.plugin_manager.load_all_plugins(self.plugin_directories)
 
         self.logged_in = False
         self.server_ready = False
