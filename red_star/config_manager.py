@@ -63,18 +63,21 @@ class ConfigManager:
         self.config["plugins"][name] = new_config
 
     def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None)-> JsonFileDict:
-        file_path = self.config_path / filename
-        if not file_path.exists():
-            default_config = Path.cwd() / "_default_files" / (filename + ".default")
-            if default_config.exists():
-                copyfile(str(default_config), str(file_path))
-                self.logger.debug(f"Copied default configuration for {filename} to {file_path}.")
-            else:
-                with file_path.open("w", encoding="utf-8") as fd:
-                    fd.write("{}")
-                self.logger.debug(f"Created config file {file_path}.")
-        file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
-        self.plugin_config_files[filename] = file_obj
+        if filename in self.plugin_config_files:
+            file_obj = self.plugin_config_files[filename]
+        else:
+            file_path = self.config_path / filename
+            if not file_path.exists():
+                default_config = Path.cwd() / "_default_files" / (filename + ".default")
+                if default_config.exists():
+                    copyfile(str(default_config), str(file_path))
+                    self.logger.debug(f"Copied default configuration for {filename} to {file_path}.")
+                else:
+                    with file_path.open("w", encoding="utf-8") as fd:
+                        fd.write("{}")
+                    self.logger.debug(f"Created config file {file_path}.")
+            file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
+            self.plugin_config_files[filename] = file_obj
         return file_obj
 
     def is_maintainer(self, member):
