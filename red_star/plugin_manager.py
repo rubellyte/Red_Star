@@ -75,9 +75,9 @@ class PluginManager:
                 obj.plugin_config = self.config_manager.get_plugin_config(obj.name)
             obj.channel_manager = self.channel_manager
             if obj.channel_types:
-                self.channel_manager.channel_types.extend(obj.channel_types)
+                self.channel_manager.channel_types |= obj.channel_types
             if obj.channel_categories:
-                self.channel_manager.channel_categories.extend(obj.channel_categories)
+                self.channel_manager.channel_categories |= obj.channel_categories
             obj.plugin_manager = self
             obj.plugins = self.active_plugins
             obj.logger = logging.getLogger("red_star.plugin." + obj.name)
@@ -215,8 +215,8 @@ class BasePlugin:
     logger = logging.Logger
     # User-defined attributes for use internally
     default_config: dict = {}
-    channel_types: list = []
-    channel_categories: list = []
+    channel_types: set = set()
+    channel_categories: set = set()
 
     async def activate(self):
         """

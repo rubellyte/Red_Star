@@ -18,10 +18,21 @@ class DiscordLogger(BasePlugin):
             ]
         }
     }
-    channel_types = ["logs"]
+    channel_types = {"logs"}
+    log_events = {"message_delete", "message_edit", "member_update", "pin_update", "member_ban", "member_unban",
+                 "member_join", "member_leave", "role_update"}
 
     async def activate(self):
         self.log_items = {}
+
+    async def on_all_plugins_loaded(self):
+        for plg in self.plugins.values():
+            if plg is self:
+                continue
+            plg_log_events = getattr(plg, "log_events", None)
+            if plg_log_events:
+                self.log_events |= plg_log_events
+                self.logger.debug(f"Registered log events {', '.join(plg_log_events)} from {plg.name}.")
 
     async def on_global_tick(self, *_):
         for guild in self.client.guilds:
@@ -80,7 +91,7 @@ class DiscordLogger(BasePlugin):
 
     async def on_guild_channel_pins_update(self, channel, last_pin):
         blacklist = self.plugin_config.setdefault(str(channel.guild.id), self.plugin_config["default"])["log_event_blacklist"]
-        if "guild_channel_pins_update" not in blacklist:
+        if "pin_update" not in blacklist:
             try:
                 new_pin = (datetime.utcnow() - last_pin < timedelta(seconds=5))
             except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
@@ -93,22 +104,22 @@ class DiscordLogger(BasePlugin):
 
     async def on_member_ban(self, guild, member):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
-        if "on_member_ban" not in blacklist:
+        if "member_ban" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} was banned.**", guild)
 
     async def on_member_unban(self, guild, member):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
-        if "on_member_unban" not in blacklist:
+        if "member_unban" not in blacklist:
             self.emit_log(f"**ANALYSIS: Ban was lifted from user {member}.**", guild)
 
     async def on_member_join(self, member):
         blacklist = self.plugin_config.setdefault(str(member.guild.id), self.plugin_config["default"])["log_event_blacklist"]
-        if "on_member_join" not in blacklist:
+        if "member_join" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} has joined the server. User id: `{member.id}`**", member.guild)
 
     async def on_member_remove(self, member):
         blacklist = self.plugin_config.setdefault(str(member.guild.id), self.plugin_config["default"])["log_event_blacklist"]
-        if "on_member_remove" not in blacklist:
+        if "member_leave" not in blacklist:
             now = datetime.utcnow()
             try:
                 # find audit log entries for kicking of member with our ID, created in last five seconds.
@@ -127,7 +138,7 @@ class DiscordLogger(BasePlugin):
 
     async def on_guild_role_update(self, before, after):
         blacklist = self.plugin_config.setdefault(str(after.guild.id), self.plugin_config["default"])["log_event_blacklist"]
-        if "on_guild_role_update" not in blacklist:
+        if "role_update" not in blacklist:
             diff = []
             try:
                 audit_event = after.guild.audit_logs(action=AuditLogAction.role_update,
@@ -189,9 +200,15 @@ class DiscordLogger(BasePlugin):
         cfg = self.plugin_config.setdefault(str(msg.guild.id), self.plugin_config["default"])["log_event_blacklist"]
         try:
             action, event_type = msg.clean_content.lower().split(" ", 2)[1:]
+            if event_type not in self.log_events:
+                await respond(f"**Log event {event_type} does not exist.\n"
+                              f"Valid events:** `{', '.join(self.log_events)}`")
+                return
         except ValueError:
             if len(msg.clean_content.split(" ")) == 1:
-                await respond(msg, f"**ANALYSIS: Disabled log events: **`{', '.join(cfg)}`")
+                enabled = ", ".join(self.log_events - set(cfg)) or "None"
+                await respond(msg, f"**ANALYSIS: Enabled log events:** `{enabled}`\n"
+                                   f"**Disabled log events:** {', '.join(cfg) or 'None'}")
                 return
             else:
                 raise CommandSyntaxError("Invalid number of arguments.")

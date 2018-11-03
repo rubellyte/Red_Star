@@ -15,7 +15,7 @@ class ReminderPlugin(BasePlugin):
     version = "1.0"
     author = "GTG3000"
     description = "A plugin for setting messages that the bot will send you at a configurable time."
-    channel_types = ["reminders"]
+    channel_types = {"reminders"}
 
     run_timer = False
     timer = None

@@ -33,7 +33,7 @@ class Announcer(BasePlugin):
             ]
         }
     }
-    channel_types = ["startup", "welcome"]
+    channel_types = {"startup", "welcome"}
 
     async def on_all_plugins_loaded(self):
         await self._greet()

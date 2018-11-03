@@ -12,6 +12,7 @@ class AdminCommands(BasePlugin):
     version = "1.1.1"
     author = "medeor413"
     description = "A plugin that adds useful administrative commands. Currently only features Purge."
+    log_events = {"purge_event"}
 
     @Command("Purge", "Prune",
              doc="Purges messages from the channel in bulk.\nUse -r option for regexp match filtering.\nWARNING: "

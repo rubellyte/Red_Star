@@ -6,8 +6,8 @@ class ChannelManager:
         self.client = client
         self.config_manager = client.config_manager
         self.conf = self.config_manager.get_plugin_config_file("channel_manager.json")
-        self.channel_types = ["commands"]
-        self.channel_categories = ["no_read"]
+        self.channel_types = {"commands"}
+        self.channel_categories = {"no_read"}
         if "channel_manager" in self.config_manager.config:  # Port from the old config.json storage
             self.conf.update(self.config_manager.config["channel_manager"])
             del self.config_manager.config["channel_manager"]
@@ -45,7 +45,7 @@ class ChannelManager:
         self.conf.save()
 
     def channel_in_category(self, guild, category, channel):
-        guild_categories = self.conf[str(guild.id)][category.lower()]
+        guild_categories = self.conf[str(guild.id)]["categories"][category.lower()]
         if category not in guild_categories:
             return False
         if channel.id not in guild_categories[category]:

@@ -594,7 +594,7 @@ class GuildPlayer:
             self.stop()
         else:
             votes_needed = ceil(total_users * threshold) - self._skip_votes
-            await self.text_channel.send(f"**AFFIRMATIVE. Skip vote recorded. {votes_needed} votes needed to skip.")
+            await self.text_channel.send(f"**AFFIRMATIVE. Skip vote recorded. {votes_needed} votes needed to skip.**")
 
     @property
     def volume(self):
