@@ -30,6 +30,7 @@ class CustomCommands(BasePlugin):
         "rslisp_max_runtime": 5,
         "rslisp_minify": True
     }
+    channel_categories = ["no_cc"]
 
     async def activate(self):
         self.ccs = self.config_manager.get_plugin_config_file("ccs.json")

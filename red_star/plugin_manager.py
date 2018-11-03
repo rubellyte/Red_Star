@@ -74,6 +74,10 @@ class PluginManager:
                 self.config_manager.init_plugin_config(obj.name, obj.default_config)
                 obj.plugin_config = self.config_manager.get_plugin_config(obj.name)
             obj.channel_manager = self.channel_manager
+            if obj.channel_types:
+                self.channel_manager.channel_types.extend(obj.channel_types)
+            if obj.channel_categories:
+                self.channel_manager.channel_categories.extend(obj.channel_categories)
             obj.plugin_manager = self
             obj.plugins = self.active_plugins
             obj.logger = logging.getLogger("red_star.plugin." + obj.name)
@@ -196,18 +200,23 @@ class BasePlugin:
     In most circumstances you're going to want the plugin name and the module name to be the same.
     The plugin manager will install various useful things to the class.
     """
+    # Metadata fields
     name: str = "Base Plugin"
     description: str = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
     version: str = "1.0"
     author: str = "Unknown"
-    plugin_config: dict = {}
-    default_config: dict = {}
+    # Attributes added by plugin manager
     plugins: dict = {}
+    plugin_config: dict = {}
     client: "client.RedStar"
     config_manager: "config_manager.ConfigManager"
     channel_manager: "channel_manager.ChannelManager"
     plugin_manager: PluginManager
     logger = logging.Logger
+    # User-defined attributes for use internally
+    default_config: dict = {}
+    channel_types: list = []
+    channel_categories: list = []
 
     async def activate(self):
         """

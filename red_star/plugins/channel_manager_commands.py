@@ -8,7 +8,7 @@ import shlex
 
 class ChannelManagerCommands(BasePlugin):
     name = "channel_manager_commands"
-    version = "1.0.2"
+    version = "1.0.3"
     author = "medeor413"
     description = "A plugin that provides commands for interfacing with Red Star's channel_manager."
     default_config = {}
@@ -29,8 +29,8 @@ class ChannelManagerCommands(BasePlugin):
             except ChannelNotFoundError:
                 await respond(msg, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
         except IndexError:
-            chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name}"
-                                   for x, y in self.channel_manager.conf[gid]['channels'].items() if y is not None])
+            chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name if y else 'Unset'}"
+                                   for x, y in self.channel_manager.conf[gid]['channels'].items()])
             await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
 
     @Command("SetChannel",
@@ -49,18 +49,24 @@ class ChannelManagerCommands(BasePlugin):
         else:
             raise CommandSyntaxError("No channel type provided.")
 
+        if chantype not in self.channel_manager.channel_types:
+            type_list = "\n".join(x.capitalize() for x in self.channel_manager.channel_types)
+            await respond(msg, f"**WARNING: No such channel type {chantype}. Channel types:**\n"
+                               f"```\n{type_list}\n```")
+            return
+
         if len(args) > 2:
             if chantype.startswith("voice"):
                 channel = args[2].lower()
                 channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
                                      msg.guild.channels)
                 if not channel:
-                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found")
+                    raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
             else:
                 if msg.channel_mentions:
                     channel = msg.channel_mentions[0]
                 else:
-                    raise CommandSyntaxError("No channel provided")
+                    raise CommandSyntaxError("No channel provided.")
         else:
             channel = None
 
@@ -95,16 +101,24 @@ class ChannelManagerCommands(BasePlugin):
     @Command("AddToCategory",
              doc="Adds the given channel to the specified category for this server.\n"
                  "Use channel mention for text channels or channel name for voice channels.\n"
-                 "Voice channel categories must be prefixed by \"voice\".",
-             syntax="(category) (channel)",
+                 "Voice channel categories must be prefixed by \"voice\".\n"
+                 "Use --create to force addition of a new category.",
+             syntax="[-c/--create](category) (channel)",
              category="channel_management",
              perms={"manage_guild"})
     async def _add_to_category(self, msg):
         args = shlex.split(msg.content)
-        if len(args) > 1:
+        ignore_missing = False
+        try:
             category = args[1].lower()
-        else:
+            if category in ("-c", "--create"):
+                ignore_missing = True
+                category = args[2].lower()
+        except IndexError:
             raise CommandSyntaxError("No category provided.")
+
+        if category not in self.channel_manager.conf[str(msg.guild.id)]["categories"] and not ignore_missing:
+            raise CommandSyntaxError(f"No such channel category {category}.")
 
         if len(args) > 2:
             res = ""
@@ -141,6 +155,9 @@ class ChannelManagerCommands(BasePlugin):
             category = args[1].lower()
         else:
             raise CommandSyntaxError("No category provided.")
+
+        if category not in self.channel_manager.conf[str(msg.guild.id)]["categories"]:
+            raise CommandSyntaxError(f"No such channel category {category}.")
 
         if len(args) > 2:
             res = ""

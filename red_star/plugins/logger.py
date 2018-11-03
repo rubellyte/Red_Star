@@ -18,6 +18,7 @@ class DiscordLogger(BasePlugin):
             ]
         }
     }
+    channel_types = ["logs"]
 
     async def activate(self):
         self.log_items = {}

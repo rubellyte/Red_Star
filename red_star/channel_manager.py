@@ -6,6 +6,8 @@ class ChannelManager:
         self.client = client
         self.config_manager = client.config_manager
         self.conf = self.config_manager.get_plugin_config_file("channel_manager.json")
+        self.channel_types = ["commands"]
+        self.channel_categories = ["no_read"]
         if "channel_manager" in self.config_manager.config:  # Port from the old config.json storage
             self.conf.update(self.config_manager.config["channel_manager"])
             del self.config_manager.config["channel_manager"]
@@ -15,66 +17,45 @@ class ChannelManager:
             "categories": {}
         }
 
-    def add_guild(self, guild):
-        gid = str(guild.id)
+    def add_guild(self, gid):
         if gid not in self.conf:
-            self.conf[gid] = self.default_config
-            if guild.afk_channel:
-                self.conf[gid]["channels"]["voice_afk"] = guild.afk_channel.id
-            self.conf.save()
+            self.conf[gid] = self.default_config.copy()
+        guild_conf = self.conf[gid]
+        new_channels = {i: None for i in self.channel_types}
+        new_channels.update(guild_conf["channels"])
+        guild_conf["channels"] = new_channels
+        new_categories = {i: [] for i in self.channel_categories}
+        new_categories.update(guild_conf["categories"])
+        guild_conf["categories"] = new_categories
+        self.conf.save()
 
     def get_channel(self, guild, chantype):
         gid = str(guild.id)
         chantype = chantype.lower()
-        self.add_guild(guild)
-        if chantype in self.conf[gid]["channels"]:
-            chan = self.conf[gid]["channels"][chantype]
-            chan = self.client.get_channel(chan)
-            if not chan:
-                raise ChannelNotFoundError(chantype)
-            return chan
-        else:
+        chan = self.conf[gid]["channels"][chantype]
+        chan = self.client.get_channel(chan)
+        if not chan:
             raise ChannelNotFoundError(chantype)
+        return chan
 
     def set_channel(self, guild, chantype, channel):
         gid = str(guild.id)
         chantype = chantype.lower()
-        self.add_guild(guild)
-        if channel:
-            self.conf[gid]["channels"][chantype] = channel.id
-            self.conf.save()
-        elif chantype in self.conf[gid]["channels"]:
-            self.conf[gid]["channels"].pop(chantype)
-            self.conf.save()
-
-    def register_category(self, guild, category):
-        gid = str(guild.id)
-        category = category.lower()
-        self.add_guild(guild)
-        if category not in self.conf[gid]["categories"]:
-            self.conf[gid]["categories"][category] = []
+        self.conf[gid]["channels"][chantype] = channel.id
         self.conf.save()
 
     def channel_in_category(self, guild, category, channel):
-        gid = str(guild.id)
-        category = category.lower()
-        self.add_guild(guild)
-        if category not in self.conf[gid]["categories"]:
+        guild_categories = self.conf[str(guild.id)][category.lower()]
+        if category not in guild_categories:
             return False
-        if channel.id not in self.conf[gid]["categories"][category]:
+        if channel.id not in guild_categories[category]:
             return False
         return True
 
     def add_channel_to_category(self, guild, category, channel):
-        gid = str(guild.id)
-        category = category.lower()
-        self.add_guild(guild)
-        if category not in self.conf[gid]["categories"]:
-            self.conf[gid]["categories"][category] = [channel.id]
-            self.conf.save()
-            return True
-        elif channel.id not in self.conf[gid]["categories"][category]:
-            self.conf[gid]["categories"][category].append(channel.id)
+        category = self.conf[str(guild.id)][category.lower()].setdefault(category, [])
+        if channel.id not in category:
+            category.append(channel.id)
             self.conf.save()
             return True
         else:
@@ -83,12 +64,9 @@ class ChannelManager:
     def remove_channel_from_category(self, guild, category, channel):
         gid = str(guild.id)
         category = category.lower()
-        self.add_guild(guild)
-        if category not in self.conf[gid]["categories"]:
-            return False
-        elif channel.id not in self.conf[gid]["categories"][category]:
-            return False
-        else:
+        if self.channel_in_category(guild, category, channel):
             self.conf[gid]["categories"][category].remove(channel.id)
             self.conf.save()
             return True
+        else:
+            return False
