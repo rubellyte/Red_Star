@@ -41,7 +41,8 @@ class MusicPlayer(BasePlugin):
             "max_queue_length": 30,
             "max_video_length": 1800,
             "vote_skip_threshold": 0.5,
-            "print_queue_on_edit": True
+            "print_queue_on_edit": True,
+            "idle_disconnect_time": 300
         }
     }
 
@@ -323,7 +324,8 @@ class MusicPlayer(BasePlugin):
 
     @Command("MusicConfig",
              doc="Allows the configuration of per-server music bot options.\n"
-                 "Valid options: 'max_queue_length', 'max_video_length', 'vote_skip_threshold', 'print_queue_on_edit'",
+                 "Valid options: 'max_queue_length', 'max_video_length', 'vote_skip_threshold', "
+                 "'print_queue_on_edit', 'idle_disconnect_time'",
              syntax="[(option) (value)]",
              perms="manage_guild",
              category="music_player")
@@ -336,7 +338,7 @@ class MusicPlayer(BasePlugin):
             await respond(msg, f"**ANALYSIS: Current configuration:**```{current_conf}```")
             return
         opt = opt.lower()
-        if opt in ("max_queue_length", "max_video_length"):
+        if opt in ("max_queue_length", "max_video_length", "idle_disconnect_time"):
             try:
                 val = int(val)
             except ValueError:
@@ -357,7 +359,8 @@ class MusicPlayer(BasePlugin):
 
     # Utility functions
 
-    async def on_global_tick(self, *_):
+    async def on_global_tick(self, _, dt):
+        # Cache reaper
         save_required = False
         for file, dl_time in self.storage["downloaded_songs"].copy().items():
             if time() - dl_time > self.plugin_config["video_cache_clear_age"]:
@@ -370,6 +373,9 @@ class MusicPlayer(BasePlugin):
                     continue
         if save_required:
             self.storage.save()
+        # Auto-disconnect
+        for player in self.players.values():
+            await player.idle_check(dt)
 
     async def create_player(self, voice_channel, text_channel):
         with text_channel.typing():
@@ -408,6 +414,7 @@ class GuildPlayer:
         self._song_pause_time = None
         self._skip_votes = 0
         self.gid = str(voice_client.guild.id)
+        self._alone_time = 0
 
     async def enqueue(self, url):
         with self.text_channel.typing():
@@ -651,6 +658,18 @@ class GuildPlayer:
         if len(title) > 57:
             title = title[:54] + "..."
         return f"[{title:-<57}][{dur_str}]\n[{progress_bar}]"
+
+    async def idle_check(self, dt):
+        alone = len(self.voice_client.channel.members) <= 1
+        if not alone:
+            self._alone_time = 0
+            return
+        self._alone_time += dt
+        if self._alone_time > get_guild_config(self.parent, self.gid, "idle_disconnect_time"):
+            self.stop()
+            await self.voice_client.disconnect()
+            del self
+
 
 
 def seconds_to_minutes(secs, hours=False):
