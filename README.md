@@ -19,11 +19,15 @@ A configurable, extensible Discord bot with administration and entertainment plu
 
 # Installation
 ## With pip
-Simply run `pip install red-star`, and Red Star and all its dependencies will be automatically installed.
+Simply run `pip install red-star --process-dependency-links`, and Red Star and all its dependencies will be automatically installed.
 You can then run Red Star by simply running `python -m red_star` or `red_star` (if Scripts is in your PATH).
+
+**Note:** `--process-dependency-links` is a deprecated function, but no suitable replacement exists, so it is used anyways.
+If you'd rather not run a deprecated function, you can install discord.py's rewrite branch manually, via 
+`pip install https://github.com/Rapptz/discord.py/tarball/rewrite#egg=discord.py[voice]`
 ## From source
 ### Installing
-Running `pip install -e .` inside the Red Star folder will install Red Star and all its dependencies automatically.
+Running `pip install -e . --process-dependency-links` inside the Red Star folder will install Red Star and all its dependencies automatically.
 This will allow you to run Red Star in the same way as above.
 ### Running portably
 Alternatively, one can run Red Star portably by simply navigating to the source directory and running `python red_star.py -p`.

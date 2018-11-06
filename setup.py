@@ -30,9 +30,9 @@ setuptools.setup(
     license='MIT',
     platforms='any',
     install_requires=get_requirements(),
-    dependency_links=['https://github.com/Rapptz/discord.py/tarball/rewrite#egg=discord.py[voice]'],
+    dependency_links=['https://github.com/Rapptz/discord.py/tarball/rewrite#egg=discord.py-1.0.0a0'],
     entry_points={
-        'console_scripts': ['red_star = red_star:main']
+        'console_scripts': ['red_star = red_star.__main__:main']
     },
     zip_safe=False,
     classifiers=[
@@ -40,6 +40,7 @@ setuptools.setup(
         "Environment :: Console",
         "Framework :: AsyncIO",
         "Intended Audience :: Developers",
+        "Intended Audience :: End Users/Desktop"
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Operating System :: OS Independent",
