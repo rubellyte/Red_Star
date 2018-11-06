@@ -44,6 +44,7 @@
     },
     "music_player": {
       "default": {
+        "idle_disconnect_time": 300,
         "max_queue_length": 30,
         "max_video_length": 1800,
         "print_queue_on_edit": true,
@@ -60,6 +61,7 @@
         "format": "bestaudio/best",
         "logtostderr": false,
         "nocheckcertificate": true,
+        "noplaylist": true,
         "quiet": true,
         "restrictfilenames": true,
         "source_address": "0.0.0.0"
