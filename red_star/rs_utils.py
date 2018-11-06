@@ -178,57 +178,47 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
     return await msg.channel.send(text, **kwargs)
 
 
-def split_message(message_str, splitter=None, max_len=2000):
+def split_message(input_string: str, max_len: int=2000, splitter: str= "\n"):
     """
-    Split message into 2000-character blocks, optionally on specific character.
-    :param message_str: The message to split
-    :param splitter: Optional, the string to split on. Default None.
-    :param max_len: The maximum length of the message blocks. Default 2000.
+    A helper function that takes in a text string and breaks it into pieces with a maximum size, making sure all
+    markdown is properly closed in the process.
+    :param input_string: The input string to be split into chunks
+    :param max_len: The maximum length of a given chunk
+    :param splitter: The token upon which the function should try to split the string
+    :return: A list of strings with closed markdown, each within `max_len` length
     """
-    msgs = []
-    search_point = 0
-    if splitter:
-        while len(message_str) - search_point > max_len:
-            searchstr = message_str[search_point:search_point + max_len]
-            point = searchstr.rfind(splitter)
-            if point >= 0:
-                point += 1
-                msgs.append(message_str[search_point:search_point + point])
-                search_point += point
-            else:
-                msgs.append(message_str[search_point:search_point + max_len])
-                search_point += max_len
-        msgs.append(message_str[search_point:])
-    else:
-        for x in range(0, len(message_str), max_len):
-            msgs.append(message_str[x:x + max_len])
-    return msgs
+    final_strings = []
+    open_markdown = ""
+    while True:
+        snippet = input_string[:max_len - len(open_markdown)]
+        while True:
+            # Find the nearest splitter character to the maximum length
+            snippet = snippet.rsplit(splitter, 1)[0] or snippet
+            cut_length = len(snippet)
+            snippet_marked_down = open_markdown + snippet
+            # Close the markdown
+            snippet_marked_down, extra_md = close_markdown(snippet_marked_down)
+            # If, with markdown closed, it fits, continue. Otherwise, run the loop again.
+            if len(snippet_marked_down) <= max_len:
+                open_markdown = extra_md
+                break
+            elif len(snippet.strip().rsplit(splitter, 1)) <= 1:
+                snippet = snippet[:max_len - len(snippet_marked_down)]
+        final_strings.append(snippet_marked_down)
+        input_string = input_string[cut_length:]  # Cut down the input string for the next iteration
+        if not input_string:
+            return final_strings
 
 
-async def split_output(message, title, items, *, header="```\n", footer="```",
-                       string_processor=lambda x: str(x) + "\n"):
-    """
-    :type title: str
-    :type header: str
-    :type footer: str
-    :param message: a discord.Message object to respond to
-    :param title: a title string, appended before the list
-    :param items: a list of items to iterate over
-    :param header: a header string, put between title and items
-    :param footer: a footer string, capping up the lists
-    :param string_processor: a function to run on the items. Must take one argument (the item) and return a string
-    :return:
-    """
-    final_str = title + header
-    footer_len = len(footer)
-    for i in items:
-        processed_str = string_processor(i)
-        if len(final_str+processed_str) > 2000-footer_len:
-            await respond(message, final_str+footer)
-            final_str = header+processed_str
-        else:
-            final_str += processed_str
-    await respond(message, final_str+footer)
+def close_markdown(input_string):
+    code_block_matches = re.findall(r"```\w+\n", input_string)
+    in2 = re.sub(r"```\w+\n", "```", input_string)
+    md_matches = re.findall(r"(\*{1,3}|_{1,3}|```|`)", in2)
+    unclosed_matches = "".join(s for s in md_matches if md_matches.count(s) % 2 != 0)
+    output = input_string + unclosed_matches
+    if code_block_matches:
+        unclosed_matches = unclosed_matches.replace("```", code_block_matches[0], 1)
+    return output, unclosed_matches
 
 
 def ordinal(n):
@@ -458,7 +448,7 @@ def verify_embed(embed: dict):
         :param scheme: Verification scheme
         :return: No returns, the result is added to res parameter. To prevent adding empty fields.
         """
-        _len = 0
+        total_len = 0
         if key in target:
             if isinstance(scheme, dict):
                 res[key] = {}
@@ -468,7 +458,7 @@ def verify_embed(embed: dict):
                     if scheme[field]:
                         if len(target[key][field]) > scheme[field]:
                             raise ValueError(f"{key}[{field}] too long. (limit {scheme[field]})")
-                        _len += len(target[key][field])
+                        total_len += len(target[key][field])
                     else:
                         # verify URL
                         if len(target[key][field]) > 2048:
@@ -481,7 +471,7 @@ def verify_embed(embed: dict):
                 if scheme:
                     if len(target[key]) > scheme:
                         raise ValueError(f"{key} too long. (limit {scheme})")
-                    _len += len(target[key])
+                    total_len += len(target[key])
                 else:
                     if len(target[key]) > 2048:
                         raise ValueError(f"{key} too long. (limit 2048)")
@@ -489,18 +479,18 @@ def verify_embed(embed: dict):
                     if not (url.scheme and url.netloc and url.path):
                         raise ValueError(f"{key} invalid url.")
                 res[key] = target[key]
-        return _len
+        return total_len
 
     result = EmbedDict(type='rich')
-    _len = 0
+    embed_len = 0
 
-    _len += option(result, 'title', embed, 256)
-    _len += option(result, 'description', embed, 2048)
-    _len += option(result, 'url', embed, None)
-    _len += option(result, 'image', embed, {"url": None})
-    _len += option(result, 'thumbnail', embed, {"url": None})
-    _len += option(result, 'footer', embed, {"text": 2048, "icon_url": None})
-    _len += option(result, 'author', embed, {"name": 256, "url": None, "icon_url": None})
+    embed_len += option(result, 'title', embed, 256)
+    embed_len += option(result, 'description', embed, 2048)
+    embed_len += option(result, 'url', embed, None)
+    embed_len += option(result, 'image', embed, {"url": None})
+    embed_len += option(result, 'thumbnail', embed, {"url": None})
+    embed_len += option(result, 'footer', embed, {"text": 2048, "icon_url": None})
+    embed_len += option(result, 'author', embed, {"name": 256, "url": None, "icon_url": None})
 
     if 'color' in embed:
         try:
@@ -520,13 +510,13 @@ def verify_embed(embed: dict):
                 raise ValueError(f"Field {i+1} \"name\" too long. (Limit 256)")
             if len(str(field['value'])) > 1024:
                 raise ValueError(f"Field {i+1} \"value\" too long. (Limit 1024)")
-            _len += len(str(field['name'])) + len(str(field['value']))
+            embed_len += len(str(field['name'])) + len(str(field['value']))
             result['fields'].append({
                                         'name': str(field['name']), 'value': str(field['value']),
                                         'inline': field.get('inline', False)
                                     })
 
-    if _len > 6000:
+    if embed_len > 6000:
         raise ValueError("Embed size exceed maximum size of 6000.")
 
     return result

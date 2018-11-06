@@ -6,7 +6,7 @@ import urllib.request
 from io import BytesIO
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
-from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_output
+from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_message
 from red_star.command_dispatcher import Command
 from discord import InvalidArgument, HTTPException
 from traceback import format_exception, format_exc
@@ -217,8 +217,9 @@ class BotManagement(BasePlugin):
             except TypeError:
                 raise CommandSyntaxError(f"{args.path} is not a valid path!")
 
-        res = json.dumps(conf_dict, indent=2, sort_keys=True).split("\n")
-        await split_output(msg, f"**ANALYSIS: Contents of {path}:**", res, header="```JSON\n")
+        res = json.dumps(conf_dict, indent=2, sort_keys=True)
+        for split_msg in split_message(f"**ANALYSIS: Contents of {path}:**```JSON{res}```"):
+            await respond(msg, split_msg)
 
     @Command("SetConfig",
              doc="Edits the config value at the specified path. Use <server> to fill in the server ID. Doesn't allow "

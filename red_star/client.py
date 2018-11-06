@@ -1,8 +1,7 @@
 import logging
 from asyncio import create_task, sleep
 from datetime import datetime
-from discord import AutoShardedClient
-from discord.errors import ConnectionClosed
+from discord import AutoShardedClient, ConnectionClosed
 from pathlib import Path
 from sys import exc_info
 from red_star.channel_manager import ChannelManager

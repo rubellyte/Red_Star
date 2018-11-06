@@ -1,9 +1,7 @@
 import enum
-import discord.opus
 import logging
 from asyncio import get_event_loop, TimeoutError
-from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed
-from discord.errors import ClientException
+from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, opus, ClientException
 from math import floor, ceil
 from functools import partial
 from os import remove as remove_file
@@ -14,7 +12,7 @@ from youtube_dl.utils import YoutubeDLError
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
-from red_star.rs_utils import respond, split_output, get_guild_config, split_message, find_user, is_positive
+from red_star.rs_utils import respond, split_message, get_guild_config, find_user, is_positive
 
 
 class MusicPlayer(BasePlugin):
@@ -50,9 +48,9 @@ class MusicPlayer(BasePlugin):
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("music_player.json")
 
-        if not discord.opus.is_loaded():
+        if not opus.is_loaded():
             try:
-                discord.opus.load_opus(self.plugin_config["opus_path"])
+                opus.load_opus(self.plugin_config["opus_path"])
             except (OSError, TypeError):
                 raise RuntimeError("Error occurred while loading libopus! Ensure that the path is correct.")
 
@@ -137,7 +135,8 @@ class MusicPlayer(BasePlugin):
             await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.print_now_playing()}```")
         if player.queue:
             queue_duration = "{:02d}:{:02d}".format(*seconds_to_minutes(player.queue_duration))
-            await split_output(msg, f"**ANALYSIS: Current queue: ({queue_duration})**\n", player.print_queue())
+            for split_msg in split_message(f"**ANALYSIS: Current queue: ({queue_duration})**{player.print_queue()}"):
+                await respond(msg, split_msg)
 
     @Command("NowPlaying", "SongInfo",
              doc="Displays detailed information about the currently playing song.",
@@ -198,7 +197,8 @@ class MusicPlayer(BasePlugin):
             raise CommandSyntaxError("Integer provided is not a valid index")
         await respond(msg, f"**AFFIRMATIVE. Deleted song at position {index + 1} ({del_song['title']}).**")
         if get_guild_config(self, str(msg.guild.id), "print_queue_on_edit") and player.queue:
-            await split_output(msg, "**ANALYSIS: Current queue:**\n", player.print_queue())
+            for split_msg in split_message(f"**ANALYSIS: Current queue:**{player.print_queue()}"):
+                await respond(msg, split_msg)
 
     @Command("SongVolume", "Volume",
              doc="Sets the volume at which the player plays music, between 0 and 100.",
@@ -304,10 +304,11 @@ class MusicPlayer(BasePlugin):
             user = find_user(msg.guild, msg.content.split(None, 1)[1])
         except IndexError:
             user_li = [find_user(msg.guild, x) for x in ban_store]
-            banned_list = [str(x) if x else "Unknown" for x in user_li]
+            banned_list = "\n".join(str(x) if x else "Unknown" for x in user_li)
             if not banned_list:
-                banned_list = ["None."]
-            await split_output(msg, "**ANALYSIS: Banned users:**\n", banned_list)
+                banned_list = "None."
+            for split_msg in split_message(f"**ANALYSIS: Banned users:**\n```\n{banned_list}```"):
+                await respond(msg, split_msg)
             return
         if user:
             if user.id in ban_store:
@@ -441,8 +442,9 @@ class GuildPlayer:
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
             await self.text_channel.send(f"**ANALYSIS: Current queue:**")
-            for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
-                await self.text_channel.send(f"```{msg}```")
+            final_msg = f"**ANALYSIS: Current queue:**{self.print_queue()}"
+            for msg in split_message(final_msg):
+                await self.text_channel.send(msg)
         if not self.is_playing:
             await self._play()
 
@@ -477,9 +479,9 @@ class GuildPlayer:
                         pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
-            await self.text_channel.send(f"**ANALYSIS: Current queue:**")
-            for msg in split_message("\n".join(self.print_queue()), splitter="\n", max_len=1994):
-                await self.text_channel.send(f"```{msg}```")
+            final_msg = f"**ANALYSIS: Current queue:**{self.print_queue()}"
+            for msg in split_message(final_msg):
+                await self.text_channel.send(msg)
 
     async def _process_video(self, vid):
         if not vid:
@@ -630,7 +632,7 @@ class GuildPlayer:
             if len(title) >= 59:
                 title = title[:56] + "..."
             str_list.append(f"[{i+1:02d}][{title:-<59}][{duration}]")
-        return str_list
+        return "```\n{}```".format("\n".join(str_list))
 
     def print_now_playing(self):
         play_time_tup = seconds_to_minutes(self.play_time)

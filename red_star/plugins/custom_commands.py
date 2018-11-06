@@ -1,4 +1,3 @@
-import discord.utils
 import datetime
 import json
 import math
@@ -7,11 +6,10 @@ import re
 from asyncio import ensure_future, sleep
 from io import BytesIO
 from red_star.plugin_manager import BasePlugin
-from discord import Embed, File
-from discord.errors import Forbidden
+from discord import Embed, File, Forbidden, utils, Colour
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from red_star.rs_utils import respond, find_user, split_output
+from red_star.rs_utils import respond, find_user, split_message
 from .rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
 
 
@@ -98,7 +96,7 @@ class CustomCommands(BasePlugin):
                  "RSLisp Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="[-s/--source [name]](name) (content)",
              category="custom_commands")
-    async def _createcc(self, msg: discord.Message):
+    async def _createcc(self, msg):
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
@@ -275,7 +273,7 @@ class CustomCommands(BasePlugin):
             cc_data = self.ccs[gid][name]
             last_edited = f"Last Edited: {cc_data['last_edited']}\n" if cc_data["last_edited"] else ""
             cc_locked = "Yes" if cc_data["locked"] else "No"
-            author = discord.utils.get(msg.guild.members, id=cc_data["author"])
+            author = utils.get(msg.guild.members, id=cc_data["author"])
             if author:
                 author = str(author)
             else:
@@ -307,8 +305,11 @@ class CustomCommands(BasePlugin):
         else:
             matched_ccs = filter(lambda x: search in x.lower(), ccs_list)
         if matched_ccs:
-            await split_output(msg, "**ANALYSIS: The following custom commands match your search:**", matched_ccs,
-                               string_processor=lambda x: x + ", ")
+            matched_ccs = ", ".join(matched_ccs)
+            for split_msg in split_message(f"**ANALYSIS: The following custom commands match your search:**"
+                                           f"```\n{matched_ccs}```"):
+                await respond(msg, split_msg)
+
         else:
             await respond(msg, "**WARNING: No results found for your search.**")
 
@@ -417,7 +418,9 @@ class CustomCommands(BasePlugin):
         result_list = [f"{msg.guild.get_member(k).display_name:<32} | {str(v[0]):<5)} | "
                        f"{str(v[1]):<5}\n" for k, v in banned_users.items()]
         result_list.insert(0, f"{'Username'.ljust(32)} |  Ban  |  Mute")
-        await split_output(msg, "**ANALYSIS: Currently banned members:**", result_list)
+        result_list = "\n".join(result_list)
+        for split_msg in split_message(f"**ANALYSIS: Currently banned members:**```\n{result_list}```"):
+            await respond(msg, split_msg)
 
     @Command("RPN",
              doc="Calculates an expression in extended reverse polish notation.\n"
@@ -584,7 +587,7 @@ class CustomCommands(BasePlugin):
         env['usernick'] = msg.author.display_name
         env['usermention'] = msg.author.mention
         try:
-            author = discord.utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
+            author = utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
             env['authorname'] = author.name
             env['authornick'] = author.display_name
         except (AttributeError, KeyError):
@@ -617,7 +620,7 @@ class CustomCommands(BasePlugin):
                 embed.title = value
             elif name.lower() in ["!color", "!colour"]:
                 try:
-                    embed.colour = value if isinstance(value, int) else discord.Colour(int(value, 16))
+                    embed.colour = value if isinstance(value, int) else Colour(int(value, 16))
                 except ValueError:
                     pass
             elif name.lower() == "!url":
