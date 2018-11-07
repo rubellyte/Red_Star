@@ -40,7 +40,7 @@ setuptools.setup(
         "Environment :: Console",
         "Framework :: AsyncIO",
         "Intended Audience :: Developers",
-        "Intended Audience :: End Users/Desktop"
+        "Intended Audience :: End Users/Desktop",
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Operating System :: OS Independent",

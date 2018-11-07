@@ -43,8 +43,11 @@ class DiscordLogger(BasePlugin):
                 continue
             if gid in self.log_items and self.log_items[gid]:
                 logs = "\n".join(self.log_items[gid])
+                if not logs:
+                    continue
                 for msg in split_message(logs, splitter="\n"):
-                    await log_channel.send(msg)
+                    if msg and not msg.isspace():
+                        await log_channel.send(msg)
                 self.log_items[gid].clear()
 
     async def on_message_delete(self, msg):
