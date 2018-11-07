@@ -223,6 +223,38 @@ def close_markdown(input_string):
     return output, unclosed_matches
 
 
+def group_items(items, message="", header='```\n', footer='```', joiner='\n'):
+    """
+    Utility function to group a number of list items into sub-2000 length strings for posting through discord.
+    Assumes every item is a string and is below 2000 symbols itself.
+    :param items: list of strings to group.
+    :param message: Optional message to include before the items.
+    :param header: For discord formatting, defaults to putting everything into a code block.
+    :param footer: The other part of the code block.
+    :param joiner: The string to join items with. Called as joiner.join()
+    :return: A list of joined strings.
+    """
+    result = []
+    l_max = 2000 - len(header) + len(footer)
+    l_join = len(joiner)
+    l_temp = len(message)
+    r_temp = []
+    for i in items:
+        if l_temp + len(i) + l_join > l_max:
+            result.append(f"{header}{joiner.join(r_temp)}{footer}")
+            r_temp = [i]
+            l_temp = len(i) + l_join
+        else:
+            r_temp.append(i)
+            l_temp += len(i) + l_join
+
+    result.append(f"{header}{joiner.join(r_temp)}{footer}")
+    if message:
+        result[0] = message + result[0]
+
+    return result
+
+
 def ordinal(n):
     """
     Black magic that turns numbers into ordinal representation (1 -> 1st)

@@ -1,6 +1,6 @@
 from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
-from red_star.rs_utils import respond, RSArgumentParser, split_message
+from red_star.rs_utils import respond, RSArgumentParser, group_items
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
 import datetime
 import shlex
@@ -173,11 +173,12 @@ class ReminderPlugin(BasePlugin):
         gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
         reminder_list = [r for r in self.storage[gid] if r.uid == uid]
-        reminder_str = "\n".join(f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
-                                 f"{'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
-                                 for i, r in enumerate(reminder_list))
+
+        reminders = (f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
+                     f"{'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
+                     for i, r in enumerate(reminder_list))
         if len(args) == 1:
-            for split_msg in split_message(f"**Following reminders found:**```\n{reminder_str}```"):
+            for split_msg in group_items(reminders, message="**Following reminders found:**"):
                 await respond(msg, split_msg)
         elif len(args) == 3 and args[1].lower() in ("del", "-", "delete"):
             try:
