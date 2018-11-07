@@ -671,7 +671,6 @@ class GuildPlayer:
             del self
 
 
-
 def seconds_to_minutes(secs, hours=False):
     mn, sec = divmod(secs, 60)
     if hours:

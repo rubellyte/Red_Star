@@ -41,7 +41,10 @@ class ChannelManager:
     def set_channel(self, guild, chantype, channel):
         gid = str(guild.id)
         chantype = chantype.lower()
-        self.conf[gid]["channels"][chantype] = channel.id
+        if channel:
+            self.conf[gid]["channels"][chantype] = channel.id
+        else:
+            self.conf[gid]["channels"][chantype] = None
         self.conf.save()
 
     def channel_in_category(self, guild, category, channel):
