@@ -25,3 +25,8 @@ class CustomCommandSyntaxError(CommandSyntaxError):
 class ConsoleCommandSyntaxError(CommandSyntaxError):
     # For errors in console commands
     pass
+
+class DataCarrier(Exception):
+    # This is intended to carry a message up out of a stack, not to signal any actual error.
+    def __init__(self, data):
+        self.data = data

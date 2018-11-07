@@ -174,7 +174,7 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
         text = text[:2000]
     elif not kwargs:
         # It's empty, raise an error.
-        raise SyntaxError
+        raise SyntaxError("respond() called without any response arguments.")
     return await msg.channel.send(text, **kwargs)
 
 
@@ -189,6 +189,8 @@ def split_message(input_string: str, max_len: int=2000, splitter: str= "\n"):
     """
     final_strings = []
     open_markdown = ""
+    if len(input_string) <= max_len:
+        return [input_string]
     while True:
         snippet = input_string[:max_len - len(open_markdown)]
         while True:
