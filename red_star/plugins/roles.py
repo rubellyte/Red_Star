@@ -3,7 +3,7 @@ from string import capwords
 from discord import InvalidArgument, HTTPException, Colour
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError
-from red_star.rs_utils import respond, is_positive, find_role, split_message, RSArgumentParser
+from red_star.rs_utils import respond, is_positive, find_role, group_items, RSArgumentParser
 from red_star.command_dispatcher import Command
 
 
@@ -215,7 +215,7 @@ class RoleCommands(BasePlugin):
         """
         lists all roles along with position and color
         """
-        role_list = "\n".join(f"[{role.position:03d} | {role.colour} | {role.name[:40].ljust(40,'·')}]"
-                              for role in msg.guild.roles[::-1])
-        for split_msg in split_message(f"**AFFIRMATIVE. Listing roles :**```\n{role_list}```"):
+        role_list = (f"[{role.position:03d} | {role.colour} | {role.name[:40].ljust(40,'·')}]"
+                     for role in msg.guild.roles[::-1])
+        for split_msg in group_items(role_list, message="**AFFIRMATIVE. Listing roles :**"):
             await respond(msg, split_msg)
