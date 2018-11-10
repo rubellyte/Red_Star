@@ -151,8 +151,8 @@ class DiscordLogger(BasePlugin):
         if "role_update" not in blacklist:
             diff = []
             try:
-                audit_event = after.guild.audit_logs(action=AuditLogAction.role_update,
-                                                     after=datetime.utcnow() - timedelta(seconds=5)).get()
+                audit_event = await after.guild.audit_logs(action=AuditLogAction.role_update,
+                                                           after=datetime.utcnow() - timedelta(seconds=5)).get()
             except Forbidden:
                 audit_event = None
 
