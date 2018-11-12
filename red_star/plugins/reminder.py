@@ -12,7 +12,7 @@ from asyncio import create_task
 
 class ReminderPlugin(BasePlugin):
     name = "reminder"
-    version = "1.0"
+    version = "1.1"
     author = "GTG3000"
     description = "A plugin for setting messages that the bot will send you at a configurable time."
     channel_types = {"reminders"}
@@ -26,7 +26,7 @@ class ReminderPlugin(BasePlugin):
     # It *has* to be formatted // for date and :: for time though.
     # The bit between the two just has to be non-numeric, but since shlex kills whitespace it also has to be a thing.
     pattern = re.compile(
-        r"(?:(?P<D>\d{0,2})/(?P<M>\d{0,2})/(?P<Y>\d{0,4}))?[^\d]*(?:(?P<h>\d{0,2}):(?P<m>\d{0,2}):(?P<s>\d{0,2}))?")
+        r"(?:(?P<D>\d{0,2})/(?P<M>\d{0,2})/(?P<Y>\d{0,4}))?[^\d:/]*(?:(?P<h>\d{0,2}):(?P<m>\d{0,2}):(?P<s>\d{0,2}))?")
 
     @dataclass
     class Reminder:
@@ -96,10 +96,13 @@ class ReminderPlugin(BasePlugin):
                  "-t/--time     : remind on a given date. Date must be in the future.\n"
                  "-r/--recurring: repeat the reminder every day/month/year, format is d/m/y## with ## being an "
                  "integer number.\n"
+                 "-e/--everyone : mention everyone with the reminder. Requires user having the permission.\n"
+                 "-h/--here     : mention here with the reminder. Requires user having the permission.\n"
                  "Time format   : DD/MM/YYYY@hh:mm:ss. Numbers may be skipped, but a date needs two slashes and a "
                  "time needs two colons, with some non-whitespace symbol separating the two.\n"
                  "Valid input includes '23//', ':30:' and '1/1/@12::'",
-             category="reminder")
+             category="reminder",
+             run_anywhere=True)
     async def _remind(self, msg: Message):
         parser = RSArgumentParser()
         parser.add_argument("command")
@@ -107,6 +110,8 @@ class ReminderPlugin(BasePlugin):
         parser.add_argument("-d", "--delay", default='')
         parser.add_argument("-t", "--time", default='')
         parser.add_argument("-p", "--private", action='store_true')
+        parser.add_argument("-e", "--everyone", action='store_true')
+        parser.add_argument("-h", "--here", action='store_true')
         parser.add_argument("-r", "--recurring", default='')
 
         args = parser.parse_args(shlex.split(msg.clean_content))
@@ -131,10 +136,15 @@ class ReminderPlugin(BasePlugin):
         time = {k: int(v or default_time[k]) for k, v in self.pattern.match(time).groupdict().items()}
 
         if args['private']:
+            args['everyone'] = args['here'] = False
             try:
                 await msg.delete()
             except HTTPException:
                 pass
+
+        # just because the bot can mention everyone, doesn't mean that anyone with command access should be able to.
+        if msg.author.permissions_in(msg.channel).mention_everyone and (args['everyone'] or args['here']):
+            args['reminder'].insert(0, "@everyone:" if args['everyone'] else "@here:")
 
         if args['recurring'] and args['recurring'][0].lower() in 'ymd':
             try:
@@ -159,7 +169,8 @@ class ReminderPlugin(BasePlugin):
             raise CommandSyntaxError("Red Star cannot presently alter the past.")
 
         self.storage[str(msg.guild.id)].append(self.Reminder(msg.author.id, msg.channel.id, time,
-                                                             ' '.join(args['reminder']), args['private'], _recur))
+                                                             ' '.join(args['reminder']),
+                                                             args['private'], _recur))
         self.storage.save()
         await respond(msg, f"**AFFIRMATIVE: reminder set for {time.strftime('%Y-%m-%d @ %H:%M:%S')} UTC.**")
 
