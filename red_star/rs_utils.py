@@ -4,7 +4,6 @@ import re
 import json
 from red_star.rs_errors import CommandSyntaxError
 from urllib.parse import urlparse
-from random import randint
 
 
 class JsonFileDict(dict):
@@ -14,6 +13,7 @@ class JsonFileDict(dict):
     ConfigManager.get_plugin_config_file.
     :param pathlib.Path path: The path that should be saved to.
     """
+
     def __init__(self, path, json_save_args=None, json_load_args=None, **kwargs):
         super().__init__(**kwargs)
         self.path = path
@@ -178,7 +178,7 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
     return await msg.channel.send(text, **kwargs)
 
 
-def split_message(input_string: str, max_len: int=2000, splitter: str= "\n"):
+def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
     """
     A helper function that takes in a text string and breaks it into pieces with a maximum size, making sure all
     markdown is properly closed in the process.
@@ -261,7 +261,7 @@ def ordinal(n):
     :param n: number to be converted
     :return: string with ordinal number
     """
-    return "%d%s" % (n, "tsnrhtdd"[((n//10) % 10 != 1)*(n % 10 < 4)*n % 10::4])
+    return "%d%s" % (n, "tsnrhtdd"[((n // 10) % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
 def decode_json(data):
@@ -351,109 +351,6 @@ def is_positive(string):
         raise CommandSyntaxError(f"{string} is not valid positive/negative input. "
                                  f"Allowed inputs: off/disable/no/negative/false, "
                                  "on/enable/yes/affirmatie/true.")
-
-
-def parse_roll(dice_str, roll=None):
-    dice_data = re.search(r"^(\d*)d(\d+|f)([ad]?)", dice_str)
-    if dice_data:
-        # checking for optional dice number
-        if dice_data.group(1):
-            num_dice = min(max(int(dice_data.group(1)), 1), 10000)
-        else:
-            num_dice = 1
-        # support for fate dice. And probably some other kind of dice? Added roll_function to keep it streamlined
-        if dice_data.group(2) != 'f':
-            def roll_function(): return randint(1, min(max(int(dice_data.group(2)), 2), 10000))
-        else:
-            def roll_function(): return randint(1, 3) - 2
-        advantage = dice_data.group(3)
-        dice_set_a = [roll_function() for _ in range(num_dice)]
-        dice_set_b = [roll_function() for _ in range(num_dice)]
-        if advantage == "a":
-            rolled_dice = dice_set_a if sum(dice_set_a) >= sum(dice_set_b) else dice_set_b
-        elif advantage == "d":
-            rolled_dice = dice_set_a if sum(dice_set_a) < sum(dice_set_b) else dice_set_b
-        else:
-            rolled_dice = dice_set_a
-        if roll is not None:
-            roll.append(f"{dice_data.string:5} - {sum(rolled_dice):2d} {rolled_dice} ")
-        return rolled_dice
-    else:
-        try:
-            return int(dice_str)
-        except ValueError:
-            return dice_str
-
-
-def parse_tokens(tokens, roll=None):
-    """
-    Function that runs over a list and processes tokens.
-    Runs repeatedly to support nested :dn expressions like d6:d6:d6 and 1:d6+1
-    No need to sanitize tokens inside here since the initial rollstring parse only grabs what fits the regexp.
-    :param tokens:
-    :param roll:
-    :return:
-    """
-    tokens = [sum(t) if type(t) == list else t for t in tokens]
-
-    # improved :dn support to allow repeated parsing (since the regex nature of :dn makes it hard to prioritize
-    rerun = True
-    while rerun:
-        rerun = False
-        for i in range(len(tokens))[::-1]:
-            try:
-                if tokens[i] == '*':
-                    tokens[i - 1:i + 2] = [tokens[i - 1] * tokens[i + 1]]
-                elif tokens[i] == "/":
-                    tokens[i - 1:i + 2] = [tokens[i - 1] / tokens[i + 1]]
-                elif tokens[i] == "+":
-                    tokens[i - 1:i + 2] = [tokens[i - 1] + tokens[i + 1]]
-                elif tokens[i] == "-":
-                    if type(tokens[i-1]) in [int, float]:  # it may just be denoting the number to be negative
-                        tokens[i - 1:i + 2] = [tokens[i - 1] - tokens[i + 1]]
-                    else:
-                        tokens[i:i+2] = [-tokens[i+1]]
-                elif type(tokens[i]) == str and re.match(':d[\df]+', tokens[i]):
-                    if type(tokens[i-1]) == int:
-                        tokens[i-1:i+1] = [sum(parse_roll(f"{tokens[i-1]}{tokens[i][1:]}", roll=roll))]
-                    else:
-                        rerun = True
-            except IndexError:
-                del tokens[i]
-            except TypeError:
-                rerun = True
-
-    return tokens
-
-
-def parse_roll_string(string):
-    """
-    Function to parse the roll notation string.
-    Splits the string into tokens with initial conversion of dice into results, then iterates over it.
-    To support brackets, the function finds all the opening brackets and evaluates the tokens until the closest
-    closing bracket, starting from the furthest opening bracket down the line.
-    :param string:
-    :return:
-    """
-    args = re.sub(r"\)([\dd])", ")*\1", string)
-    rolled_dice = []
-    tokens = list(map(lambda x: parse_roll(x, roll=rolled_dice),
-                      re.findall(r':d[\df]+|\d*d[\df]+[ad]?|[+\-*/()]|\d+', args)))
-    brackets = [p for p, t in enumerate(tokens) if t == '('][::-1]
-    for open_bracket in brackets:
-        try:
-            close_bracket = open_bracket + tokens[open_bracket:].index(')')
-            if close_bracket - open_bracket == 1:
-                del tokens[close_bracket]
-                del tokens[open_bracket]
-            else:
-                r = parse_tokens(tokens[open_bracket + 1:close_bracket], roll=rolled_dice)
-                tokens[open_bracket:close_bracket + 1] = [r[0]]
-
-        except ValueError:
-            tokens.pop(open_bracket)
-
-    return parse_tokens(tokens, roll=rolled_dice), rolled_dice
 
 
 def verify_embed(embed: dict):
@@ -546,9 +443,9 @@ def verify_embed(embed: dict):
                 raise ValueError(f"Field {i+1} \"value\" too long. (Limit 1024)")
             embed_len += len(str(field['name'])) + len(str(field['value']))
             result['fields'].append({
-                                        'name': str(field['name']), 'value': str(field['value']),
-                                        'inline': field.get('inline', False)
-                                    })
+                'name': str(field['name']), 'value': str(field['value']),
+                'inline': field.get('inline', False)
+            })
 
     if embed_len > 6000:
         raise ValueError("Embed size exceed maximum size of 6000.")
