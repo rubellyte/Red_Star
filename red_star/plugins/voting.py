@@ -74,12 +74,12 @@ class Voting(BasePlugin):
             return t_embed
 
         async def add_reaction(self, reaction, user):
-            if type(reaction.emoji) == str and self.active:
+            if isinstance(reaction.emoji, str) and self.active:
                 if reaction.emoji not in self._emo or not await self.vote(self._e_a[reaction.emoji], user):
                     await reaction.message.remove_reaction(reaction.emoji, user)
 
         async def remove_reaction(self, reaction, user):
-            if type(reaction.emoji) == str and reaction.emoji in self._emo and self.active:
+            if isinstance(reaction.emoji, str) and reaction.emoji in self._emo and self.active:
                 await self.vote(self._e_a[reaction.emoji], user, False)
 
         async def vote(self, option, user, up=True):
