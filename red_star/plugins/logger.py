@@ -156,7 +156,13 @@ class DiscordLogger(BasePlugin):
             except Forbidden:
                 audit_event = None
 
-            if before == after:
+            if before.name == after.name \
+                    and before.colour == after.colour\
+                    and before.hoist == after.hoist\
+                    and before.mentionable == after.mentionable\
+                    and before.permissions == after.permissions\
+                    and before.position == after.position\
+                    and audit_event.target == after:
                 if audit_event:
                     before_dict = audit_event.changes.before.__dict__
                     before.name = before_dict.get("name", after.name)
@@ -164,6 +170,7 @@ class DiscordLogger(BasePlugin):
                     before.hoist = before_dict.get("hoist", after.hoist)
                     before.mentionable = before_dict.get("mentionable", after.mentionable)
                     before.permissions = before_dict.get("permissions", after.permissions)
+                    before.position = before_dict.get("position", after.position)
                 else:
                     return
 
@@ -179,16 +186,19 @@ class DiscordLogger(BasePlugin):
                 diff.append("Can now be mentioned." if after.mentionable else "Can no longer be mentioned.")
             if before.permissions != after.permissions:
                 # comparing both sets of permissions, PITA
-                before_perms = {x: y for x, y in before.permissions}
-                after_perms = {x: y for x, y in after.permissions}
-                perm_diff = "Added permissions: " + ", ".join(x.upper() for x, y in after.permissions if y and not
-                                                              before_perms[x])
-                perm_diff += "\nRemoved permissions: " \
-                             + ", ".join(x.upper() for x, y in before.permissions if y and not after_perms[x])
+                before_perms = [x for x, y in before.permissions if y]
+                after_perms = [x for x, y in after.permissions if y]
+                perm_diff = "Added permissions: " + ", ".join(x.upper() for x in after_perms if x not in before_perms)
+                perm_diff += "\nRemoved permissions: " + ", ".join(x.upper() for x in before_perms if x not in after_perms)
                 diff.append(perm_diff)
+
+            if not diff or (len(diff) == 1 and before.position != after.position):
+                return
+
             diff = '\n'.join(diff)
-            self.emit_log(f"**ANALYSIS: Role {before.name} was changed by {audit_event.user}:**"
-                          f"```\n{diff}```", after.guild)
+
+            self.emit_log(f"**ANALYSIS: Role {before.name} was changed by {audit_event.user}:**\n"
+                          f"```\n{diff}```\n", after.guild)
 
     async def on_log_event(self, guild, string, *, log_type="log_event"):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
