@@ -215,7 +215,7 @@ def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
 def close_markdown(input_string):
     code_block_matches = re.findall(r"```\w+\n", input_string)
     in2 = re.sub(r"```\w+\n", "```", input_string)
-    md_matches = re.findall(r"(\*{1,3}|_{1,3}|```|`)", in2)
+    md_matches = re.findall(r"(\*\*|\*|~~|__|```|`)", in2)
     unclosed_matches = "".join(s for s in md_matches if md_matches.count(s) % 2 != 0)
     output = input_string + unclosed_matches
     if code_block_matches:
