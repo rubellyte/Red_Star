@@ -8,7 +8,7 @@ from red_star.command_dispatcher import Command
 
 class DiscordLogger(BasePlugin):
     name = "logger"
-    version = "1.4"
+    version = "1.5"
     author = "medeor413, GTG3000"
     description = "A plugin that logs certain events and prints them to a defined log channel " \
                   "in an easily-readable manner."
@@ -63,6 +63,9 @@ class DiscordLogger(BasePlugin):
             self.emit_log(f"**ANALYSIS: User {msg.author}'s message at `{msgtime}` in {msg.channel.mention}"
                           f" was deleted. ANALYSIS: Contents:**\n{contents}{attaches}", msg.guild)
 
+            self.logger.info(f"{msg.author}'s message at {msgtime} in {msg.channel} of {msg.guild} was deleted:\n"
+                             f"Contents:\n{contents}{attaches.replace('**','')}")
+
     async def on_message_edit(self, before, after):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
@@ -76,24 +79,32 @@ class DiscordLogger(BasePlugin):
                           f"{after.channel.mention}. ANALYSIS:**\n**Old contents:** {old_contents}\n"
                           f"**New contents:** {contents}", after.guild)
 
+            self.logger.info(f"User {after.author} edited their message at {msgtime} in {after.channel} of {after.guild}.\n"
+                             f"Old contents:\n{old_contents}\nNew contents:\n{contents}")
+
     async def on_member_update(self, before, after):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "member_update" not in blacklist:
-            diff_str = ""
+            diff_str = log_str = ""
             if before.name != after.name or before.discriminator != after.discriminator:
                 diff_str = f"`Old username: `{before}\n`New username: `{after}\n"
+                log_str = f"Old username: {before}\nNew username: {after}\n"
             if before.avatar != after.avatar:
                 diff_str = f"{diff_str}`New avatar: `{after.avatar_url}\n"
+                log_str = f"{log_str}New avatar: {after.avatar_url}\n"
             if before.nick != after.nick:
                 diff_str = f"{diff_str}`Old nick: `{before.nick}\n`New nick: `{after.nick}\n"
+                log_str = f"{log_str}Old nick: {before.nick}\nNew nick: {after.nick}\n"
             if before.roles != after.roles:
                 old_roles = ", ".join([str(x) for x in before.roles])
                 new_roles = ", ".join([str(x) for x in after.roles])
-                diff_str = f"{diff_str}**Old roles:**```[ {old_roles} ]```\n**New roles:**```[ {new_roles} ]```\n"
+                diff_str = f"{diff_str}**Old roles:**```[ {old_roles} ]```\n**New roles:**```[ {new_roles} ]```"
+                log_str = f"{log_str}Old roles: [ {old_roles} ]\nNew roles: [ {new_roles} ]"
             if not diff_str:
                 return
             self.emit_log(f"**ANALYSIS: User {after} was modified:**\n{diff_str}", after.guild)
+            self.logger.info(f"User {after} was modified:\n{log_str}")
 
     async def on_guild_channel_pins_update(self, channel, last_pin):
         blacklist = self.plugin_config.setdefault(str(channel.guild.id),
@@ -105,25 +116,30 @@ class DiscordLogger(BasePlugin):
                 new_pin = False
             if new_pin:  # Get the pinned message if it's a new pin; can't get the unpinned messages sadly
                 msg = (await channel.pins())[0]
-                pin_contents = f"\n**Message: {str(msg.author)}:** {msg.clean_content}"
-            self.emit_log(f"**ANALYSIS: A message was {'' if new_pin else 'un'}pinned in {channel.mention}.**"
-                          f"{pin_contents if new_pin else ''}", channel.guild)
+                cnt = msg.author, msg.clean_content
+            self.emit_log(f"**ANALYSIS: A message was {'' if new_pin else 'un'}pinned in {channel.mention}.**\n"
+                          f"{f'**Message: {cnt[0]}:** {cnt[1]}' if new_pin else ''}", channel.guild)
+            self.logger.info(f"A message was {'' if new_pin else 'un'}pinned in {channel} of {channel.guild}\n"
+                             f"{f'Message: {cnt[0]}: {cnt[1]}' if new_pin else ''}")
 
     async def on_member_ban(self, guild, member):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
         if "member_ban" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} was banned.**", guild)
+            self.logger.info(f"User {member} was benned in {guild}.")
 
     async def on_member_unban(self, guild, member):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
         if "member_unban" not in blacklist:
             self.emit_log(f"**ANALYSIS: Ban was lifted from user {member}.**", guild)
+            self.logger.info(f"Ban was lifted from user {member} in {guild}")
 
     async def on_member_join(self, member):
         blacklist = self.plugin_config.setdefault(str(member.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "member_join" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} has joined the server. User id: `{member.id}`**", member.guild)
+            self.logger.info(f"User {member} has joined {member.guild}. User id: {member.id}.")
 
     async def on_member_remove(self, member):
         blacklist = self.plugin_config.setdefault(str(member.guild.id),
@@ -142,8 +158,11 @@ class DiscordLogger(BasePlugin):
                 reason_str = f"Reason: {kick_event.reason}; " if kick_event.reason else ""
                 self.emit_log(f"**ANALYSIS: User {member} was kicked from the server by {kicker}. "
                               f"{reason_str}User id: `{member.id}`**", member.guild)
+                self.logger.info(f"User {member} was kicked from {member.guild} by {kicker}. "
+                                 f"{reason_str}User ud: {member.id}")
             else:
                 self.emit_log(f"**ANALYSIS: User {member} has left the server. User id: `{member.id}`**", member.guild)
+                self.logger.info(f"User {member} has left {member.guild}. User id: {member.id}.")
 
     async def on_guild_role_update(self, before, after):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
@@ -197,19 +216,22 @@ class DiscordLogger(BasePlugin):
 
             diff = '\n'.join(diff)
 
-            self.emit_log(f"**ANALYSIS: Role {before.name} was changed by {audit_event.user}:**\n"
+            self.emit_log(f"**ANALYSIS: Role {before.name} was changed by "
+                          f"{audit_event.user if audit_event else 'someone'}:**\n"
                           f"```\n{diff}```\n", after.guild)
+            self.logger.info(f"Role {before.name} was changed by "
+                             f"{audit_event.user if audit_event else 'someone'}:\n"
+                             f"{diff}")
 
     async def on_log_event(self, guild, string, *, log_type="log_event"):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
         if log_type not in blacklist:
             self.emit_log(string, guild)
+            self.logger.info(string)
 
     def emit_log(self, log_str, guild):
         guild_log_queue = self.log_items.setdefault(str(guild.id), [])
-        stdout_log_str = log_str.replace("`", "").replace("**", "").replace("ANALYSIS: ", "")
         guild_log_queue.append(log_str)
-        self.logger.info(stdout_log_str)
 
     @Command("LogEvent",
              doc="Adds or removes the events to be logged.",
