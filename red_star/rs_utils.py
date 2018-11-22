@@ -216,7 +216,7 @@ def close_markdown(input_string):
     code_block_matches = re.findall(r"```\w+\n", input_string)
     in2 = re.sub(r"```\w+\n", "```", input_string)
     md_matches = re.findall(r"(\*\*|\*|~~|__|```|`)", in2)
-    unclosed_matches = "".join(s for s in md_matches if md_matches.count(s) % 2 != 0)
+    unclosed_matches = "".join({s for s in md_matches if md_matches.count(s) % 2 != 0})
     output = input_string + unclosed_matches
     if code_block_matches:
         unclosed_matches = unclosed_matches.replace("```", code_block_matches[0], 1)
