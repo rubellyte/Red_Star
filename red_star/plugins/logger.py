@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from discord import AuditLogAction, Forbidden
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
-from red_star.rs_utils import split_message, respond
+from red_star.rs_utils import split_message, respond, close_markdown
 from red_star.command_dispatcher import Command
 
 
@@ -54,7 +54,7 @@ class DiscordLogger(BasePlugin):
         blacklist = self.plugin_config.setdefault(str(msg.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "message_delete" not in blacklist and msg.author != self.client.user:
-            contents = msg.clean_content if msg.clean_content else msg.system_content
+            contents, _ = close_markdown(msg.clean_content if msg.clean_content else msg.system_content)
             msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             attaches = ""
             if msg.attachments:
@@ -70,8 +70,8 @@ class DiscordLogger(BasePlugin):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "message_edit" not in blacklist and after.author != self.client.user:
-            old_contents = before.clean_content
-            contents = after.clean_content
+            old_contents, _ = close_markdown(before.clean_content)
+            contents, _ = close_markdown(after.clean_content)
             if old_contents == contents:
                 return
             msgtime = after.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
