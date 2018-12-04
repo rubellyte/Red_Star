@@ -54,15 +54,11 @@ class RedStar(AutoShardedClient):
                 create_task(self.global_tick_dispatcher())
                 await self.plugin_manager.activate_all()
 
-    async def stop_bot(self):
+    async def close(self):
+        self.logger.warning("Logging out and shutting down.")
         await self.plugin_manager.deactivate_all()
         self.config_manager.save_config()
-        self.logger.info("Logging out.")
-        try:
-            await self.logout()
-        except ConnectionClosed:
-            pass
-        raise SystemExit
+        await super().close()
 
     async def on_error(self, event_method, *pargs, **kwargs):
         exc = exc_info()

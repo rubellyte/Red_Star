@@ -67,19 +67,7 @@ def main():
         logging.getLogger("asyncio").setLevel(logging.INFO)
 
     bot = RedStar(storage_dir, args)
-    task = loop.create_task(bot.start(bot.config["token"]))
-    try:
-        loop.run_until_complete(task)
-    except KeyboardInterrupt:
-        bot.logger.info("Interrupt caught, shutting down...")
-    except SystemExit:
-        pass
-    finally:
-        pending = asyncio.Task.all_tasks()
-        for task in pending:
-            task.cancel()
-        bot.logger.info("Exiting...")
-        loop.close()
+    bot.run(bot.config["token"])
 
 
 if __name__ == "__main__":
