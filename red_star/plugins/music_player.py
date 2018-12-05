@@ -294,7 +294,7 @@ class MusicPlayer(BasePlugin):
     @Command("MusicBan",
              doc="Bans or unbans a user from using music bot commands, or lists bans if no user specified..",
              syntax="(user)",
-             perms="mute_memebers",
+             perms="mute_members",
              category="music_player")
     async def _music_ban(self, msg):
         try:
