@@ -344,21 +344,22 @@ class CustomCommands(BasePlugin):
         if gid not in self.ccs:
             self.ccs[gid] = {}
         try:
-            name, category = msg.content.split(None, 2)
+            _, name, category = msg.content.split(None, 2)
         except ValueError:
             raise CommandSyntaxError("Two arguments required.")
         if name in self.ccs[gid]:
-            if "restricted" in self.ccs[gid][name]:
-                if category not in self.ccs[gid][name]["restricted"]:
-                    self.ccs[gid][name]["restricted"].append(category)
+            whitelist = self.ccs[gid][name].setdefault("restricted", [])
+
+            if self.channel_manager.get_category(msg.guild, category):
+                if category not in whitelist:
+                    whitelist.append(category)
                     await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
                 else:
-                    self.ccs[gid][name]["restricted"].remove(category)
+                    whitelist.remove(category)
                     await respond(msg, f"**AFFIRMATIVE. Custom command {name} no longer restricted to category "
                                        f"{category}.**")
             else:
-                self.ccs[gid][name]["restricted"] = [category]
-                await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
+                raise CommandSyntaxError(f"No channel category by name of {category}.")
         else:
             raise CommandSyntaxError(f"No custom command by name of {name}.")
 
