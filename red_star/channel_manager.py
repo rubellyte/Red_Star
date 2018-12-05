@@ -47,16 +47,23 @@ class ChannelManager:
             self.conf[gid]["channels"][chantype] = None
         self.conf.save()
 
+    def get_category(self, guild, category: str):
+        guild_categories = self.conf[str(guild.id)]["categories"]
+        if category.lower() in guild_categories:
+            return guild_categories[category.lower()]
+        else:
+            return None
+
     def channel_in_category(self, guild, category, channel):
-        guild_categories = self.conf[str(guild.id)]["categories"][category.lower()]
-        if category not in guild_categories:
+        guild_categories = self.conf[str(guild.id)]["categories"]
+        if category.lower() not in guild_categories:
             return False
-        if channel.id not in guild_categories[category]:
+        if channel.id not in guild_categories[category.lower()]:
             return False
         return True
 
     def add_channel_to_category(self, guild, category, channel):
-        category = self.conf[str(guild.id)][category.lower()].setdefault(category, [])
+        category = self.conf[str(guild.id)]["categories"].setdefault(category.lower(), [])
         if channel.id not in category:
             category.append(channel.id)
             self.conf.save()
