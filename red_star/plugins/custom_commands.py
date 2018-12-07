@@ -110,7 +110,7 @@ class CustomCommands(BasePlugin):
     @Command("CreateCC", "NewCC",
              doc="Creates a custom command.\n"
                  "RSLisp Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
-             syntax="[-s/--source [name]](name) (content)",
+             syntax="(name) (content, in plain text or in an attached file)",
              category="custom_commands")
     async def _createcc(self, msg):
         gid = str(msg.guild.id)
@@ -120,17 +120,9 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            args = msg.clean_content.split()[1:]
-            if args and args[0].lower() in ("-s", "--source"):
-                name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
-                content = fp.getvalue().decode()
-            else:
-                try:
-                    jsdata = json.loads(fp.getvalue().decode())
-                except json.JSONDecodeError:
-                    raise CommandSyntaxError("Uploaded file is not valid JSON!")
-                name = jsdata["name"].lower()
-                content = jsdata["content"]
+            args = msg.clean_content.split()
+            name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
+            content = fp.getvalue().decode()
         else:
             try:
                 args = msg.clean_content.split(None, 2)[1:]
@@ -189,14 +181,10 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise CommandSyntaxError("No name provided.")
         if name in self.ccs[gid]:
-            cc = {
-                "name": name,
-                "content": self.ccs[gid][name]["content"]
-            }
-            cc = json.dumps(cc, indent=2, ensure_ascii=False)
             async with msg.channel.typing():
                 await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                              file=File(BytesIO(bytes(cc, encoding="utf-8")), filename=name + ".json"))
+                              file=File(BytesIO(bytes(self.ccs[gid][name]["content"], encoding="utf-8")),
+                                        filename=name + ".lisp"))
         else:
             raise CommandSyntaxError(f"No such custom command {name}.")
 
