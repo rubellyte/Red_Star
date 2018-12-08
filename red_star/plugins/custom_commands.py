@@ -471,6 +471,8 @@ class CustomCommands(BasePlugin):
     async def _uploadccdata(self, msg):
         try:
             _, fid, desc = msg.clean_content.split(None, 2)
+            desc = desc.replace('\r', '')
+
             fp = BytesIO()
             await msg.attachments[0].save(fp)
 
@@ -572,7 +574,7 @@ class CustomCommands(BasePlugin):
             if fid in self.ccfdata:
                 if self.ccfdata[fid].owner != msg.author.id and not self.config_manager.is_maintainer(msg.author):
                     raise UserPermissionError
-                self.ccfdata[fid].desc = desc
+                self.ccfdata[fid].desc = desc.replace('\r', '')
                 await respond(msg, "**AFFIRMATIVE. Description updated.**")
             else:
                 raise CommandSyntaxError(f"No file {fid} found.")
