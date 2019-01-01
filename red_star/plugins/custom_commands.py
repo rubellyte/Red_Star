@@ -471,8 +471,6 @@ class CustomCommands(BasePlugin):
     async def _uploadccdata(self, msg):
         try:
             _, fid, desc = msg.clean_content.split(None, 2)
-            desc = desc.replace('\r', '')
-
             fp = BytesIO()
             await msg.attachments[0].save(fp)
 
@@ -503,7 +501,7 @@ class CustomCommands(BasePlugin):
             raise UserPermissionError("File exceeds size quota. Remaining quota: "
                                       f"{self.plugin_config['cc_file_quota']-total_size} bytes.")
 
-        self.ccfdata[fid] = CCFileMetadata(msg.author.id, size, desc)
+        self.ccfdata[fid] = CCFileMetadata(msg.author.id, size, desc.replace('\r', ''))
 
         total_size = self.plugin_config['cc_file_quota'] - total_size - size
 
