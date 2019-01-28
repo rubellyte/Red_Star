@@ -17,7 +17,7 @@ from red_star.rs_utils import respond, split_message, get_guild_config, find_use
 
 class MusicPlayer(BasePlugin):
     name = "music_player"
-    version = "2.0"
+    version = "2.1"
     author = "medeor413 (original by GTG3000)"
     description = "A plugin for playing audio from videos in a voice channel."
     default_config = {
@@ -679,7 +679,7 @@ class GuildPlayer:
         if self._alone_time > get_guild_config(self.parent, self.gid, "idle_disconnect_time"):
             self.stop()
             await self.voice_client.disconnect()
-            del self
+            del self.parent.players[int(self.gid)]
 
 
 def seconds_to_minutes(secs, hours=False):
