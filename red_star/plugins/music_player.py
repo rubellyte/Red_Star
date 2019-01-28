@@ -156,8 +156,14 @@ class MusicPlayer(BasePlugin):
             embed.set_author(name=vid["uploader"])
         if "tags" in vid:
             embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
-        progress_time = player.now_playing().rsplit("\n")[0].split("]", 2)[1] + ']'
-        embed.add_field(name="Duration", value=f"`{progress_time}`")
+        play_time, duration, _ = player.play_time
+        play_time_tup = seconds_to_minutes(play_time)
+        dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
+        if duration > 0:
+            duration = seconds_to_minutes(duration)
+            dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
+        else:
+            dur_str += "--:--"
         rating_field = f"Views: {vid.get('view_count', 'Unknown'):,}."
         if "like_count" in vid:
             rating_field += f" {vid['like_count']:,}👍"
@@ -594,6 +600,14 @@ class GuildPlayer:
         except TypeError:
             return 0
 
+    @property
+    def progress(self):
+        try:
+            fraction = self.play_time / self.current_song["duration"]
+        except ZeroDivisionError:
+            fraction = 0
+        return self.play_time, self.current_song["duration"], fraction
+
     async def skip_vote(self):
         self._skip_votes += 1
         total_users = len(self.voice_client.channel.members) - 1  # Don't want to count the bot itself
@@ -642,22 +656,19 @@ class GuildPlayer:
         return "```\n{}```".format("\n".join(str_list))
 
     def print_now_playing(self):
-        play_time_tup = seconds_to_minutes(self.play_time)
-        duration = self.current_song.get("duration", 0)
+        play_time, duration, progress = self.progress
+        play_time_tup = seconds_to_minutes(play_time)
         dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
         if duration > 0:
-            played = self.play_time / duration
             duration = seconds_to_minutes(duration)
             dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
         else:
-            played = 0
             dur_str += "--:--"
-        bars = floor(70 * played)
-        progress_bar = f"{'█'*bars}{'-'*(70-bars)}"
+        progbar = progress_bar(progress, 70)
         title = self.current_song.get("title", "Unknown")
         if len(title) > 57:
             title = title[:54] + "..."
-        return f"[{title:-<57}][{dur_str}]\n[{progress_bar}]"
+        return f"[{title:-<57}][{dur_str}]\n[{progbar}]"
 
     async def idle_check(self, dt):
         alone = len(self.voice_client.channel.members) <= 1
@@ -678,6 +689,13 @@ def seconds_to_minutes(secs, hours=False):
         return int(hr), int(mn), floor(sec)
     else:
         return int(mn), int(floor(sec))
+
+
+def progress_bar(progress, length):
+    if not 0 <= length <= 1:
+        raise ValueError("First argument is expected to be a floating-point between 0 and 1.")
+    bars = floor(length * progress)
+    return "█" * bars + "-" * (length - bars)
 
 
 class SongMode(enum.Enum):
