@@ -204,6 +204,37 @@ class ReminderPlugin(BasePlugin):
         else:
             raise CommandSyntaxError("No arguments or del/-/delete index required")
 
+    @Command("RemindListAll",
+             syntax="[-/del/delete index]",
+             doc="Prints out a list of all reminders.\nUse del argument and an index from said list to "
+                 "remove reminders.",
+             category="reminder",
+             perms={"manage_messages"})
+    async def _remindlistall(self, msg: Message):
+        gid = str(msg.guild.id)
+        args = msg.clean_content.split(None, 2)
+
+        users = {r.uid: str(msg.guild.get_member(r.uid)) for r in self.storage[gid]}
+
+        if len(args) == 1:
+            reminders = (f"{i:2}|{users[r.uid]:^32}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : "
+                         f"{r.text[:50]:50} in {'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
+                         for i, r in enumerate(self.storage[gid]))
+            for split_msg in group_items(reminders, message="**Following reminders found:**"):
+                await respond(msg, split_msg)
+        if len(args) == 3 and args[1].lower() in ("del", "-", "delete"):
+            try:
+                index = int(args[2])
+            except ValueError:
+                raise CommandSyntaxError("Non-integer syntax provided")
+            if 0 <= index < len(self.storage[gid]):
+                del self.storage[gid][index]
+                await respond(msg, "**AFFIRMATIVE. Reminder removed.**")
+            else:
+                raise CommandSyntaxError("Index out of range")
+        else:
+            raise CommandSyntaxError
+
     async def on_global_tick(self, now, _):
         save_flag = False
         for guild in filter(lambda x: str(x.id) in self.storage, self.client.guilds):

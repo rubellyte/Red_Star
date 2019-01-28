@@ -5,12 +5,21 @@ import random
 import re
 from asyncio import ensure_future, sleep
 from io import BytesIO
+from os import remove
 from red_star.plugin_manager import BasePlugin
 from discord import Embed, File, Forbidden, utils, Colour
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
-from red_star.rs_utils import respond, find_user, split_message
+from red_star.rs_utils import respond, find_user, decode_json, group_items
 from .rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
+from dataclasses import dataclass, astuple
+
+
+@dataclass
+class CCFileMetadata:
+    owner: int
+    size: int
+    desc: str
 
 
 # noinspection PyBroadException
@@ -26,13 +35,20 @@ class CustomCommands(BasePlugin):
             "cc_limit": 25
         },
         "rslisp_max_runtime": 5,
-        "rslisp_minify": True
+        "rslisp_minify": True,
+        "cc_file_quota": 1024 * 1024,  # one megabyte
     }
     channel_categories = {"no_cc"}
     log_events = {"cc_event"}
 
     async def activate(self):
         self.ccs = self.config_manager.get_plugin_config_file("ccs.json")
+        save_args = {'default': lambda o: astuple(o), 'ensure_ascii': False}
+        load_args = {'object_pairs_hook': lambda obj: {k: CCFileMetadata(*v) for k, v in obj}}
+        self.ccfdata = self.config_manager.get_plugin_config_file("cc_storage.json", json_save_args=save_args,
+                                                                  json_load_args=load_args)
+        self.ccfolder = self.client.storage_dir / "ccfiles"
+        self.ccfolder.mkdir(parents=True, exist_ok=True)
         try:
             self.bans = self.ccs["bans"]
         except KeyError:
@@ -94,7 +110,7 @@ class CustomCommands(BasePlugin):
     @Command("CreateCC", "NewCC",
              doc="Creates a custom command.\n"
                  "RSLisp Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
-             syntax="[-s/--source [name]](name) (content)",
+             syntax="(name) (content, in plain text or in an attached file)",
              category="custom_commands")
     async def _createcc(self, msg):
         gid = str(msg.guild.id)
@@ -104,17 +120,9 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            args = msg.clean_content.split()[1:]
-            if args and args[0].lower() in ("-s", "--source"):
-                name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
-                content = fp.getvalue().decode()
-            else:
-                try:
-                    jsdata = json.loads(fp.getvalue().decode())
-                except json.JSONDecodeError:
-                    raise CommandSyntaxError("Uploaded file is not valid JSON!")
-                name = jsdata["name"].lower()
-                content = jsdata["content"]
+            args = msg.clean_content.split()
+            name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
+            content = fp.getvalue().decode()
         else:
             try:
                 args = msg.clean_content.split(None, 2)[1:]
@@ -173,14 +181,10 @@ class CustomCommands(BasePlugin):
         except IndexError:
             raise CommandSyntaxError("No name provided.")
         if name in self.ccs[gid]:
-            cc = {
-                "name": name,
-                "content": self.ccs[gid][name]["content"]
-            }
-            cc = json.dumps(cc, indent=2, ensure_ascii=False)
             async with msg.channel.typing():
                 await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                              file=File(BytesIO(bytes(cc, encoding="utf-8")), filename=name + ".json"))
+                              file=File(BytesIO(bytes(self.ccs[gid][name]["content"], encoding="utf-8")),
+                                        filename=name + ".lisp"))
         else:
             raise CommandSyntaxError(f"No such custom command {name}.")
 
@@ -305,9 +309,8 @@ class CustomCommands(BasePlugin):
         else:
             matched_ccs = filter(lambda x: search in x.lower(), ccs_list)
         if matched_ccs:
-            matched_ccs = ", ".join(matched_ccs)
-            for split_msg in split_message(f"**ANALYSIS: The following custom commands match your search:**"
-                                           f"```\n{matched_ccs}```"):
+            for split_msg in group_items(matched_ccs, "**ANALYSIS: The following custom commands match your "
+                                                      "search:**", joiner=', '):
                 await respond(msg, split_msg)
 
         else:
@@ -344,21 +347,22 @@ class CustomCommands(BasePlugin):
         if gid not in self.ccs:
             self.ccs[gid] = {}
         try:
-            name, category = msg.content.split(None, 2)
+            _, name, category = msg.content.split(None, 2)
         except ValueError:
             raise CommandSyntaxError("Two arguments required.")
         if name in self.ccs[gid]:
-            if "restricted" in self.ccs[gid][name]:
-                if category not in self.ccs[gid][name]["restricted"]:
-                    self.ccs[gid][name]["restricted"].append(category)
+            whitelist = self.ccs[gid][name].setdefault("restricted", [])
+
+            if self.channel_manager.get_category(msg.guild, category):
+                if category not in whitelist:
+                    whitelist.append(category)
                     await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
                 else:
-                    self.ccs[gid][name]["restricted"].remove(category)
+                    whitelist.remove(category)
                     await respond(msg, f"**AFFIRMATIVE. Custom command {name} no longer restricted to category "
                                        f"{category}.**")
             else:
-                self.ccs[gid][name]["restricted"] = [category]
-                await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
+                raise CommandSyntaxError(f"No channel category by name of {category}.")
         else:
             raise CommandSyntaxError(f"No custom command by name of {name}.")
 
@@ -418,8 +422,7 @@ class CustomCommands(BasePlugin):
         result_list = [f"{msg.guild.get_member(k).display_name:<32} | {str(v[0]):<5)} | "
                        f"{str(v[1]):<5}\n" for k, v in banned_users.items()]
         result_list.insert(0, f"{'Username'.ljust(32)} |  Ban  |  Mute")
-        result_list = "\n".join(result_list)
-        for split_msg in split_message(f"**ANALYSIS: Currently banned members:**```\n{result_list}```"):
+        for split_msg in group_items(result_list, "**ANALYSIS: Currently banned members:**"):
             await respond(msg, split_msg)
 
     @Command("RPN",
@@ -457,6 +460,144 @@ class CustomCommands(BasePlugin):
                 await respond(msg, str(env['_rsoutput']))
             elif result:
                 await respond(msg, str(result))
+
+    @Command("UploadCCData",
+             doc="Uploads a cc-accessible data file in a json format.\n"
+                 "File id must be one word with no dots/slashes that is up to 20 symbols.\n"
+                 "Description is mandatory and needs to describe the contents of the file.\n"
+                 "File itself must be valid JSON.",
+             syntax="(file id) (description) +json file",
+             category="custom_commands")
+    async def _uploadccdata(self, msg):
+        try:
+            _, fid, desc = msg.clean_content.split(None, 2)
+            desc = desc.replace('\r', '')
+
+            fp = BytesIO()
+            await msg.attachments[0].save(fp)
+
+            # poor mans deflating. We're still storing JSON, but we want to store the least JSON possible.
+            content = json.dumps(decode_json(fp.getvalue()), separators=(',', ':'), ensure_ascii=False)
+        except json.decoder.JSONDecodeError as e:
+            raise CommandSyntaxError(e)
+        except (ValueError, IndexError):
+            raise CommandSyntaxError
+
+        fid = fid.lower()[:20]
+
+        # since the fid string will just be slapped onto the end of a path, it's a good idea to make sure users
+        # can't just point at whatever they see fit and go "that's my file"
+        if not fid.isidentifier():
+            raise CommandSyntaxError("Illegal characters in file ID.")
+
+        total_size = sum([x.size for x in self.ccfdata.values() if x.owner == msg.author.id])
+
+        if fid in self.ccfdata:
+            if self.ccfdata[fid].owner != msg.author.id:
+                raise UserPermissionError
+            total_size -= self.ccfdata[fid].size
+
+        size = len(content)
+        if total_size + size > self.plugin_config['cc_file_quota'] \
+                and not self.config_manager.is_maintainer(msg.author):
+            raise UserPermissionError("File exceeds size quota. Remaining quota: "
+                                      f"{self.plugin_config['cc_file_quota']-total_size} bytes.")
+
+        self.ccfdata[fid] = CCFileMetadata(msg.author.id, size, desc)
+
+        total_size = self.plugin_config['cc_file_quota'] - total_size - size
+
+        with (self.ccfolder / (fid + '.json')).open('w', encoding='utf8') as fp:
+            fp.write(content)
+
+        await respond(msg, f"**AFFIRMATIVE. CC data file {fid} now available.\nRemaining quota: {total_size} bytes.**")
+
+    @Command("ListCCData",
+             doc="Prints a list of all available data files, including first line of description (shortened to 50 "
+                 "characters), owner and size.",
+             category="custom_commands")
+    async def _listccdata(self, msg):
+        # since the descriptions may be multiline, it's nice to remove any possible newlines and what comes after.
+        def desc(v: CCFileMetadata):
+            return v.desc.split('\n')[0][:50]
+
+        items = (f"{k:20} : {desc(v):50} : {str(self.client.get_user(v.owner))} : {v.size} bytes"
+                 for k, v in self.ccfdata.items())
+
+        for split in group_items(items, "**ANALYSIS: Following data files available:**"):
+            await respond(msg, split)
+
+    @Command("DeleteCCData",
+             doc="Removes a data file.",
+             syntax="(file id)",
+             category="custom_commands")
+    async def _delccdata(self, msg):
+        try:
+            fid = msg.clean_content.split(None, 1)[1].lower()[:20]
+
+            if fid in self.ccfdata:
+                if self.ccfdata[fid].owner != msg.author.id and not self.config_manager.is_maintainer(msg.author):
+                    raise UserPermissionError("File belongs to another user.")
+                del self.ccfdata[fid]
+                remove(self.ccfolder / (fid + '.json'))
+                await respond(msg, f"**AFFIRMATIVE. File {fid} removed.**")
+            else:
+                raise CommandSyntaxError(f"No file {fid} found.")
+        except IndexError:
+            raise CommandSyntaxError
+        except OSError:
+            raise CommandSyntaxError("Error while deleting file. Please contact the bot maintainer.")
+
+    @Command("CCData",
+             doc="Prints out the information associated with a data file, including person uploading, "
+                 "size and description.",
+             syntax="(file id)",
+             category="custom_commands")
+    async def _ccdata(self, msg):
+        try:
+            fid = msg.clean_content.split()[1].lower()[:20]
+            if fid in self.ccfdata:
+                f = self.ccfdata[fid]
+                await respond(msg, f"`{fid} uploaded by {self.client.get_user(f.owner)} ({f.size}b)`\n\n{f.desc}")
+            else:
+                raise CommandSyntaxError(f"No file {fid} found.")
+        except IndexError:
+            raise CommandSyntaxError
+
+    @Command("EditCCData",
+             doc="Changes the description associated to one given.",
+             syntax="(file id) (description)",
+             category="custom_commands")
+    async def _editccdata(self, msg):
+        try:
+            _, fid, desc = msg.clean_content.split(None, 2)
+            if fid in self.ccfdata:
+                if self.ccfdata[fid].owner != msg.author.id and not self.config_manager.is_maintainer(msg.author):
+                    raise UserPermissionError
+                self.ccfdata[fid].desc = desc.replace('\r', '')
+                await respond(msg, "**AFFIRMATIVE. Description updated.**")
+            else:
+                raise CommandSyntaxError(f"No file {fid} found.")
+        except ValueError:
+            raise CommandSyntaxError
+
+    @Command("DumpCCData",
+             doc="Uploads the specified data file",
+             syntax="(file id)",
+             category="custom_commands")
+    async def _dumpccdata(self, msg):
+        try:
+            _, fid = msg.clean_content.split(None, 1)
+            fid = fid.lower()[:20]
+            if fid in self.ccfdata:
+                async with msg.channel.typing():
+                    await respond(msg, "**AFFIRMATIVE.**",
+                                  file=File((self.ccfolder/(fid+'.json')).resolve().as_posix(),
+                                            filename=fid + ".json"))
+            else:
+                raise CommandSyntaxError(f"No file {fid} found.")
+        except ValueError:
+            raise CommandSyntaxError
 
     @staticmethod
     async def _rm_msg(msg):
@@ -599,6 +740,7 @@ class CustomCommands(BasePlugin):
         env['hasrole'] = lambda *x: self._hasrole(msg, *x)
         env['delcall'] = lambda: self._delcall(msg)
         env['embed'] = lambda *x: self._embed(msg, *get_args(x))
+        env['file'] = lambda x: self._file(x)
 
         return env
 
@@ -643,3 +785,14 @@ class CustomCommands(BasePlugin):
                 embed.add_field(name=name, value=content, inline=is_inline)
         if can_post:
             ensure_future(respond(msg, None, embed=embed))
+
+    def _file(self, filename):
+        if not filename.isidentifier():
+            raise CustomCommandSyntaxError(f"file error: illegal filename {filename}")
+        try:
+            with (self.ccfolder / (filename + '.json')).open() as fp:
+                return json.load(fp)
+        except FileNotFoundError:
+            raise CustomCommandSyntaxError(f"file error: no file named {filename}")
+        except json.decoder.JSONDecodeError:
+            raise CustomCommandSyntaxError(f"json error: file {filename} is invalid json")
