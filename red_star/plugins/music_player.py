@@ -380,7 +380,7 @@ class MusicPlayer(BasePlugin):
         if save_required:
             self.storage.save()
         # Auto-disconnect
-        for player in self.players.values():
+        for player in tuple(self.players.values()):
             await player.idle_check(dt)
 
     async def create_player(self, voice_channel, text_channel):
