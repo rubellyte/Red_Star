@@ -102,7 +102,7 @@ class MusicPlayer(BasePlugin):
                 await respond(msg, "**ANALYSIS: Bot is not currently in voice channel.**")
                 return
         if player.is_playing and not player.voice_client.channel.permissions_for(msg.author).mute_members:
-            raise PermissionError
+            raise UserPermissionError
         player.queue.clear()
         player.stop()
         await player.voice_client.disconnect()
