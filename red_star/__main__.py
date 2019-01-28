@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from argparse import ArgumentParser
+from discord.errors import LoginFailure
 from logging.handlers import RotatingFileHandler
 from os import chdir
 from pathlib import Path
@@ -67,7 +68,11 @@ def main():
         logging.getLogger("asyncio").setLevel(logging.INFO)
 
     bot = RedStar(storage_dir, args)
-    bot.run(bot.config["token"])
+    try:
+        bot.run(bot.config["token"])
+    except LoginFailure:
+        base_logger.error("Bot token is invalid! Please confirm that the token exists in configuration and is correct.")
+        raise SystemExit
 
 
 if __name__ == "__main__":
