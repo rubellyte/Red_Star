@@ -156,7 +156,7 @@ class MusicPlayer(BasePlugin):
             embed.set_author(name=vid["uploader"])
         if "tags" in vid:
             embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
-        play_time, duration, _ = player.play_time
+        play_time, duration, _ = player.progress
         play_time_tup = seconds_to_minutes(play_time)
         dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
         if duration > 0:
@@ -454,7 +454,6 @@ class GuildPlayer:
                     await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
-            await self.text_channel.send(f"**ANALYSIS: Current queue:**")
             final_msg = f"**ANALYSIS: Current queue:**{self.print_queue()}"
             for msg in split_message(final_msg):
                 await self.text_channel.send(msg)
