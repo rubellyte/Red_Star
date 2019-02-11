@@ -42,7 +42,7 @@ class CustomCommands(BasePlugin):
     log_events = {"cc_event"}
 
     async def activate(self):
-        self.ccs = self.config_manager.get_plugin_config_file("ccs.json")
+        self.ccs = self.config_manager.get_plugin_config_file("ccs.json", json_save_args={'ensure_ascii': False})
         save_args = {'default': lambda o: astuple(o), 'ensure_ascii': False}
         load_args = {'object_pairs_hook': lambda obj: {k: CCFileMetadata(*v) for k, v in obj}}
         self.ccfdata = self.config_manager.get_plugin_config_file("cc_storage.json", json_save_args=save_args,
