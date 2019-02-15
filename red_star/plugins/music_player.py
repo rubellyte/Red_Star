@@ -169,7 +169,7 @@ class MusicPlayer(BasePlugin):
             rating_field += f" {vid['like_count']:,}👍"
         if "dislike_count" in vid:
             rating_field += f"/{vid['dislike_count']:,}👎"
-        if "average_rating" in vid:
+        if vid.get("average_rating", None) is not None:
             rating_field += f" (Average rating: {vid['average_rating']:.2f})"
         embed.add_field(name="Ratings", value=rating_field)
         await respond(msg, embed=embed)
