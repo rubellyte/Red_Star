@@ -29,10 +29,9 @@ class BotManagement(BasePlugin):
 
     @Command("Shutdown",
              doc="Shuts down the bot.",
-             syntax="N/A",
              category="bot_management",
-             perms={"manage_guild"},
-             dm_command=True)
+             dm_command=True,
+             bot_maintainers_only=True)
     async def _shutdown(self, msg):
         await respond(msg, "**AFFIRMATIVE. SHUTTING DOWN.**")
         raise SystemExit
@@ -68,7 +67,7 @@ class BotManagement(BasePlugin):
              doc="Updates the bot's (nick)name.",
              syntax="[-p/--permanent] (name)",
              category="bot_management",
-             perms={"manage_guild"},
+             bot_maintainers_only=True,
              dm_command=True)
     async def _update_name(self, msg):
         args = msg.clean_content.split()[1:]
@@ -376,7 +375,6 @@ class BotManagement(BasePlugin):
                  "(printed by the bot after execution).",
              syntax="(code in code block)",
              category="debug",
-             perms={"manage_guild"},
              bot_maintainers_only=True,
              run_anywhere=True,
              dm_command=True)
