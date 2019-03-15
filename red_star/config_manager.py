@@ -20,11 +20,17 @@ class ConfigManager:
         self.load_config()
 
     def load_config(self):
+        temp_path = Path(str(self.config_file_path) + "_bak")
         self.logger.debug("Loading configuration...")
         try:
             with self.config_file_path.open(encoding="utf-8") as fd:
                 self.config = json.load(fd)
         except FileNotFoundError:
+            if temp_path.exists():
+                temp_path.rename(self.config_file_path)
+                self.logger.warning(f"Couldn't find {self.config_file_path}!\n"
+                                    f"A backup from an interrupted save was found. Attempting to load...")
+                return self.load_config()
             self.logger.warning(f"Couldn't find {self.config_file_path}! Copying default configuration...")
             default_path = Path.cwd() / "_default_files/config.json.default"
             self.config_path.mkdir(parents=True, exist_ok=True)
@@ -33,6 +39,12 @@ class ConfigManager:
                              f"Please configure the bot before continuing.")
             sys.exit(1)
         except json.decoder.JSONDecodeError:
+            if temp_path.exists():
+                self.config_file_path.unlink()
+                temp_path.rename(self.config_file_path)
+                self.logger.warning(f"The configuration file located at {self.config_file_path} is invalid!\n"
+                                    f"A backup from an interrupted save was found. Attempting to load...")
+                return self.load_config()
             self.logger.exception(f"The configuration file located at {self.config_file_path} is invalid!\n"
                                   f"Please correct the error below and restart.", exc_info=True)
             sys.exit(1)
@@ -41,7 +53,7 @@ class ConfigManager:
             self.config["plugins"] = {}
 
     def save_config(self):
-        temp_path = Path(str(self.config_file_path) + "_")
+        temp_path = Path(str(self.config_file_path) + "_bak")
         with temp_path.open("w", encoding="utf-8") as f:
             json.dump(self.config, f, sort_keys=True, indent=2)
         self.config_file_path.unlink()
