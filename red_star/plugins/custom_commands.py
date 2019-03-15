@@ -25,7 +25,7 @@ class CCFileMetadata:
 # noinspection PyBroadException
 class CustomCommands(BasePlugin):
     name = "custom_commands"
-    version = "2.0"
+    version = "2.1"
     author = "GTG3000, medeor413"
     description = "A plugin that allows users to create custom commands using Red Star's " \
                   "custom RSLisp language dialect."
