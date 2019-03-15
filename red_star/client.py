@@ -2,6 +2,7 @@ import logging
 from asyncio import create_task, sleep
 from datetime import datetime
 from discord import AutoShardedClient, ConnectionClosed
+from discord.utils import oauth_url
 from pathlib import Path
 from sys import exc_info
 from red_star.channel_manager import ChannelManager
@@ -39,20 +40,22 @@ class RedStar(AutoShardedClient):
         self.plugin_manager.load_all_plugins(self.plugin_directories)
 
         self.logged_in = False
-        self.server_ready = False
         self.last_error = None
 
     async def on_ready(self):
         if not self.logged_in:
             self.logged_in = True
-            self.logger.info("Logged in as")
+            self.logger.info("Logged in as:")
             self.logger.info(self.user)
             self.logger.info(self.user.id)
             self.logger.info("------------")
-            if self.server_ready:
-                self.logger.info("Logged in with server; activating plugins.")
-                create_task(self.global_tick_dispatcher())
-                await self.plugin_manager.activate_all()
+            self.logger.info("Activating plugins.")
+            create_task(self.global_tick_dispatcher())
+            if len(self.guilds) == 0:
+                self.logger.info("It looks like you haven't yet added the bot to any servers. Paste the link below "
+                                 "into your browser and invite the bot to some servers!")
+                self.logger.info(oauth_url(self.user.id))
+            await self.plugin_manager.activate_all()
 
     async def close(self):
         self.logger.warning("Logging out and shutting down.")
@@ -179,12 +182,6 @@ class RedStar(AutoShardedClient):
 
     async def on_guild_available(self, guild):
         self.channel_manager.add_guild(str(guild.id))
-        if not self.server_ready:
-            self.server_ready = True
-            self.logger.info("A server is now available.")
-            if self.logged_in:
-                self.logger.info("Logged in with server; activating plugins.")
-                await self.plugin_manager.activate_all()
         await self.plugin_manager.hook_event("on_guild_available", guild)
 
     async def on_guild_unavailable(self, guild):
