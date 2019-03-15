@@ -23,9 +23,18 @@ class BotManagement(BasePlugin):
             return
         maintainers = [self.client.get_user(x) for x in self.config_manager.config.get("bot_maintainers", [])]
         maintainers = filter(None, maintainers)
+        if msg.content.startswith("!") and msg.author in maintainers:
+            return
         for user in maintainers:
             await user.send(f"`{msg.author}:` {msg.system_content}\n"
                             f"`Attachments: {', '.join(a.url for a in msg.attachments)}`")
+
+    @Command("Ping",
+             doc="Returns the current message latency of the bot.",
+             syntax="N/A",
+             dm_command=True)
+    async def _ping(self, msg):
+        await respond(msg, f"**ANALYSIS: Current latency is {round(self.client.latency * 1000)} ms.**")
 
     @Command("Shutdown",
              doc="Shuts down the bot.",
