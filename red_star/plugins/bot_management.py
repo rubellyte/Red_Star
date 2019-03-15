@@ -23,9 +23,18 @@ class BotManagement(BasePlugin):
             return
         maintainers = [self.client.get_user(x) for x in self.config_manager.config.get("bot_maintainers", [])]
         maintainers = filter(None, maintainers)
+        if msg.content.startswith("!") and msg.author in maintainers:
+            return
         for user in maintainers:
             await user.send(f"`{msg.author}:` {msg.system_content}\n"
                             f"`Attachments: {', '.join(a.url for a in msg.attachments)}`")
+
+    @Command("Ping",
+             doc="Returns the current message latency of the bot.",
+             syntax="N/A",
+             dm_command=True)
+    async def _ping(self, msg):
+        await respond(msg, f"**ANALYSIS: Current latency is {round(self.client.latency * 1000)} ms.**")
 
     @Command("Shutdown",
              doc="Shuts down the bot.",
@@ -387,18 +396,18 @@ class BotManagement(BasePlugin):
             raise CommandSyntaxError("No code provided.")
         except AttributeError:
             raise CommandSyntaxError("Code is not in valid code block.")
-        # Convenience variables for printing results and ensure_future
-        aef = asyncio.ensure_future
-        self.res = None
+        # Convenience variables for printing results and create_task
+        ct = asyncio.create_task
+        self.res = self.EmptySentinel()
         # noinspection PyBroadException
         try:
             exec(code, globals(), locals())
         except Exception:
             await respond(msg, f"**WARNING: Error occurred while executing code. Traceback:**\n"
                                f"```Py\n{format_exc()}\n```")
-        if self.res is not None:
+        if not isinstance(self.res, self.EmptySentinel):
             await respond(msg, f"**ANALYSIS: Result: {self.res}**")
-            self.res = None
+            self.res = self.EmptySentinel()
 
     @staticmethod
     def _list_or_dict_subscript(obj, key):
@@ -415,3 +424,8 @@ class BotManagement(BasePlugin):
             return obj[int(key)]
         else:
             raise TypeError
+
+    class EmptySentinel:
+        """
+        Just a simple class to function as a sentinel value for Execute's result variable.
+        """
