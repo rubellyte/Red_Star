@@ -58,7 +58,7 @@ class DiscordLogger(BasePlugin):
             msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             attaches = ""
             if msg.attachments:
-                links = ", ".join([x.url for x in msg.attachments])
+                links = ", ".join([x.proxy_url or x.url for x in msg.attachments])
                 attaches = f"\n**Attachments:** `{links}`"
             self.emit_log(f"**ANALYSIS: User {msg.author}'s message at `{msgtime}` in {msg.channel.mention}"
                           f" was deleted. ANALYSIS: Contents:**\n{contents}{attaches}", msg.guild)

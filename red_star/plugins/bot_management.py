@@ -381,7 +381,7 @@ class BotManagement(BasePlugin):
 
     @Command("Execute", "Exec", "Eval",
              doc="Executes the given Python code. Be careful, you can really break things with this!\n"
-                 "Provided variables are `aef` (shorthand for asyncio.ensure_future) and `self.result` "
+                 "Provided variables are `ct` (shorthand for asyncio.create_task) and `self.res` "
                  "(printed by the bot after execution).",
              syntax="(code in code block)",
              category="debug",
