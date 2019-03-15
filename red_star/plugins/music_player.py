@@ -101,7 +101,9 @@ class MusicPlayer(BasePlugin):
             except AttributeError:
                 await respond(msg, "**ANALYSIS: Bot is not currently in voice channel.**")
                 return
-        if player.is_playing and not player.voice_client.channel.permissions_for(msg.author).mute_members:
+        if player.is_playing \
+                and not player.voice_client.channel.permissions_for(msg.author).mute_members\
+                and not self.config_manager.is_maintainer(msg.author):
             raise UserPermissionError
         player.queue.clear()
         player.stop()
@@ -169,7 +171,7 @@ class MusicPlayer(BasePlugin):
             rating_field += f" {vid['like_count']:,}👍"
         if "dislike_count" in vid:
             rating_field += f"/{vid['dislike_count']:,}👎"
-        if "average_rating" in vid:
+        if vid.get("average_rating", None) is not None:
             rating_field += f" (Average rating: {vid['average_rating']:.2f})"
         embed.add_field(name="Ratings", value=rating_field)
         await respond(msg, embed=embed)
@@ -264,11 +266,12 @@ class MusicPlayer(BasePlugin):
         if not player or not player.is_playing:
             await respond(msg, "**ANALYSIS: No music currently playing.**")
             return
-        elif player.voice_client.channel.permissions_for(msg.author).mute_members:
+        elif player.voice_client.channel.permissions_for(msg.author).mute_members\
+                or self.config_manager.is_maintainer(msg.author):
             await respond(msg, "**ANALYSIS: Skipping to next song in queue...**")
             player.stop()
         else:
-            await player.skip_vote()
+            await player.skip_vote(msg.author.id)
 
     @Command("PauseSong", "Pause", "ResumeSong", "Resume",
              doc="Tells the bot to pause or resume the current song.",
@@ -418,7 +421,7 @@ class GuildPlayer:
         self._loop = get_event_loop()
         self._song_start_time = None
         self._song_pause_time = None
-        self._skip_votes = 0
+        self._skip_votes = set()
         self.gid = str(voice_client.guild.id)
         self._alone_time = 0
 
@@ -543,7 +546,7 @@ class GuildPlayer:
             await self.text_channel.send("**ANALYSIS: Queue complete.**")
             self.is_playing = False
             self.current_song = {}
-            self._skip_votes = 0
+            self._skip_votes = set()
             self.voice_client.stop()
             try:
                 self.voice_client.source.cleanup()
@@ -562,7 +565,7 @@ class GuildPlayer:
         self.voice_client.play(source, after=self._after)
         self._song_start_time = time()
         self.current_song = next_song
-        self._skip_votes = 0
+        self._skip_votes = set()
         await self.text_channel.send(f"**NOW PLAYING: {next_song['title']}.**")
 
     def toggle_pause(self):
@@ -582,7 +585,7 @@ class GuildPlayer:
 
     def stop(self):
         self.is_playing = False
-        self._skip_votes = 0
+        self._skip_votes = set()
         try:
             self.voice_client.source.cleanup()
         except AttributeError:
@@ -607,15 +610,20 @@ class GuildPlayer:
             fraction = 0
         return self.play_time, self.current_song["duration"], fraction
 
-    async def skip_vote(self):
-        self._skip_votes += 1
+    async def skip_vote(self, uid):
+        if uid not in self._skip_votes:
+            self._skip_votes.add(uid)
+        else:
+            await self.text_channel.send("**NEGATIVE. Skip vote already recorded.**")
+            return
         total_users = len(self.voice_client.channel.members) - 1  # Don't want to count the bot itself
         threshold = get_guild_config(self.parent, self.gid, "vote_skip_threshold")
-        if self._skip_votes / total_users >= threshold:
+        vote_count = len(self._skip_votes)
+        if vote_count / total_users >= threshold:
             await self.text_channel.send("**AFFIRMATIVE. Skipping current song.**")
             self.stop()
         else:
-            votes_needed = ceil(total_users * threshold) - self._skip_votes
+            votes_needed = ceil(total_users * threshold) - vote_count
             await self.text_channel.send(f"**AFFIRMATIVE. Skip vote recorded. {votes_needed} votes needed to skip.**")
 
     @property
@@ -690,8 +698,8 @@ def seconds_to_minutes(secs, hours=False):
         return int(mn), int(floor(sec))
 
 
-def progress_bar(progress, length):
-    if not 0 <= length <= 1:
+def progress_bar(progress, length=70):
+    if not 0 <= progress <= 1:
         raise ValueError("First argument is expected to be a floating-point between 0 and 1.")
     bars = floor(length * progress)
     return "█" * bars + "-" * (length - bars)

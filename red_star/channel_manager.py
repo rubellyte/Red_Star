@@ -19,6 +19,7 @@ class ChannelManager:
 
     def add_guild(self, gid):
         if gid not in self.conf:
+            self.client.logger.info(f"Registered new guild: {gid}")
             self.conf[gid] = self.default_config.copy()
         guild_conf = self.conf[gid]
         new_channels = {i: None for i in self.channel_types}

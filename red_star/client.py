@@ -156,7 +156,7 @@ class RedStar(AutoShardedClient):
         await self.plugin_manager.hook_event("on_member_update", before, after)
 
     async def on_guild_join(self, guild):
-        self.channel_manager.add_guild(guild)
+        self.channel_manager.add_guild(str(guild.id))
         await self.plugin_manager.hook_event("on_guild_join", guild)
 
     async def on_guild_remove(self, guild):

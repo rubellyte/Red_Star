@@ -136,10 +136,13 @@ def atom(token: str):
         try:
             return float(token)
         except ValueError:
-            try:
-                return is_positive(token)
-            except CommandSyntaxError:
-                return token.lower()
+            token = token.lower()
+            if token == "true":
+                return True
+            elif token == "false":
+                return False
+            else:
+                return token
 
 
 # =============================================================================================================

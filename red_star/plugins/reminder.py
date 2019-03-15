@@ -12,7 +12,7 @@ from asyncio import create_task
 
 class ReminderPlugin(BasePlugin):
     name = "reminder"
-    version = "1.1"
+    version = "1.2"
     author = "GTG3000"
     description = "A plugin for setting messages that the bot will send you at a configurable time."
     channel_types = {"reminders"}
@@ -68,9 +68,10 @@ class ReminderPlugin(BasePlugin):
                                              hour=self.time.hour,
                                              minute=self.time.minute,
                                              second=self.time.second)
+                elif self.recurring[0] == 'd':
+                    return self.time + datetime.timedelta(days=self.recurring[1])
                 else:
-                    _d = datetime.timedelta(days=self.recurring[1])
-                    return self.time + _d
+                    return self.time + datetime.timedelta(hours=self.recurring[1])
             else:
                 return False
 
@@ -146,7 +147,7 @@ class ReminderPlugin(BasePlugin):
         if msg.author.permissions_in(msg.channel).mention_everyone and (args['everyone'] or args['here']):
             args['reminder'].insert(0, "@everyone:" if args['everyone'] else "@here:")
 
-        if args['recurring'] and args['recurring'][0].lower() in 'ymd':
+        if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
             try:
                 _recur = (args['recurring'][0].lower(), int(args['recurring'][1:]))
                 if _recur[1] <= 0:

@@ -1,11 +1,9 @@
 import datetime
 import json
-import math
-import random
 import re
-from asyncio import ensure_future, sleep
+from asyncio import sleep, create_task
 from io import BytesIO
-from os import remove
+from os import remove, path
 from red_star.plugin_manager import BasePlugin
 from discord import Embed, File, Forbidden, utils, Colour
 from red_star.command_dispatcher import Command
@@ -13,6 +11,8 @@ from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCo
 from red_star.rs_utils import respond, find_user, decode_json, group_items
 from .rs_lisp import lisp_eval, parse, reprint, standard_env, get_args
 from dataclasses import dataclass, astuple
+from subprocess import Popen, PIPE, TimeoutExpired
+from sys import executable
 
 
 @dataclass
@@ -25,7 +25,7 @@ class CCFileMetadata:
 # noinspection PyBroadException
 class CustomCommands(BasePlugin):
     name = "custom_commands"
-    version = "2.0"
+    version = "2.1"
     author = "GTG3000, medeor413"
     description = "A plugin that allows users to create custom commands using Red Star's " \
                   "custom RSLisp language dialect."
@@ -40,15 +40,22 @@ class CustomCommands(BasePlugin):
     }
     channel_categories = {"no_cc"}
     log_events = {"cc_event"}
+    rpn_path = None
 
     async def activate(self):
-        self.ccs = self.config_manager.get_plugin_config_file("ccs.json")
+        self.ccs = self.config_manager.get_plugin_config_file("ccs.json", json_save_args={'ensure_ascii': False})
         save_args = {'default': lambda o: astuple(o), 'ensure_ascii': False}
         load_args = {'object_pairs_hook': lambda obj: {k: CCFileMetadata(*v) for k, v in obj}}
         self.ccfdata = self.config_manager.get_plugin_config_file("cc_storage.json", json_save_args=save_args,
                                                                   json_load_args=load_args)
         self.ccfolder = self.client.storage_dir / "ccfiles"
         self.ccfolder.mkdir(parents=True, exist_ok=True)
+
+        for rpn_exec in (directory / "rpn_executor.py" for directory in self.client.plugin_directories):
+            if path.isfile(rpn_exec):
+                self.rpn_path = rpn_exec
+                break
+
         try:
             self.bans = self.ccs["bans"]
         except KeyError:
@@ -190,7 +197,7 @@ class CustomCommands(BasePlugin):
 
     @Command("EditCC",
              doc="Edits a custom command you created.",
-             syntax="[-s/--source [name]](name) (content)",
+             syntax="(name) (content, in plain text or in an attached file)",
              category="custom_commands")
     async def _editcc(self, msg):
         gid = str(msg.guild.id)
@@ -200,17 +207,11 @@ class CustomCommands(BasePlugin):
         if msg.attachments:
             fp = BytesIO()
             await msg.attachments[0].save(fp)
-            args = msg.clean_content.split(None, 2)[1:]
-            if args and args[0].lower() in ("-s", "--source"):
-                name = args[1].lower() if len(args) > 1 else msg.attachments[0].filename.rsplit('.', 1)[0]
-                content = fp.getvalue().decode()
-            else:
-                try:
-                    jsdata = json.loads(fp.getvalue().decode())
-                except json.JSONDecodeError:
-                    raise CommandSyntaxError("Uploaded file is not valid JSON.")
-                name = jsdata["name"].lower()
-                content = jsdata["content"]
+            try:
+                name = msg.clean_content.split(None, 2)[1].lower()
+            except IndexError:
+                name = msg.attachments[0].filename.rsplit('.', 1)[0]
+            content = fp.getvalue().decode()
         else:
             try:
                 _, name, content = msg.clean_content.split(" ", 2)
@@ -434,10 +435,34 @@ class CustomCommands(BasePlugin):
                  "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches), rnd.",
              run_anywhere=True)
     async def _rpncmd(self, msg):
-        t_str = " | ".join([str(x) for x in self._parse_rpn(msg.content)])
-        await respond(msg, "**Result : [ " + t_str + " ]**")
+        if self.rpn_path is None:
+            return
 
-        # Custom command machinery
+        # sanitizing the input. Couldn't figure out a way to exploit Popen but *just in case*.
+        num = re.compile(r"\d*\.\d+|\d+\.|0[xbo]\d+")
+        ops = ("+", "-", "*", "/", "^", "%", "//", "log", "atan2", "swap", "min", "max", "sin", "cos", "tan", "ln",
+               "pop", "int", "dup", "drop", "modf", "round", "rndint", "e", "pi", "tau", "m2f", "m2i", "rnd")
+
+        args = " ".join(a for a in msg.content.lower().split() if a in ops or a.isnumeric() or num.match(a))
+
+        # a convoluted way to run the RPN in such a way that plugging 3 3 3 3 ^ ^ ^ or something like that into the bot
+        # doesn't make it lock up.
+        # TODO: figure out if we can make multiprocessing work after all, this is kind of a hack.
+        process = Popen(f"{executable} {self.rpn_path} {args}", stdout=PIPE, stderr=PIPE,
+                        encoding="utf-8")
+        try:
+            output, err = process.communicate(timeout=self.plugin_config.get('rslisp_max_runtime', 5))
+            process.wait()
+            if err:
+                raise CommandSyntaxError(output)
+            result = output.split()
+        except TimeoutExpired:
+            process.kill()
+            raise CommandSyntaxError("Command ran too long.")
+
+        await respond(msg, f"**Result : [ {' | '.join([str(x) for x in result])} ]**")
+
+    # Custom command machinery
 
     @Command("EvalCC",
              doc="Evaluates the given string through RSLisp cc parser.",
@@ -471,8 +496,6 @@ class CustomCommands(BasePlugin):
     async def _uploadccdata(self, msg):
         try:
             _, fid, desc = msg.clean_content.split(None, 2)
-            desc = desc.replace('\r', '')
-
             fp = BytesIO()
             await msg.attachments[0].save(fp)
 
@@ -503,7 +526,7 @@ class CustomCommands(BasePlugin):
             raise UserPermissionError("File exceeds size quota. Remaining quota: "
                                       f"{self.plugin_config['cc_file_quota']-total_size} bytes.")
 
-        self.ccfdata[fid] = CCFileMetadata(msg.author.id, size, desc)
+        self.ccfdata[fid] = CCFileMetadata(msg.author.id, size, desc.replace('\r', ''))
 
         total_size = self.plugin_config['cc_file_quota'] - total_size - size
 
@@ -614,81 +637,6 @@ class CustomCommands(BasePlugin):
                 "cc_use_ban": []
             }
 
-    @staticmethod
-    def _parse_rpn(args):
-        args = args.lower().split()
-        if len(args) == 0:
-            raise CustomCommandSyntaxError("<rpn> tag requires arguments.")
-        stack = []
-        out = []
-
-        def _dup(x):
-            stack.append(x)
-            stack.append(x)
-
-        def _swap(x, y):
-            stack.append(x)
-            stack.append(y)
-
-        def _modf(x):
-            v, v1 = math.modf(x)
-            stack.append(v)
-            stack.append(v1)
-
-        binary_ops = {
-            "+": lambda x, y: stack.append(x + y),
-            "-": lambda x, y: stack.append(y - x),
-            "*": lambda x, y: stack.append(x * y),
-            "/": lambda x, y: stack.append(y / x),
-            "^": lambda x, y: stack.append(y ** x),
-            "%": lambda x, y: stack.append(y % x),
-            "//": lambda x, y: stack.append(y // x),
-            "log": lambda x, y: stack.append(math.log(y, x)),
-            "atan2": lambda x, y: stack.append(math.atan2(y, x)),
-            "swap": _swap,
-            "min": lambda x, y: stack.append(min(x, y)),
-            "max": lambda x, y: stack.append(max(x, y)),
-        }
-        unary_ops = {
-            "sin": lambda x: stack.append(math.sin(x)),
-            "cos": lambda x: stack.append(math.cos(x)),
-            "tan": lambda x: stack.append(math.tan(x)),
-            "ln": lambda x: stack.append(math.log(x)),
-            "pop": lambda x: out.append(x),
-            "int": lambda x: stack.append(int(x)),
-            "dup": _dup,
-            "drop": lambda x: x,
-            "modf": _modf,
-            "round": lambda x: stack.append(round(x)),
-            "rndint": lambda x: stack.append(random.randint(0, x))
-        }
-        constants = {
-            "e": lambda: stack.append(math.e),
-            "pi": lambda: stack.append(math.pi),
-            "tau": lambda: stack.append(math.tau),
-            "m2f": lambda: stack.append(3.280839895),
-            "m2i": lambda: stack.append(39.37007874),
-            "rnd": lambda: stack.append(random.random())
-        }
-        for arg in args:
-            try:
-                value = int(arg, 0)
-            except ValueError:
-                try:
-                    value = float(arg)
-                except ValueError:
-                    if arg in binary_ops and len(stack) > 1:
-                        binary_ops[arg](stack.pop(), stack.pop())
-                    elif arg in unary_ops and len(stack) >= 1:
-                        unary_ops[arg](stack.pop())
-                    elif arg in constants:
-                        constants[arg]()
-                else:
-                    stack.append(value)
-            else:
-                stack.append(value)
-        return [*out, *stack]
-
     async def run_cc(self, cmd, msg):
         gid = str(msg.guild.id)
         if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
@@ -745,7 +693,7 @@ class CustomCommands(BasePlugin):
         return env
 
     def _delcall(self, msg):
-        ensure_future(self._rm_msg(msg))
+        create_task(self._rm_msg(msg))
 
     @staticmethod
     def _hasrole(msg, *args):
@@ -784,7 +732,7 @@ class CustomCommands(BasePlugin):
                     is_inline = False
                 embed.add_field(name=name, value=content, inline=is_inline)
         if can_post:
-            ensure_future(respond(msg, None, embed=embed))
+            create_task(respond(msg, None, embed=embed))
 
     def _file(self, filename):
         if not filename.isidentifier():
