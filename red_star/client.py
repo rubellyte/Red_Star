@@ -1,7 +1,7 @@
 import logging
 from asyncio import create_task, sleep
 from datetime import datetime
-from discord import AutoShardedClient, ConnectionClosed
+from discord import AutoShardedClient, ConnectionClosed, DMChannel
 from discord.utils import oauth_url
 from pathlib import Path
 from sys import exc_info
@@ -72,7 +72,7 @@ class RedStar(AutoShardedClient):
         await self.plugin_manager.hook_event("on_resumed")
 
     async def on_typing(self, channel, user, when):
-        if channel.guild is None:
+        if isinstance(channel, DMChannel):
             return
         if self.channel_manager.channel_in_category(channel.guild, "no_read", channel):
             return
