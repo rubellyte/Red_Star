@@ -176,13 +176,12 @@ class DiscordLogger(BasePlugin):
                 audit_event = None
 
             if before.name == after.name \
-                    and before.colour == after.colour\
-                    and before.hoist == after.hoist\
-                    and before.mentionable == after.mentionable\
-                    and before.permissions == after.permissions\
-                    and before.position == after.position\
-                    and audit_event.target == after:
-                if audit_event:
+                    and before.colour == after.colour \
+                    and before.hoist == after.hoist \
+                    and before.mentionable == after.mentionable  \
+                    and before.permissions == after.permissions \
+                    and before.position == after.position:
+                if audit_event is not None and audit_event.target == after:
                     before_dict = audit_event.changes.before.__dict__
                     before.name = before_dict.get("name", after.name)
                     before.colour = before_dict.get("colour", after.colour)
