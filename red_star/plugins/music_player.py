@@ -59,6 +59,7 @@ class MusicPlayer(BasePlugin):
 
         self.ydl_options = self.plugin_config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
+        self.ydl_options["extract_flat"] = "in_playlist"
         self.ydl_options["outtmpl"] = str(self.client.storage_dir / "music_cache" /
                                           self.ydl_options.get("outtmpl", "%(id)s-%(extractor)s.%(ext)s"))
 
@@ -473,18 +474,26 @@ class GuildPlayer:
                                      f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
         with self.text_channel.typing():
-            for vid in entries:
+            for url in entries:
+                with YoutubeDL(self.parent.ydl_options) as ydl:
+                    try:
+                        vid_info = await self._loop.run_in_executor(None,
+                                                               partial(ydl.extract_info, url["url"], download=False))
+                    except YoutubeDLError as e:
+                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video"
+                                                     f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
+                        continue
                 if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                     await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
                     break
-                elif vid["duration"] > get_guild_config(self.parent, self.gid, "max_video_length"):
+                elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
                     max_len = seconds_to_minutes(get_guild_config(self.parent, self.gid, "max_video_length"))
                     max_len_str = f"{max_len[0]:02d}:{max_len[1]:02d}"
-                    await self.text_channel.send(f"**WARNING: Video {vid['title']} exceeds the maximum video length"
-                                                 f"({max_len_str}). It will not be added.**")
+                    await self.text_channel.send(f"**WARNING: Video {vid_info['title']} exceeds the maximum video"
+                                                 f" length ({max_len_str}). It will not be added.**")
                     continue
                 try:
-                    await self._process_video(vid)
+                    await self._process_video(vid_info)
                 except TypeError:
                     continue
                 if not self.is_playing:
