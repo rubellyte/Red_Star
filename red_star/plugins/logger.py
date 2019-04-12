@@ -149,7 +149,7 @@ class DiscordLogger(BasePlugin):
             try:
                 # find audit log entries for kicking of member with our ID, created in last five seconds.
                 # Hopefully five seconds is enough
-                latest_logs = member.guild.audit_logs(action=AuditLogAction.kick, after=now - timedelta(seconds=5))
+                latest_logs = member.guild.audit_logs(action=AuditLogAction.kick, limit=1)
                 kick_event = await latest_logs.get(target__id=member.id)
             except Forbidden:
                 kick_event = None
@@ -170,8 +170,7 @@ class DiscordLogger(BasePlugin):
         if "role_update" not in blacklist:
             diff = []
             try:
-                audit_event = await after.guild.audit_logs(action=AuditLogAction.role_update,
-                                                           after=datetime.utcnow() - timedelta(seconds=5)).get()
+                audit_event = await after.guild.audit_logs(action=AuditLogAction.role_update, limit=1).get()
             except Forbidden:
                 audit_event = None
 
