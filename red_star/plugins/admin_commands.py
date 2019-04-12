@@ -55,7 +55,7 @@ class AdminCommands(BasePlugin):
 
         if args['before']:
             try:
-                before_msg = await msg.channel.get_message(args['before'])
+                before_msg = await msg.channel.fetch_message(args['before'])
             except NotFound:
                 raise CommandSyntaxError(f"No message in channel with ID {args['before']}.")
         else:
@@ -63,7 +63,7 @@ class AdminCommands(BasePlugin):
 
         if args['after']:
             try:
-                after_msg = await msg.channel.get_message(args['after'])
+                after_msg = await msg.channel.fetch_message(args['after'])
             except NotFound:
                 raise CommandSyntaxError(f"No message in channel with ID {args['before']}.")
         else:
