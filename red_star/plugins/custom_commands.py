@@ -443,13 +443,13 @@ class CustomCommands(BasePlugin):
         ops = ("+", "-", "*", "/", "^", "%", "//", "log", "atan2", "swap", "min", "max", "sin", "cos", "tan", "ln",
                "pop", "int", "dup", "drop", "modf", "round", "rndint", "e", "pi", "tau", "m2f", "m2i", "rnd")
 
-        args = " ".join(a for a in msg.content.lower().split() if a in ops or a.isnumeric() or num.match(a))
+        args = [executable, str(self.rpn_path)] + [a for a in msg.content.lower().split()
+                                                   if a in ops or a.isnumeric() or num.match(a)]
 
         # a convoluted way to run the RPN in such a way that plugging 3 3 3 3 ^ ^ ^ or something like that into the bot
         # doesn't make it lock up.
         # TODO: figure out if we can make multiprocessing work after all, this is kind of a hack.
-        process = Popen(f"{executable} {self.rpn_path} {args}", stdout=PIPE, stderr=PIPE,
-                        encoding="utf-8")
+        process = Popen(args, stdout=PIPE, stderr=PIPE, encoding="utf-8")
         try:
             output, err = process.communicate(timeout=self.plugin_config.get('rslisp_max_runtime', 5))
             process.wait()
