@@ -35,7 +35,8 @@ class MusicPlayer(BasePlugin):
             "logtostderr": False,
             "nocheckcertificate": True,
             "format": "bestaudio/best",
-            "noplaylist": True
+            "noplaylist": True,
+            "no_color": True
         },
         "default": {
             "max_queue_length": 30,
@@ -518,7 +519,7 @@ class GuildPlayer:
                     self.parent.storage["downloaded_songs"][vid["filename"]] = time()
                     self.parent.storage.save()
                 except YoutubeDLError as e:
-                    await self.text_channel.send(f"**WARNING. An error occurred while downloading video"
+                    await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
                                                  f"{vid['title']}. It will not be queued.\nError details:** `{e}`")
                     return
         vid.setdefault("title", "Unknown")
