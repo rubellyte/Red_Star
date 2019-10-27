@@ -50,11 +50,13 @@ class MusicPlayer(BasePlugin):
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("music_player.json")
 
-        if not opus.is_loaded():
-            try:
-                opus.load_opus(self.plugin_config["opus_path"])
-            except (OSError, TypeError):
-                raise RuntimeError("Error occurred while loading libopus! Ensure that the path is correct.")
+        # As of discord.py v1.2.4, opus is lazy-loaded, which makes this part a bit broken.
+        # TODO: Determine whether we should force-load it anyways or just remove this snippet.
+        # if not opus.is_loaded():
+        #     try:
+        #         opus.load_opus(self.plugin_config["opus_path"])
+        #     except (OSError, TypeError):
+        #         raise RuntimeError("Error occurred while loading libopus! Ensure that the path is correct.")
 
         self.players = {}
 

@@ -51,7 +51,6 @@
         "vote_skip_threshold": 0.5
       },
       "default_volume": 15,
-      "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
       "save_audio": true,
       "video_cache_clear_age": 259200,
       "youtube_dl_config": {
