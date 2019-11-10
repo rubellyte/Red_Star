@@ -9,6 +9,12 @@ from discord import Message, HTTPException
 from dataclasses import dataclass
 from asyncio import create_task
 
+recurDecode = {
+    "h": ('hour', 'hours'),
+    "d": ('day', 'days'),
+    "m": ('month', 'months'),
+    "y": ('year', 'years')
+}
 
 class ReminderPlugin(BasePlugin):
     name = "reminder"
@@ -150,12 +156,14 @@ class ReminderPlugin(BasePlugin):
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
             try:
                 _recur = (args['recurring'][0].lower(), int(args['recurring'][1:]))
+                _recurstr = f" Recurring every {recurDecode[_recur[0]][0] if _recur[1]==1 else str(_recur[1])+' '+recurDecode[_recur[0]][1]}."
                 if _recur[1] <= 0:
                     raise ValueError
             except ValueError:
                 raise CommandSyntaxError('invalid recurring time format')
         else:
             _recur = []
+            _recurstr = ""
 
         try:
             if args['time']:
@@ -173,7 +181,8 @@ class ReminderPlugin(BasePlugin):
                                                              ' '.join(args['reminder']),
                                                              args['private'], _recur))
         self.storage.save()
-        await respond(msg, f"**AFFIRMATIVE: reminder set for {time.strftime('%Y-%m-%d @ %H:%M:%S')} UTC.**")
+
+        await respond(msg, f"**AFFIRMATIVE: reminder set for {time.strftime('%Y-%m-%d @ %H:%M:%S')} UTC.{_recurstr}**")
 
     @Command("RemindList",
              syntax="[-/del/delete index]",
