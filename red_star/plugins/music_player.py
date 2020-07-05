@@ -1,5 +1,6 @@
 import enum
 import logging
+import re
 from asyncio import get_event_loop, TimeoutError
 from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, opus, ClientException
 from math import floor, ceil
@@ -426,13 +427,44 @@ class GuildPlayer:
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
-                    vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, url, download=False))
+                    pl_slice = re.match(r"(.*){(.+)}", url)
+                    if not pl_slice:
+                        pl_slice = [url, url, None]
+                    vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, pl_slice[1],
+                                                                              download=False))
                 except YoutubeDLError as e:
                     await self.text_channel.send(f"**WARNING. An error occurred while downloading video <{url}>. "
                                                  f"It will not be queued.\nError details:** `{e}`")
                     return
             if vid_info.get("_type") == "playlist":
-                self._loop.create_task(self._enqueue_playlist(vid_info["entries"]))
+                if pl_slice[2]:
+                    pl_slices = pl_slice[2].split(",")
+                    pl = []
+                    for s in pl_slices:
+                        if "-" in s:
+                            s_start, s_end = s.split("-", 1)
+                            try:
+                                s_start = int(s_start) - 1
+                            except ValueError:
+                                s_start = 0
+                            try:
+                                s_end = int(s_end)
+                                if s_end > len(vid_info["entries"]):
+                                    raise ValueError
+                            except ValueError:
+                                s_end = len(vid_info["entries"])
+                            if s_end < s_start:
+                                continue
+                            pl.extend(vid_info["entries"][s_start:s_end])
+                        else:
+                            try:
+                                s = int(s) - 1
+                                pl.append(vid_info["entries"][s])
+                            except (ValueError, IndexError):
+                                continue
+                else:
+                    pl = vid_info["entries"]
+                self._loop.create_task(self._enqueue_playlist(pl))
                 return
             else:
                 if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
