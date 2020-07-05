@@ -181,6 +181,7 @@ class RoleCommands(BasePlugin):
         except ValueError as e:
             self.logger.warning("Unable to split {data.content}. {e}")
             raise CommandSyntaxError(e)
+
         if len(args) > 1:
             name = capwords(args[1])
             role = find_role(msg.guild, args[1])
