@@ -109,7 +109,11 @@ class MusicPlayer(BasePlugin):
 
     @Command("PlaySong", "Play",
              doc="Tells the bot to queue video links for playing. User must be in the same channel as the bot. "
-                 "Supports an arbitrary number of links in a single command.",
+                 "Supports an arbitrary number of links in a single command.\n"
+                 "Supports playlists. Additionally, subsets of playlists can be played using slice notation.\n"
+                 "Subset syntax: http://example.url{1,3-5,-2,6-}. {1} selects the first video, {3-5} selects the "
+                 "third through fifth videos, {-2} selects all videos up to the second, {6-} selects the sixth video "
+                 "and all after it. Multiple slices can be used on one playlist by separating them with ,.",
              syntax="(url) [url_2] [url_3]...",
              category="music_player")
     async def _play_song(self, msg):
@@ -427,9 +431,7 @@ class GuildPlayer:
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
-                    pl_slice = re.match(r"(.*){(.+)}", url)
-                    if not pl_slice:
-                        pl_slice = [url, url, None]
+                    pl_slice = re.match(r"([^{`]+)`*(?:{([^}]*)})?", url)
                     vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, pl_slice[1],
                                                                               download=False))
                 except YoutubeDLError as e:
