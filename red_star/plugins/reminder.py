@@ -200,15 +200,6 @@ class ReminderPlugin(BasePlugin):
         gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
         reminder_list = [r for r in self.storage[gid] if r.uid == uid]
-        # parser = RSArgumentParser()
-        # parser.add_argument("command")
-        # parser.add_argument("reminder", default=[], nargs="*")
-        # parser.add_argument("-d", "--delay", default='')
-        # parser.add_argument("-t", "--time", default='')
-        # parser.add_argument("-p", "--private", action='store_true')
-        # parser.add_argument("-e", "--everyone", action='store_true')
-        # parser.add_argument("-h", "--here", action='store_true')
-        # parser.add_argument("-r", "--recurring", default='')
 
         if len(args) == 1:
             for split_msg in group_items((f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
