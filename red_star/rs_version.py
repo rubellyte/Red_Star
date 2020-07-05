@@ -1,9 +1,15 @@
 from collections import namedtuple
 __all__ = ['version_tuple', 'version']
 
-_VersionInfo = namedtuple("VersionInfo", 'major minor patch releaselevel')
-version_tuple = _VersionInfo(major=2, minor=1, patch=5, releaselevel="release")
 
-version = f"{version_tuple.major}.{version_tuple.minor}.{version_tuple.patch}"
-if version_tuple.releaselevel != "release":
-    version += f"-{version_tuple.releaselevel}"
+class VersionInfo(namedtuple("VersionInfo", 'major minor patch releaselevel')):
+    def as_string(self):
+        verstr = f"{self.major}.{self.minor}.{self.patch}"
+        if self.releaselevel != "release":
+            verstr += f"-{version_tuple.releaselevel}"
+        return verstr
+
+
+version_tuple = VersionInfo(major=2, minor=1, patch=5, releaselevel="release")
+
+version = version_tuple.as_string()

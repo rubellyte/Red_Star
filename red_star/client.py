@@ -1,7 +1,7 @@
 import logging
 from asyncio import create_task, sleep
 from datetime import datetime
-from discord import AutoShardedClient, ConnectionClosed, DMChannel
+from discord import AutoShardedClient, DMChannel
 from discord.utils import oauth_url
 from pathlib import Path
 from sys import exc_info
