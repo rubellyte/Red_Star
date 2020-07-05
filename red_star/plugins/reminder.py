@@ -121,7 +121,13 @@ class ReminderPlugin(BasePlugin):
         parser.add_argument("-h", "--here", action='store_true')
         parser.add_argument("-r", "--recurring", default='')
 
-        args = parser.parse_args(shlex.split(msg.clean_content))
+        try:
+            args = shlex.split(msg.content)
+        except ValueError as e:
+            self.logger.warning("Unable to split {data.content}. {e}")
+            raise CommandSyntaxError(e)
+
+        args = parser.parse_args(args)
 
         if not (args['time'] or args['delay']):
             raise CommandSyntaxError("Expected a reminder time")
@@ -194,20 +200,29 @@ class ReminderPlugin(BasePlugin):
         gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
         reminder_list = [r for r in self.storage[gid] if r.uid == uid]
+        # parser = RSArgumentParser()
+        # parser.add_argument("command")
+        # parser.add_argument("reminder", default=[], nargs="*")
+        # parser.add_argument("-d", "--delay", default='')
+        # parser.add_argument("-t", "--time", default='')
+        # parser.add_argument("-p", "--private", action='store_true')
+        # parser.add_argument("-e", "--everyone", action='store_true')
+        # parser.add_argument("-h", "--here", action='store_true')
+        # parser.add_argument("-r", "--recurring", default='')
 
-        reminders = (f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
-                     f"{'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
-                     for i, r in enumerate(reminder_list))
         if len(args) == 1:
-            for split_msg in group_items(reminders, message="**Following reminders found:**"):
+            for split_msg in group_items((f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
+                                          f"{'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
+                                          for i, r in enumerate(reminder_list)),
+                                         message="**Following reminders found:**"):
                 await respond(msg, split_msg)
         elif len(args) == 3 and args[1].lower() in ("del", "-", "delete"):
             try:
                 index = int(args[2])
             except ValueError:
-                raise CommandSyntaxError("Non-integer syntax provided")
+                raise CommandSyntaxError("Non-integer index provided")
             if 0 <= index < len(reminder_list):
-                self.storage[gid] = [x for x in self.storage[gid] if x != reminder_list[index]]
+                self.storage[gid].remove(reminder_list[index])
                 await respond(msg, "**AFFIRMATIVE. Reminder removed.**")
             else:
                 raise CommandSyntaxError("Index out of range")
