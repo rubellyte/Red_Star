@@ -17,11 +17,10 @@ from red_star.rs_utils import respond, split_message, get_guild_config, find_use
 
 class MusicPlayer(BasePlugin):
     name = "music_player"
-    version = "2.1"
+    version = "2.2"
     author = "medeor413 (original by GTG3000)"
     description = "A plugin for playing audio from videos in a voice channel."
     default_config = {
-        "opus_path": "A valid path to your libopus file. On Linux, this is likely unnecessary.",
         "save_audio": True,
         "video_cache_clear_age": 259200,
         "default_volume": 15,
@@ -49,14 +48,6 @@ class MusicPlayer(BasePlugin):
 
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("music_player.json")
-
-        # As of discord.py v1.2.4, opus is lazy-loaded, which makes this part a bit broken.
-        # TODO: Determine whether we should force-load it anyways or just remove this snippet.
-        # if not opus.is_loaded():
-        #     try:
-        #         opus.load_opus(self.plugin_config["opus_path"])
-        #     except (OSError, TypeError):
-        #         raise RuntimeError("Error occurred while loading libopus! Ensure that the path is correct.")
 
         self.players = {}
 
@@ -116,16 +107,18 @@ class MusicPlayer(BasePlugin):
         await respond(msg, "**ANALYSIS: Disconnected from voice channel.**")
 
     @Command("PlaySong", "Play",
-             doc="Tells the bot to queue a song for playing. User must be in the same channel as the bot.",
-             syntax="(url)",
+             doc="Tells the bot to queue video links for playing. User must be in the same channel as the bot. "
+                 "Supports an arbitrary number of links in a single command.",
+             syntax="(url) [url_2] [url_3]...",
              category="music_player")
     async def _play_song(self, msg):
         player = self.get_guild_player(msg)
         if not player:
             player = await self._join_voice(msg)
         self.check_user_permission(msg.author, player)
-        url = msg.clean_content.split(None, 1)[1]
-        await player.enqueue(url)
+        urls = msg.clean_content.split(None)[1:]
+        for url in urls:
+            await player.enqueue(url)
 
     @Command("SongQueue", "Queue",
              doc="Tells the bot to list the current song queue.",
@@ -483,7 +476,7 @@ class GuildPlayer:
                         vid_info = await self._loop.run_in_executor(None,
                                                                partial(ydl.extract_info, url["url"], download=False))
                     except YoutubeDLError as e:
-                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video"
+                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
                                                      f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
                         continue
                 if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
