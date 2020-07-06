@@ -729,7 +729,7 @@ def pretty_duration(seconds):
         minutes += 1
         return f"{minutes:04d}m"
     else:
-        return f"{minutes:02d}:{seconds}:02d"
+        return f"{minutes:02d}:{seconds:02d}"
 
 
 def progress_bar(progress, length=70):
