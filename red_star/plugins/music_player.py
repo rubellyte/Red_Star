@@ -1,6 +1,7 @@
 import enum
 import logging
 import re
+import shlex
 from asyncio import get_event_loop, TimeoutError
 from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, opus, ClientException
 from math import floor, ceil
@@ -121,7 +122,10 @@ class MusicPlayer(BasePlugin):
         if not player:
             player = await self._join_voice(msg)
         self.check_user_permission(msg.author, player)
-        urls = msg.clean_content.split(None)[1:]
+        try:
+            urls = shlex.split(msg.clean_content)[1:]
+        except ValueError as e:
+            raise CommandSyntaxError(e)
         for url in urls:
             await player.enqueue(url)
 
