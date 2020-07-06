@@ -139,7 +139,7 @@ class MusicPlayer(BasePlugin):
         if player.current_song:
             await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.print_now_playing()}```")
         if player.queue:
-            queue_duration = "{:02d}:{:02d}".format(*seconds_to_minutes(player.queue_duration))
+            queue_duration = pretty_duration(player.queue_duration)
             for split_msg in split_message(f"**ANALYSIS: Current queue: ({queue_duration})**{player.print_queue()}"):
                 await respond(msg, split_msg)
 
@@ -152,6 +152,9 @@ class MusicPlayer(BasePlugin):
             await respond(msg, "**ANALYSIS: There is no song currently playing.**")
             return
         vid = player.current_song
+        desc = vid.get("description", "*No description.*")
+        if len(desc) > 2048:
+            desc = desc[:2045] + "..."
         embed = Embed(title=vid["title"], description=vid.get("description", "*No description.*"),
                       url=vid["url"])
         if "thumbnail" in vid:
@@ -161,13 +164,6 @@ class MusicPlayer(BasePlugin):
         if "tags" in vid:
             embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
         play_time, duration, _ = player.progress
-        play_time_tup = seconds_to_minutes(play_time)
-        dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
-        if duration > 0:
-            duration = seconds_to_minutes(duration)
-            dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
-        else:
-            dur_str += "--:--"
         rating_field = f"Views: {vid.get('view_count', 'Unknown'):,}."
         if "like_count" in vid:
             rating_field += f" {vid['like_count']:,}👍"
@@ -474,17 +470,15 @@ class GuildPlayer:
                                                  f"will not be added.")
                     return
                 elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
-                    max_len = seconds_to_minutes(get_guild_config(self.parent, self.gid, "max_video_length"))
-                    max_len_str = f"{max_len[0]:02d}:{max_len[1]:02d}"
+                    max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
                     await self.text_channel.send(f"**WARNING: Your video exceeds the maximum video length "
-                                                 f"({max_len_str}). It will not be added.**")
+                                                 f"({max_len}). It will not be added.**")
                     return
                 else:
                     time_until_song = ""
                     if len(self.queue) > 0:
                         time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-                        time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
-                        time_until_song = f"\nTime until your song: {time_until_song}"
+                        time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
                     await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
@@ -498,8 +492,7 @@ class GuildPlayer:
         time_until_song = ""
         if len(self.queue) > 0:
             time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-            time_until_song = "{:02d}:{:02d}".format(*seconds_to_minutes(time_until_song))
-            time_until_song = f"\nTime until your song: {time_until_song}."
+            time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}."
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
                                      f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
@@ -517,10 +510,9 @@ class GuildPlayer:
                     await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
                     break
                 elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
-                    max_len = seconds_to_minutes(get_guild_config(self.parent, self.gid, "max_video_length"))
-                    max_len_str = f"{max_len[0]:02d}:{max_len[1]:02d}"
+                    max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
                     await self.text_channel.send(f"**WARNING: Video {vid_info['title']} exceeds the maximum video"
-                                                 f" length ({max_len_str}). It will not be added.**")
+                                                 f" length ({max_len}). It will not be added.**")
                     continue
                 try:
                     await self._process_video(vid_info)
@@ -687,13 +679,7 @@ class GuildPlayer:
     def print_queue(self):
         str_list = []
         for i, vid in enumerate(self.queue):
-            # Duration formatting
-            duration = vid.get("duration", 0)
-            if duration <= 0:
-                duration = "--:--"
-            else:
-                duration = seconds_to_minutes(duration)
-                duration = f"{duration[0]:02d}:{duration[1]:02d}"
+            duration = pretty_duration(vid.get("duration", 0))
             # Title truncating and padding
             title = vid.get("title", "Unknown")
             if len(title) >= 59:
@@ -703,13 +689,7 @@ class GuildPlayer:
 
     def print_now_playing(self):
         play_time, duration, progress = self.progress
-        play_time_tup = seconds_to_minutes(play_time)
-        dur_str = f"{play_time_tup[0]:02d}:{play_time_tup[1]:02d}/"
-        if duration > 0:
-            duration = seconds_to_minutes(duration)
-            dur_str += f"{duration[0]:02d}:{floor(duration[1]):02d}"
-        else:
-            dur_str += "--:--"
+        dur_str = pretty_duration(play_time) + "/" + pretty_duration(duration)
         progbar = progress_bar(progress, 70)
         title = self.current_song.get("title", "Unknown")
         if len(title) > 57:
@@ -732,9 +712,20 @@ def seconds_to_minutes(secs, hours=False):
     mn, sec = divmod(secs, 60)
     if hours:
         hr, mn = divmod(mn, 60)
-        return int(hr), int(mn), floor(sec)
+        return int(hr), int(mn), int(ceil(sec))
     else:
-        return int(mn), int(floor(sec))
+        return int(mn), int(ceil(sec))
+
+
+def pretty_duration(seconds):
+    minutes, seconds = seconds_to_minutes(seconds)
+    if seconds <= 0:
+        return "--:--"
+    if minutes > 99:
+        minutes += 1
+        return f"{minutes:04d}m"
+    else:
+        return f"{minutes:02d}:{seconds}:02d"
 
 
 def progress_bar(progress, length=70):
