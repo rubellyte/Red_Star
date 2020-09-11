@@ -140,7 +140,9 @@ def find_role(guild, search, return_all=False):
     :param return_all: Whether to return all roles that match the criteria or just the first one.
     :return: discord.Role: The Role that matches the criteria, or none.
     """
-    funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search,
+    funcs = (lambda x: str(x.id) == search,
+             lambda x: str(x.id) == search[3:-1],
+             lambda x: x.mention == search,
              lambda x: str(x).lower() == search.lower())
     final = []
     for func in funcs:
