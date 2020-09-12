@@ -230,7 +230,7 @@ class MusicPlayer(BasePlugin):
         player.volume = new_volume / 100
         await respond(msg, f"**AFFIRMATIVE. Set volume to {new_volume}%.**")
 
-    @Command("SongMode", "Shuffle", "Repeat",
+    @Command("SongMode",
              doc="Tells the bot in what order the bot should play its queue, or prints the current mode if no mode "
                  "is specified.",
              syntax="[n/normal|rs/repeat_song|rq/repeat_queue|s/shuffle|sr/shuffle_repeat]",
@@ -256,6 +256,93 @@ class MusicPlayer(BasePlugin):
         else:
             raise CommandSyntaxError(f"Argument {arg} is not a valid mode")
         await respond(msg, f"**AFFIRMATIVE. Song mode changed to {player.song_mode}.**")
+
+    @Command("Shuffle",
+             doc="Enables or disables shuffling of song order.",
+             syntax="[true/yes/on/false/no/off",
+             category="music_player")
+    async def _shuffle_toggle(self, msg):
+        player = self.get_guild_player(msg)
+        self.check_user_permission(msg.author, player)
+        shuffle_on = player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT)
+        try:
+            arg = is_positive(msg.clean_content.split(None, 1)[1])
+        except IndexError:
+            await respond(msg, f"**ANALYSIS: Shuffle is currently {'enabled' if shuffle_on else 'disabled'}.**")
+            return
+        if arg:
+            if shuffle_on:
+                await respond(msg, f"**ANALYSIS: Shuffle is already enabled.**")
+            else:
+                if player.song_mode is SongMode.NORMAL:
+                    player.song_mode = SongMode.SHUFFLE
+                    await respond(msg, f"**AFFIRMATIVE. Shuffle enabled.**")
+                elif player.song_mode is SongMode.REPEAT_QUEUE:
+                    player.song_mode = SongMode.SHUFFLE_REPEAT
+                    await respond(msg, f"**AFFIRMATIVE. Shuffle enabled with repeat.**")
+                elif player.song_mode is SongMode.REPEAT_SONG:
+                    await respond(msg, "**NEGATIVE. Shuffle cannot be enabled at the same time as song repeat.**")
+        else:
+            if shuffle_on:
+                if player.song_mode is SongMode.SHUFFLE:
+                    player.song_mode = SongMode.NORMAL
+                    await respond(msg, f"**AFFIRMATIVE. Shuffle disabled.**")
+                elif player.song_mode is SongMode.SHUFFLE_REPEAT:
+                    player.song_mode = SongMode.REPEAT_QUEUE
+                    await respond(msg, f"**AFFIRMATIVE. Shuffle disabled. Queue repeat still enabled.**")
+            else:
+                await respond(msg, "**ANALYSIS: Shuffle is not enabled.**")
+
+    @Command("Repeat",
+             doc="Modifies repeating mode of song queue.",
+             syntax="[song/one/queue/all/false/no/off]",
+             category="music_player")
+    async def _repeat_mode(self, msg):
+        player = self.get_guild_player(msg)
+        self.check_user_permission(msg.author, player)
+        try:
+            arg = msg.clean_content.split(None, 1)[1].lower()
+            if arg not in ("song", "one", "queue", "all"):
+                arg = is_positive(arg)
+                if arg:
+                    raise CommandSyntaxError
+        except IndexError:
+            if player.song_mode is SongMode.REPEAT_SONG:
+                repeat_mode = "set to repeat current song"
+            elif player.song_mode is SongMode.REPEAT_QUEUE:
+                repeat_mode = "set to repeat the queue"
+            elif player.song_mode is SongMode.SHUFFLE_REPEAT:
+                repeat_mode = "set to repeat the queue. Shuffle is also enabled"
+            else:
+                repeat_mode = "disabled"
+            await respond(msg, f"**ANALYSIS: Repeat is currently {repeat_mode}.**")
+            return
+        if arg in ("song", "one"):
+            if player.song_mode is SongMode.REPEAT_SONG:
+                await respond(msg, "**ANALYSIS: Song repeat is already enabled.**")
+            elif player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT):
+                await respond(msg, "**NEGATIVE. Song repeat cannot be enabled at the same time as shuffle.**")
+            else:
+                player.song_mode = SongMode.REPEAT_SONG
+                await respond(msg, "**AFFIRMATIVE. Repeat mode set to song.**")
+        elif arg in ("queue", "all"):
+            if player.song_mode in (SongMode.REPEAT_QUEUE, SongMode.SHUFFLE_REPEAT):
+                await respond(msg, "**ANALYSIS: Queue repeat is already enabled.**")
+            elif player.song_mode is SongMode.SHUFFLE:
+                player.song_mode = SongMode.SHUFFLE_REPEAT
+                await respond(msg, "**AFFIRMATIVE. Repeat mode set to queue with shuffle.**")
+            else:
+                player.song_mode = SongMode.REPEAT_QUEUE
+                await respond(msg, "**AFFIRMATIVE. Repeat mode set to queue.**")
+        else:
+            if player.song_mode in (SongMode.NORMAL, SongMode.SHUFFLE):
+                await respond("**ANALYSIS: Repeat mode is disabled.**")
+            elif player.song_mode is SongMode.SHUFFLE_REPEAT:
+                player.song_mode = SongMode.SHUFFLE
+                await respond(msg, "**AFFIRMATIVE. Repeat mode disabled. Shuffle still enabled.**")
+            else:
+                player.song_mode = SongMode.NORMAL
+                await respond(msg, "**AFFIRMATIVE. Repeat mode disabled.**")
 
     @Command("SkipSong", "Skip",
              doc="Tells the bot to skip the currently playing song.",
