@@ -222,11 +222,11 @@ class MusicPlayer(BasePlugin):
                 raise CommandSyntaxError("Please use PauseSong to mute the bot")
             elif not 0 < new_volume <= 100:
                 raise CommandSyntaxError("Expected value between 0 and 100")
-        except ValueError:
-            raise CommandSyntaxError(f"Value {new_volume} is not a valid integer")
         except IndexError:
             await respond(msg, f"**ANALYSIS: Current volume is {int(player.volume * 100)}%.**")
             return
+        except ValueError:
+            raise CommandSyntaxError(f"Value {new_volume} is not a valid integer")
         player.volume = new_volume / 100
         await respond(msg, f"**AFFIRMATIVE. Set volume to {new_volume}%.**")
 
@@ -489,7 +489,7 @@ class GuildPlayer:
                     return
                 # Check max duration limits
                 elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
-                    max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
+                    max_len = fixed_width_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
                     await self.text_channel.send(f"**WARNING: Your video exceeds the maximum video length "
                                                  f"({max_len}). It will not be added.**")
                     return
@@ -498,9 +498,7 @@ class GuildPlayer:
                     time_until_song = ""
                     if len(self.queue) > 0:
                         time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-                        time_until_song = seconds_to_minutes(time_until_song)
-                        # Manual formatting here. pretty_duration is intended for fixed-width usage
-                        time_until_song = f"\nTime until your song: {time_until_song[0]}:{time_until_song[1]}"
+                        time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
                     await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
@@ -514,9 +512,7 @@ class GuildPlayer:
         time_until_song = ""
         if len(self.queue) > 0:
             time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-            time_until_song = seconds_to_minutes(time_until_song)
-            # Manual formatting here. pretty_duration is intended for fixed-width usage
-            time_until_song = f"\nTime until your song: {time_until_song[0]}:{time_until_song[1]}"
+            time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
                                      f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
@@ -706,7 +702,7 @@ class GuildPlayer:
     def print_queue(self):
         str_list = []
         for i, vid in enumerate(self.queue):
-            duration = pretty_duration(vid.get("duration", 0))
+            duration = fixed_width_duration(vid.get("duration", 0))
             # Title truncating and padding
             title = vid.get("title", "Unknown")
             if len(title) >= 59:
@@ -716,7 +712,7 @@ class GuildPlayer:
 
     def print_now_playing(self):
         play_time, duration, progress = self.progress
-        dur_str = pretty_duration(play_time) + "/" + pretty_duration(duration)
+        dur_str = fixed_width_duration(play_time) + "/" + fixed_width_duration(duration)
         progbar = progress_bar(progress, 70)
         title = self.current_song.get("title", "Unknown")
         if len(title) > 57:
@@ -745,11 +741,23 @@ def seconds_to_minutes(secs, hours=False):
 
 
 def pretty_duration(seconds):
+    if seconds <= 0:
+        return "Unknown"
+    elif seconds >= 3600:
+        hours, minutes, seconds = seconds_to_minutes(seconds, hours=True)
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    else:
+        minutes, seconds = seconds_to_minutes(seconds)
+        return f"{minutes:02d}:{seconds:02d}"
+
+
+def fixed_width_duration(seconds):
     minutes, seconds = seconds_to_minutes(seconds)
     if seconds <= 0:
         return "--:--"
     if minutes > 99:
-        minutes += 1
+        if seconds >= 30:
+            minutes += 1
         return f"{minutes:04d}m"
     else:
         return f"{minutes:02d}:{seconds:02d}"
