@@ -103,6 +103,7 @@ class MusicPlayer(BasePlugin):
                 and not self.config_manager.is_maintainer(msg.author):
             raise UserPermissionError
         player.queue.clear()
+        player.already_played.clear()
         player.stop()
         await player.voice_client.disconnect()
         del self.players[msg.guild.id]
@@ -202,6 +203,14 @@ class MusicPlayer(BasePlugin):
         index -= 1
         try:
             del_song = player.queue.pop(index)
+            if index in player.already_played:
+                player.already_played.remove(index)
+            new_already_played = set()
+            for i in player.already_played:
+                if i > index:
+                    i -= 1
+                new_already_played.add(i)
+            player.already_played = new_already_played
         except IndexError:
             raise CommandSyntaxError("Integer provided is not a valid index")
         await respond(msg, f"**AFFIRMATIVE. Deleted song at position {index + 1} ({del_song['title']}).**")
@@ -253,6 +262,7 @@ class MusicPlayer(BasePlugin):
             player.song_mode = SongMode.SHUFFLE
         elif arg in ("sr", "shuffle_repeat", "random_repeat"):
             player.song_mode = SongMode.SHUFFLE_REPEAT
+            player.already_played.clear()
         else:
             raise CommandSyntaxError(f"Argument {arg} is not a valid mode")
         await respond(msg, f"**AFFIRMATIVE. Song mode changed to {player.song_mode}.**")
@@ -288,6 +298,7 @@ class MusicPlayer(BasePlugin):
                     player.song_mode = SongMode.NORMAL
                     await respond(msg, f"**AFFIRMATIVE. Shuffle disabled.**")
                 elif player.song_mode is SongMode.SHUFFLE_REPEAT:
+                    player.already_played.clear()
                     player.song_mode = SongMode.REPEAT_QUEUE
                     await respond(msg, f"**AFFIRMATIVE. Shuffle disabled. Queue repeat still enabled.**")
             else:
@@ -338,6 +349,7 @@ class MusicPlayer(BasePlugin):
             if player.song_mode in (SongMode.NORMAL, SongMode.SHUFFLE):
                 await respond("**ANALYSIS: Repeat mode is disabled.**")
             elif player.song_mode is SongMode.SHUFFLE_REPEAT:
+                player.already_played.clear()
                 player.song_mode = SongMode.SHUFFLE
                 await respond(msg, "**AFFIRMATIVE. Repeat mode disabled. Shuffle still enabled.**")
             else:
@@ -384,6 +396,7 @@ class MusicPlayer(BasePlugin):
             await respond(msg, "**ANALYSIS: No music currently playing.")
             return
         player.queue.clear()
+        player.already_played.clear()
         player.stop()
         await respond(msg, "**ANALYSIS: The music has been stopped and the queue has been cleared.**")
 
@@ -501,6 +514,7 @@ class GuildPlayer:
         self.voice_client = voice_client
         self.logger = logging.getLogger(f"red_star.plugin.music_player.player_{self.voice_client.guild.id}")
         self.queue = []
+        self.already_played = set()
         self.is_playing = False
         self.current_song = {}
         self.song_mode = SongMode.NORMAL
@@ -664,7 +678,15 @@ class GuildPlayer:
         try:
             if self.song_mode == SongMode.SHUFFLE_REPEAT:
                 try:
-                    next_song = self.queue[randint(0, len(self.queue) - 1)]
+                    vids = {i for i, _ in enumerate(self.queue)}
+                    eligible_songs = vids - self.already_played
+                    if not eligible_songs:
+                        self.already_played.clear()
+                        eligible_songs = vids
+                    eligible_songs = tuple(eligible_songs)
+                    next_song = eligible_songs[randint(0, len(eligible_songs) - 1)]
+                    self.already_played.add(next_song)
+                    next_song = self.queue[next_song]
                 except ValueError:
                     next_song = self.queue[0]
             elif self.song_mode == SongMode.SHUFFLE:
