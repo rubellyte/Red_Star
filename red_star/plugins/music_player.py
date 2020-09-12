@@ -219,14 +219,24 @@ class MusicPlayer(BasePlugin):
                 await respond(msg, split_msg)
 
     @Command("SongVolume", "Volume",
-             doc="Sets the volume at which the player plays music, between 0 and 100.",
+             doc="Sets the volume at which the player plays music, between 0 and 100.\nUse --temporary flag to "
+                 "automatically reset volume at the end of the current song.",
+             syntax= "[-t/--temporary] (0-100)",
              category="music_player")
     async def _set_volume(self, msg):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         try:
-            new_volume = msg.clean_content.split(None, 1)[1]
-            new_volume = int(new_volume)
+            temp_flag = False
+            new_volume = msg.clean_content.split(None, 2)[1:]
+            if len(new_volume) > 1:
+                if new_volume[0] in ("-t", "--temporary"):
+                    temp_flag = True
+                    new_volume = int(new_volume[1])
+                else:
+                    raise CommandSyntaxError
+            else:
+                new_volume = int(new_volume[0])
             if new_volume == 0:
                 raise CommandSyntaxError("Please use PauseSong to mute the bot")
             elif not 0 < new_volume <= 100:
@@ -236,6 +246,8 @@ class MusicPlayer(BasePlugin):
             return
         except ValueError:
             raise CommandSyntaxError(f"Value {new_volume} is not a valid integer")
+        if temp_flag:
+            player.prev_volume = player.volume
         player.volume = new_volume / 100
         await respond(msg, f"**AFFIRMATIVE. Set volume to {new_volume}%.**")
 
@@ -518,6 +530,7 @@ class GuildPlayer:
         self.is_playing = False
         self.current_song = {}
         self.song_mode = SongMode.NORMAL
+        self.prev_volume = None
         self._volume = self.parent.plugin_config["default_volume"] / 100
         self._loop = get_event_loop()
         self._song_start_time = None
@@ -723,6 +736,10 @@ class GuildPlayer:
             file = next_song["url"]
             before_args += " -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 30"
         self.is_playing = True
+        if self.prev_volume:
+            self.volume = self.prev_volume
+            self.prev_volume = None
+            await self.text_channel.send(f"**ANALYSIS: Volume reset to {int(self.volume * 100)}%.**")
         source = PCMVolumeTransformer(FFmpegPCMAudio(file, before_options=before_args, options="-vn"),
                                       volume=self._volume)
         self.voice_client.play(source, after=self._after)
