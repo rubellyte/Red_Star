@@ -126,8 +126,7 @@ class MusicPlayer(BasePlugin):
             urls = shlex.split(msg.clean_content)[1:]
         except ValueError as e:
             raise CommandSyntaxError(e)
-        for url in urls:
-            await player.enqueue(url)
+        await player.enqueue(urls)
 
     @Command("SongQueue", "Queue",
              doc="Tells the bot to list the current song queue.",
@@ -426,62 +425,82 @@ class GuildPlayer:
         self.gid = str(voice_client.guild.id)
         self._alone_time = 0
 
-    async def enqueue(self, url):
+    async def enqueue(self, urls):
         with self.text_channel.typing():
+            # Fetch video info
             with YoutubeDL(self.parent.ydl_options) as ydl:
-                try:
-                    pl_slice = re.match(r"([^{`]+)`*(?:{([^}]*)})?", url)
-                    vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, pl_slice[1],
-                                                                              download=False))
-                except YoutubeDLError as e:
-                    await self.text_channel.send(f"**WARNING. An error occurred while downloading video <{url}>. "
-                                                 f"It will not be queued.\nError details:** `{e}`")
-                    return
-            if vid_info.get("_type") == "playlist":
-                if pl_slice[2]:
-                    pl_slices = pl_slice[2].split(",")
-                    pl = []
-                    for s in pl_slices:
-                        if "-" in s:
-                            s_start, s_end = s.split("-", 1)
-                            try:
-                                s_start = int(s_start) - 1
-                            except ValueError:
-                                s_start = 0
-                            try:
-                                s_end = int(s_end)
-                                if s_end > len(vid_info["entries"]):
-                                    raise ValueError
-                            except ValueError:
-                                s_end = len(vid_info["entries"])
-                            if s_end < s_start:
-                                continue
-                            pl.extend(vid_info["entries"][s_start:s_end])
+                # Create a list of videos to be queued
+                to_queue = []
+                for url in urls:
+                    try:
+                        pl_slice = re.match(r"([^{`]+)`*(?:{([^}]*)})?", url)
+                        vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, pl_slice[1],
+                                                                                  download=False))
+                    except YoutubeDLError as e:
+                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video <{url}>. "
+                                                     f"It will not be queued.\nError details:** `{e}`")
+                        continue
+                    # If it's a playlist, we need to flatten it into our to_queue list, and deal with the slicing
+                    if vid_info.get("_type") == "playlist":
+                        # Slice handling
+                        if pl_slice[2]:
+                            pl_slices = pl_slice[2].split(",")
+                            for s in pl_slices:
+                                # Ranges handling
+                                if "-" in s:
+                                    s_start, s_end = s.split("-", 1)
+                                    try:
+                                        s_start = int(s_start) - 1
+                                    except ValueError:
+                                        s_start = 0
+                                    try:
+                                        s_end = int(s_end)
+                                        if s_end > len(vid_info["entries"]):
+                                            raise ValueError
+                                    except ValueError:
+                                        s_end = len(vid_info["entries"])
+                                    if s_end < s_start:
+                                        continue
+                                    to_queue.extend(vid_info["entries"][s_start:s_end])
+                                # Single values
+                                else:
+                                    try:
+                                        s = int(s) - 1
+                                        to_queue.append(vid_info["entries"][s])
+                                    except (ValueError, IndexError):
+                                        continue
+                        # No slice
                         else:
-                            try:
-                                s = int(s) - 1
-                                pl.append(vid_info["entries"][s])
-                            except (ValueError, IndexError):
-                                continue
-                else:
-                    pl = vid_info["entries"]
-                self._loop.create_task(self._enqueue_playlist(pl))
+                            to_queue.extend(vid_info["entries"])
+                    # If it's just a video, throw it in
+                    else:
+                        to_queue.append(vid_info)
+            # If we have more than one video to queue, toss it to the other function
+            if len(to_queue) > 1:
+                self._loop.create_task(self._enqueue_playlist(to_queue))
                 return
+            # Otherwise, special handling for common case of single videos
             else:
+                vid_info = to_queue[0]
+                # Check if queue is full
                 if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                     await self.text_channel.send(f"**WARNING: The queue is full. {vid_info['title']} "
                                                  f"will not be added.")
                     return
+                # Check max duration limits
                 elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
                     max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
                     await self.text_channel.send(f"**WARNING: Your video exceeds the maximum video length "
                                                  f"({max_len}). It will not be added.**")
                     return
+                # Print time until song and start queueing
                 else:
                     time_until_song = ""
                     if len(self.queue) > 0:
                         time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-                        time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
+                        time_until_song = seconds_to_minutes(time_until_song)
+                        # Manual formatting here. pretty_duration is intended for fixed-width usage
+                        time_until_song = f"\nTime until your song: {time_until_song[0]}:{time_until_song[1]}"
                     await self._process_video(vid_info)
         await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
@@ -495,37 +514,42 @@ class GuildPlayer:
         time_until_song = ""
         if len(self.queue) > 0:
             time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-            time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}."
+            time_until_song = seconds_to_minutes(time_until_song)
+            # Manual formatting here. pretty_duration is intended for fixed-width usage
+            time_until_song = f"\nTime until your song: {time_until_song[0]}:{time_until_song[1]}"
         await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
                                      f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
         with self.text_channel.typing():
-            for url in entries:
-                with YoutubeDL(self.parent.ydl_options) as ydl:
+            with YoutubeDL(self.parent.ydl_options) as ydl:
+                for url in entries:
                     try:
-                        vid_info = await self._loop.run_in_executor(None,
-                                                               partial(ydl.extract_info, url["url"], download=False))
+                        vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, url["url"],
+                                                                                  download=False))
+                    # Skip broken videos while trying the rest
                     except YoutubeDLError as e:
                         await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
                                                      f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
                         continue
-                if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
-                    await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
-                    break
-                elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
-                    max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
-                    await self.text_channel.send(f"**WARNING: Video {vid_info['title']} exceeds the maximum video"
-                                                 f" length ({max_len}). It will not be added.**")
-                    continue
-                try:
-                    await self._process_video(vid_info)
-                except TypeError:
-                    continue
-                if not self.is_playing:
+                    # Abort once the queue is full
+                    if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
+                        await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
+                        break
+                    # Skip over videos that are too long
+                    elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
+                        max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
+                        await self.text_channel.send(f"**WARNING: Video {vid_info['title']} exceeds the maximum video"
+                                                     f" length ({max_len}). It will not be added.**")
+                        continue
                     try:
-                        self._loop.create_task(self._play())
-                    except ClientException:
-                        pass
+                        await self._process_video(vid_info)
+                    except TypeError:
+                        continue
+                    if not self.is_playing:
+                        try:
+                            self._loop.create_task(self._play())
+                        except ClientException:
+                            pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
             final_msg = f"**ANALYSIS: Current queue:**{self.print_queue()}"
