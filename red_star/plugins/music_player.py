@@ -159,8 +159,7 @@ class MusicPlayer(BasePlugin):
         desc = vid.get("description", "*No description.*")
         if len(desc) > 2048:
             desc = desc[:2045] + "..."
-        embed = Embed(title=vid["title"], description=vid.get("description", "*No description.*"),
-                      url=vid["url"])
+        embed = Embed(title=vid["title"], description=desc, url=vid["url"])
         if "thumbnail" in vid:
             embed.set_thumbnail(url=vid["thumbnail"])
         if "uploader" in vid:
