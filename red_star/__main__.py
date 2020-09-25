@@ -28,6 +28,7 @@ def main():
 
     if args.verbose > 0:
         loglevel = logging.DEBUG
+        logging.captureWarnings(True)
     else:
         loglevel = logging.INFO
 
