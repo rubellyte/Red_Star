@@ -2,6 +2,7 @@ import logging
 from asyncio import create_task, sleep
 from datetime import datetime
 from discord import AutoShardedClient, DMChannel
+from discord.object import Object
 from discord.utils import oauth_url
 from pathlib import Path
 from sys import exc_info
@@ -9,13 +10,6 @@ from red_star.channel_manager import ChannelManager
 from red_star.command_dispatcher import CommandDispatcher
 from red_star.config_manager import ConfigManager
 from red_star.plugin_manager import PluginManager
-
-
-class IdWrapper:
-    id: int
-
-    def __init__(self, id):
-        self.id = id
 
 
 class RedStar(AutoShardedClient):
@@ -119,9 +113,9 @@ class RedStar(AutoShardedClient):
     async def on_raw_reaction_add(self, payload):
         if payload.channel_id is not None \
                 and self.channel_manager.channel_in_category(
-                    IdWrapper(payload.guild_id),
+                    Object(payload.guild_id),
                     "no_read",
-                    IdWrapper(payload.channel_id)):
+                    Object(payload.channel_id)):
             return
         await self.plugin_manager.hook_event("on_raw_reaction_add", payload)
 
@@ -135,9 +129,9 @@ class RedStar(AutoShardedClient):
     async def on_raw_reaction_remove(self, payload):
         if payload.channel_id is not None \
                 and self.channel_manager.channel_in_category(
-                    IdWrapper(payload.guild_id),
+                    Object(payload.guild_id),
                     "no_read",
-                    IdWrapper(payload.channel_id)):
+                    Object(payload.channel_id)):
             return
         await self.plugin_manager.hook_event("on_raw_reaction_remove", payload)
 
