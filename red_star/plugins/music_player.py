@@ -159,20 +159,20 @@ class MusicPlayer(BasePlugin):
         desc = vid.get("description", "*No description.*")
         if len(desc) > 2048:
             desc = desc[:2045] + "..."
-        embed = Embed(title=vid["title"], description=desc, url=vid["url"])
-        if "thumbnail" in vid:
+        embed = Embed(title=vid.get("title", "Unknown"), description=desc, url=vid["url"])
+        if vid.get("thumbnail") is not None:
             embed.set_thumbnail(url=vid["thumbnail"])
-        if "uploader" in vid:
+        if vid.get("uploader") is not None:
             embed.set_author(name=vid["uploader"])
-        if "tags" in vid:
+        if vid.get("tags") is not None:
             embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
         play_time, duration, _ = player.progress
         rating_field = f"Views: {vid.get('view_count', 'Unknown'):,}."
-        if "like_count" in vid:
+        if vid.get("like_count") is not None:
             rating_field += f" {vid['like_count']:,}👍"
-        if "dislike_count" in vid:
+        if vid.get("dislike_count") is not None:
             rating_field += f"/{vid['dislike_count']:,}👎"
-        if vid.get("average_rating", None) is not None:
+        if vid.get("average_rating") is not None:
             rating_field += f" (Average rating: {vid['average_rating']:.2f})"
         embed.add_field(name="Ratings", value=rating_field)
         await respond(msg, embed=embed)
