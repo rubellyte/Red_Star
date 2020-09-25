@@ -79,7 +79,8 @@ class DiscordLogger(BasePlugin):
                           f"{after.channel.mention}. ANALYSIS:**\n**Old contents:** {old_contents}\n"
                           f"**New contents:** {contents}", after.guild)
 
-            self.logger.info(f"User {after.author} edited their message at {msgtime} in {after.channel} of {after.guild}.\n"
+            self.logger.info(f"User {after.author} edited their message "
+                             f"at {msgtime} in {after.channel} of {after.guild}.\n"
                              f"Old contents:\n{old_contents}\nNew contents:\n{contents}")
 
     async def on_member_update(self, before, after):
@@ -110,6 +111,7 @@ class DiscordLogger(BasePlugin):
         blacklist = self.plugin_config.setdefault(str(channel.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "pin_update" not in blacklist:
+            cnt = None
             try:
                 new_pin = (datetime.utcnow() - last_pin < timedelta(seconds=5))
             except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
@@ -145,7 +147,6 @@ class DiscordLogger(BasePlugin):
         blacklist = self.plugin_config.setdefault(str(member.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "member_leave" not in blacklist:
-            now = datetime.utcnow()
             try:
                 # find audit log entries for kicking of member with our ID, created in last five seconds.
                 # Hopefully five seconds is enough
@@ -206,7 +207,8 @@ class DiscordLogger(BasePlugin):
                 before_perms = [x for x, y in before.permissions if y]
                 after_perms = [x for x, y in after.permissions if y]
                 perm_diff = "Added permissions: " + ", ".join(x.upper() for x in after_perms if x not in before_perms)
-                perm_diff += "\nRemoved permissions: " + ", ".join(x.upper() for x in before_perms if x not in after_perms)
+                perm_diff += "\nRemoved permissions: " + \
+                             ", ".join(x.upper() for x in before_perms if x not in after_perms)
                 diff.append(perm_diff)
 
             if not diff or (len(diff) == 1 and before.position != after.position):

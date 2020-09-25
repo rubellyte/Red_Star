@@ -7,8 +7,7 @@ import random
 import datetime
 from time import time
 from collections import OrderedDict
-from red_star.rs_errors import CustomCommandSyntaxError, CommandSyntaxError
-from red_star.rs_utils import is_positive
+from red_star.rs_errors import CustomCommandSyntaxError
 from functools import reduce
 
 Symbol = str
@@ -74,7 +73,7 @@ def joiner(iterable):
     return reduce(lambda s, i: s + i if i[0] in '()"' or s[-1] in '()"' else s + ' ' + i, iterable)
 
 
-def reprint(ast: [list, int, str, float])-> str:
+def reprint(ast: [list, int, str, float]) -> str:
     """
     Takes an RSLisp Abstract Syntax Tree and prints out the corresponding lisp code.
     :param ast:

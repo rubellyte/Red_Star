@@ -3,7 +3,7 @@ import logging
 import re
 import shlex
 from asyncio import get_event_loop, TimeoutError
-from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, opus, ClientException
+from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, ClientException
 from math import floor, ceil
 from functools import partial
 from os import remove as remove_file
@@ -221,11 +221,12 @@ class MusicPlayer(BasePlugin):
     @Command("SongVolume", "Volume",
              doc="Sets the volume at which the player plays music, between 0 and 100.\nUse --temporary flag to "
                  "automatically reset volume at the end of the current song.",
-             syntax= "[-t/--temporary] (0-100)",
+             syntax="[-t/--temporary] (0-100)",
              category="music_player")
     async def _set_volume(self, msg):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
+        new_volume = 0
         try:
             temp_flag = False
             new_volume = msg.clean_content.split(None, 2)[1:]

@@ -53,7 +53,7 @@ class RSArgumentParser(argparse.ArgumentParser):
 
     def __init__(self, add_help=False, ignore_unrecognized_arguments=True, **kwargs):
         self.ignore_unrecognized_arguments = ignore_unrecognized_arguments
-        super().__init__(self, add_help=add_help, **kwargs)
+        super().__init__(add_help=add_help, **kwargs)
 
     def exit(self, status=0, message=None):
         raise CommandSyntaxError(message)

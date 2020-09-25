@@ -1,5 +1,5 @@
 from collections import namedtuple
-__all__ = ['version_tuple', 'version']
+__all__ = ['version_tuple', 'version', 'VersionInfo']
 
 
 class VersionInfo(namedtuple("VersionInfo", 'major minor patch releaselevel')):

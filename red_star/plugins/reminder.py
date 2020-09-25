@@ -16,6 +16,7 @@ recurDecode = {
     "y": ('year', 'years')
 }
 
+
 class ReminderPlugin(BasePlugin):
     name = "reminder"
     version = "1.2"

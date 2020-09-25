@@ -3,6 +3,7 @@ import json
 import re
 import shlex
 import urllib.request
+import urllib.error
 from io import BytesIO
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
@@ -62,7 +63,7 @@ class BotManagement(BasePlugin):
                 img = fp.getvalue()
             else:
                 raise CommandSyntaxError("No URL or file provided.")
-        except (urllib.request.URLError, ValueError):
+        except (urllib.error.URLError, ValueError):
             raise CommandSyntaxError("Invalid URL provided.")
         try:
             await self.client.user.edit(avatar=img)

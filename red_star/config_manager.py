@@ -74,7 +74,7 @@ class ConfigManager:
         new_config.update(current_config)
         self.config["plugins"][name] = new_config
 
-    def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None)-> JsonFileDict:
+    def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None) -> JsonFileDict:
         if filename in self.plugin_config_files:
             file_obj = self.plugin_config_files[filename]
         else:
