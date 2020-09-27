@@ -2,7 +2,7 @@ import enum
 import logging
 import re
 import shlex
-from asyncio import get_event_loop, TimeoutError
+from asyncio import create_task, get_running_loop, run_coroutine_threadsafe, TimeoutError
 from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, ClientException
 from math import floor, ceil
 from functools import partial
@@ -533,7 +533,6 @@ class GuildPlayer:
         self.song_mode = SongMode.NORMAL
         self.prev_volume = None
         self._volume = self.parent.plugin_config["default_volume"] / 100
-        self._loop = get_event_loop()
         self._song_start_time = None
         self._song_pause_time = None
         self._skip_votes = set()
@@ -549,8 +548,8 @@ class GuildPlayer:
                 for url in urls:
                     try:
                         pl_slice = re.match(r"([^{`]+)`*(?:{([^}]*)})?", url)
-                        vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, pl_slice[1],
-                                                                                  download=False))
+                        vid_info = await get_running_loop().run_in_executor(None, partial(ydl.extract_info,
+                                                                                          pl_slice[1], download=False))
                     except YoutubeDLError as e:
                         await self.text_channel.send(f"**WARNING. An error occurred while downloading video <{url}>. "
                                                      f"It will not be queued.\nError details:** `{e}`")
@@ -592,7 +591,7 @@ class GuildPlayer:
                         to_queue.append(vid_info)
             # If we have more than one video to queue, toss it to the other function
             if len(to_queue) > 1:
-                self._loop.create_task(self._enqueue_playlist(to_queue))
+                create_task(self._enqueue_playlist(to_queue))
                 return
             # Otherwise, special handling for common case of single videos
             else:
@@ -621,7 +620,7 @@ class GuildPlayer:
             for msg in split_message(final_msg):
                 await self.text_channel.send(msg)
         if not self.is_playing:
-            await self._play()
+            create_task(self._play())
 
     async def _enqueue_playlist(self, entries):
         time_until_song = ""
@@ -634,14 +633,18 @@ class GuildPlayer:
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 for url in entries:
-                    try:
-                        vid_info = await self._loop.run_in_executor(None, partial(ydl.extract_info, url["url"],
-                                                                                  download=False))
-                    # Skip broken videos while trying the rest
-                    except YoutubeDLError as e:
-                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
-                                                     f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
-                        continue
+                    # We only want to extract info if we don't already have it. Things get a little funky otherwise.
+                    if url.get("_type") == "url":
+                        try:
+                            vid_info = await get_running_loop().run_in_executor(None, partial(ydl.extract_info, url["url"],
+                                                                                              download=False))
+                        # Skip broken videos while trying the rest
+                        except YoutubeDLError as e:
+                            await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
+                                                         f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
+                            continue
+                    else:
+                        vid_info = url
                     # Abort once the queue is full
                     if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                         await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
@@ -658,7 +661,7 @@ class GuildPlayer:
                         continue
                     if not self.is_playing:
                         try:
-                            self._loop.create_task(self._play())
+                            create_task(self._play())
                         except ClientException:
                             pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
@@ -673,7 +676,7 @@ class GuildPlayer:
         if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
-                    await self._loop.run_in_executor(None, partial(ydl.process_info, vid))
+                    await get_running_loop().run_in_executor(None, partial(ydl.process_info, vid))
                     vid["filename"] = ydl.prepare_filename(vid)
                     self.parent.storage["downloaded_songs"][vid["filename"]] = time()
                     self.parent.storage.save()
@@ -743,7 +746,7 @@ class GuildPlayer:
             await self.text_channel.send(f"**ANALYSIS: Volume reset to {int(self.volume * 100)}%.**")
         source = PCMVolumeTransformer(FFmpegPCMAudio(file, before_options=before_args, options="-vn"),
                                       volume=self._volume)
-        self.voice_client.play(source, after=self._after)
+        self.voice_client.play(source, after=partial(self._after, loop=get_running_loop()))
         self._song_start_time = time()
         self.current_song = next_song
         self._skip_votes = set()
@@ -759,10 +762,10 @@ class GuildPlayer:
             self._song_pause_time = time()
             return True
 
-    def _after(self, error):
+    def _after(self, error, loop):
         if error:
             self.logger.error(error)
-        self._loop.create_task(self._play())
+        run_coroutine_threadsafe(self._play(), loop)
 
     def stop(self):
         self.is_playing = False

@@ -2,9 +2,6 @@ import sys
 import setuptools
 from red_star.rs_version import version
 
-if sys.version_info < (3, 7, 0):
-    raise RuntimeError("Red Star requires Python version 3.7 or greater.")
-
 
 def get_requirements():
     with open("requirements.txt", encoding="utf-8") as fd:
@@ -29,6 +26,7 @@ setuptools.setup(
     package_data={'red_star': ['_default_files/*.json']},
     license='MIT',
     platforms='any',
+    python_requires="~=3.7",
     install_requires=get_requirements(),
     entry_points={
         'console_scripts': ['red_star = red_star.__main__:main']
