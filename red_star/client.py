@@ -1,7 +1,7 @@
 import logging
 from asyncio import create_task, sleep
 from datetime import datetime
-from discord import AutoShardedClient, DMChannel
+from discord import AutoShardedClient, DMChannel, Intents
 from discord.object import Object
 from discord.utils import oauth_url
 from pathlib import Path
@@ -24,7 +24,10 @@ class RedStar(AutoShardedClient):
             dpy_logger.setLevel(logging.INFO)
         self.logger.info("Initializing...")
 
-        super().__init__()
+        intents = Intents.default()
+        intents.members = True
+
+        super().__init__(intents=intents)
 
         self.storage_dir = storage_dir
         self.plugin_directories = [Path.cwd() / "plugins"]
