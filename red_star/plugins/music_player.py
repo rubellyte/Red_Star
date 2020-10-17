@@ -589,55 +589,19 @@ class GuildPlayer:
                     # If it's just a video, throw it in
                     else:
                         to_queue.append(vid_info)
-            # If we have more than one video to queue, toss it to the other function
-            if len(to_queue) > 1:
+            # Queuing is handle by _enqueue_playlist function. Don't bother it if we got nothing.
+            if len(to_queue) > 0:
                 create_task(self._enqueue_playlist(to_queue))
                 return
-            # Otherwise, special handling for common case of single videos
-            else:
-                vid_info = to_queue[0]
-                if vid_info.get("_type") == "url":
-                    try:
-                        vid_info = await get_running_loop().run_in_executor(None, partial(ydl.extract_info, vid_info["url"],
-                                                                                          download=False))
-                    # Skip broken videos while trying the rest
-                    except YoutubeDLError as e:
-                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
-                                                     f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
-                        return
-                # Check if queue is full
-                if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
-                    await self.text_channel.send(f"**WARNING: The queue is full. {vid_info['title']} "
-                                                 f"will not be added.")
-                    return
-                # Check max duration limits
-                elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
-                    max_len = fixed_width_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
-                    await self.text_channel.send(f"**WARNING: Your video exceeds the maximum video length "
-                                                 f"({max_len}). It will not be added.**")
-                    return
-                # Print time until song and start queueing
-                else:
-                    time_until_song = ""
-                    if len(self.queue) > 0:
-                        time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
-                        time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
-                    await self._process_video(vid_info)
-        await self.text_channel.send(f"**ANALYSIS: Queued `{vid_info['title']}`.{time_until_song}**")
-        if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
-            final_msg = f"**ANALYSIS: Current queue:**{self.print_queue()}"
-            for msg in split_message(final_msg):
-                await self.text_channel.send(msg)
-        if not self.is_playing:
-            create_task(self._play())
+
 
     async def _enqueue_playlist(self, entries):
         time_until_song = ""
         if len(self.queue) > 0:
             time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
             time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
-        await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
-                                     f"begin shortly.{time_until_song}**")
+            await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
+                                         f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
