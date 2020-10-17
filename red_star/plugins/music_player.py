@@ -596,6 +596,15 @@ class GuildPlayer:
             # Otherwise, special handling for common case of single videos
             else:
                 vid_info = to_queue[0]
+                if vid_info.get("_type") == "url":
+                    try:
+                        vid_info = await get_running_loop().run_in_executor(None, partial(ydl.extract_info, vid_info["url"],
+                                                                                          download=False))
+                    # Skip broken videos while trying the rest
+                    except YoutubeDLError as e:
+                        await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
+                                                     f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
+                        return
                 # Check if queue is full
                 if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                     await self.text_channel.send(f"**WARNING: The queue is full. {vid_info['title']} "
@@ -673,6 +682,7 @@ class GuildPlayer:
     async def _process_video(self, vid):
         if not vid:
             raise TypeError
+
         if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
