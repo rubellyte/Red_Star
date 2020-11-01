@@ -127,7 +127,7 @@ class MusicPlayer(BasePlugin):
             urls = shlex.split(msg.clean_content)[1:]
         except ValueError as e:
             raise CommandSyntaxError(e)
-        await player.enqueue(urls)
+        await player.prepare_playlist(urls)
 
     @Command("SongQueue", "Queue",
              doc="Tells the bot to list the current song queue.",
@@ -539,7 +539,7 @@ class GuildPlayer:
         self.gid = str(voice_client.guild.id)
         self._alone_time = 0
 
-    async def enqueue(self, urls):
+    async def prepare_playlist(self, urls):
         with self.text_channel.typing():
             # Fetch video info
             with YoutubeDL(self.parent.ydl_options) as ydl:
@@ -594,7 +594,6 @@ class GuildPlayer:
                 create_task(self._enqueue_playlist(to_queue))
                 return
 
-
     async def _enqueue_playlist(self, entries):
         time_until_song = ""
         if len(self.queue) > 0:
@@ -605,31 +604,30 @@ class GuildPlayer:
         orig_len = len(self.queue)
         with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
-                for url in entries:
+                for vid in entries:
                     # We only want to extract info if we don't already have it. Things get a little funky otherwise.
-                    if url.get("_type") == "url":
+                    if vid.get("_type") in ("url", "url_transparent"):
                         try:
-                            vid_info = await get_running_loop().run_in_executor(None, partial(ydl.extract_info, url["url"],
-                                                                                              download=False))
+                            vid = await get_running_loop().run_in_executor(None, partial(ydl.extract_info, vid["url"],
+                                                                                         download=False))
                         # Skip broken videos while trying the rest
                         except YoutubeDLError as e:
                             await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
-                                                         f"<{url['url']}>. It will not be queued.\nError details:** `{e}`")
+                                                         f"<{vid['url']}>. It will not be queued.\nError details:** "
+                                                         f"`{e}`")
                             continue
-                    else:
-                        vid_info = url
                     # Abort once the queue is full
                     if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
                         await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
                         break
                     # Skip over videos that are too long
-                    elif vid_info.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
+                    elif vid.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
                         max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
-                        await self.text_channel.send(f"**WARNING: Video {vid_info['title']} exceeds the maximum video"
+                        await self.text_channel.send(f"**WARNING: Video {vid['title']} exceeds the maximum video"
                                                      f" length ({max_len}). It will not be added.**")
                         continue
                     try:
-                        await self._process_video(vid_info)
+                        await self._process_video(vid)
                     except TypeError:
                         continue
                     if not self.is_playing:
@@ -646,7 +644,6 @@ class GuildPlayer:
     async def _process_video(self, vid):
         if not vid:
             raise TypeError
-
         if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
