@@ -24,7 +24,9 @@ class RedStar(AutoShardedClient):
             dpy_logger.setLevel(logging.INFO)
         self.logger.info("Initializing...")
 
-        super().__init__(intents=Intents.all())
+        intents = Intents.default()
+        intents.members = True
+        super().__init__(intents=intents)
 
         self.storage_dir = storage_dir
         self.plugin_directories = [Path.cwd() / "plugins"]
