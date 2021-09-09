@@ -125,8 +125,18 @@ class MusicPlayer(BasePlugin):
         self.check_user_permission(msg.author, player)
         try:
             urls = shlex.split(msg.clean_content)[1:]
+            print(urls)
+            # Is it supposed to be a search query, or a bunch of URLs?
+            if len(urls) > 1:
+                url_validator = re.compile(r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}"
+                                           r"\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)")
+                print("validating")
+                if any((not url_validator.fullmatch(url) and " " not in url) for url in urls):
+                    # If it's just a plain search query (no URLs, no quoted spaces), join it back together for QoL
+                    urls = [" ".join(urls)]
         except ValueError as e:
             raise CommandSyntaxError(e)
+        print(urls)
         await player.prepare_playlist(urls)
 
     @Command("SongQueue", "Queue",
