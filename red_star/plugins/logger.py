@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from discord import AuditLogAction, Forbidden
+from discord.utils import escape_mentions
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
 from red_star.rs_utils import split_message, respond, close_markdown
@@ -47,7 +48,7 @@ class DiscordLogger(BasePlugin):
                     continue
                 for msg in split_message(logs, splitter="\n"):
                     if msg and not msg.isspace():
-                        await log_channel.send(msg)
+                        await log_channel.send(escape_mentions(msg))
                 self.log_items[gid].clear()
 
     async def on_message_delete(self, msg):
