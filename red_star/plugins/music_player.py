@@ -9,8 +9,8 @@ from functools import partial
 from os import remove as remove_file
 from random import randint
 from time import monotonic as time
-from youtube_dl import YoutubeDL
-from youtube_dl.utils import YoutubeDLError
+from yt_dlp import YoutubeDL
+from yt_dlp.utils import YoutubeDLError
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
