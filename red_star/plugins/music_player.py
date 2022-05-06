@@ -510,7 +510,7 @@ class MusicPlayer(BasePlugin):
             await player.idle_check(dt)
 
     async def create_player(self, voice_channel, text_channel):
-        with text_channel.typing():
+        async with text_channel.typing():
             voice_client = await voice_channel.connect()
             player = GuildPlayer(self, voice_client, text_channel)
             self.players[voice_channel.guild.id] = player
@@ -550,7 +550,7 @@ class GuildPlayer:
         self._alone_time = 0
 
     async def prepare_playlist(self, urls):
-        with self.text_channel.typing():
+        async with self.text_channel.typing():
             # Fetch video info
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 # Create a list of videos to be queued
@@ -611,7 +611,7 @@ class GuildPlayer:
             await self.text_channel.send(f"**ANALYSIS: Attempting to queue {len(entries)} videos. Your playback will "
                                          f"begin shortly.{time_until_song}**")
         orig_len = len(self.queue)
-        with self.text_channel.typing():
+        async with self.text_channel.typing():
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 for vid in entries:
                     # We only want to extract info if we don't already have it. Things get a little funky otherwise.
