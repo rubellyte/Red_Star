@@ -206,9 +206,9 @@ class Command:
         async def wrapped(s, msg):
             if msg.guild is None and self.dm_command:  # The permission check was handled pre-call.
                 return await f(s, msg)
-            user_perms = {x for x, y in msg.author.permissions_in(msg.channel) if y}
+            user_perms = {x for x, y in msg.channel.permissions_for(msg.author) if y}
             if msg.guild.voice_client:
-                user_perms |= {x for x, y in msg.author.permissions_in(msg.guild.voice_client.channel) if y}
+                user_perms |= {x for x, y in msg.guild.voice_client.channel.permissions_for(msg.author) if y}
             if (not user_perms >= self.perms or self.bot_maintainers_only) \
                     and msg.author.id not in s.config_manager.config.get("bot_maintainers", []):
                 raise UserPermissionError

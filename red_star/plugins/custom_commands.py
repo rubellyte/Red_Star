@@ -149,7 +149,7 @@ class CustomCommands(BasePlugin):
             cc_limit = self.plugin_config[gid].get("cc_limit", 100)
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and not \
-                    msg.author.permissions_in(msg.channel).manage_messages and user_cc_count >= cc_limit:
+                    msg.channel.permissions_for(msg.author).manage_messages and user_cc_count >= cc_limit:
                 raise UserPermissionError(f"Exceeded per-user custom command limit of {cc_limit}.")
             try:
                 # check to see if there's something inside parenthesis floating in all the whitespace

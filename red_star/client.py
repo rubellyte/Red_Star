@@ -145,12 +145,6 @@ class RedStar(AutoShardedClient):
             return
         await self.plugin_manager.hook_event("on_reaction_clear", message, reactions)
 
-    async def on_private_channel_create(self, channel):
-        await self.plugin_manager.hook_event("on_private_channel_create", channel)
-
-    async def on_private_channel_delete(self, channel):
-        await self.plugin_manager.hook_event("on_private_channel_delete", channel)
-
     async def on_private_channel_update(self, before, after):
         await self.plugin_manager.hook_event("on_private_channel_update", before, after)
 

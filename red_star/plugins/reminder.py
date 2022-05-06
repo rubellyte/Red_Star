@@ -157,7 +157,7 @@ class ReminderPlugin(BasePlugin):
                 pass
 
         # just because the bot can mention everyone, doesn't mean that anyone with command access should be able to.
-        if msg.author.permissions_in(msg.channel).mention_everyone and (args['everyone'] or args['here']):
+        if msg.channel.permissions_for(msg.author).mention_everyone and (args['everyone'] or args['here']):
             args['reminder'].insert(0, "@everyone:" if args['everyone'] else "@here:")
 
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
