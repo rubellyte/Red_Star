@@ -2,6 +2,7 @@ from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, group_items
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
+import discord.utils
 import datetime
 import shlex
 import re
@@ -135,7 +136,7 @@ class ReminderPlugin(BasePlugin):
         else:
             time = args['time'] if args['time'] else args['delay']
 
-        utcnow = datetime.datetime.utcnow()
+        utcnow = discord.utils.utcnow()
 
         # just a way to default skipped values to "today"
         default_time = {

@@ -1,9 +1,8 @@
 import logging
 from asyncio import create_task, sleep
-from datetime import datetime
 from discord import AutoShardedClient, DMChannel, Intents
 from discord.object import Object
-from discord.utils import oauth_url
+from discord.utils import oauth_url, utcnow
 from pathlib import Path
 from sys import exc_info
 from red_star.channel_manager import ChannelManager
@@ -222,4 +221,4 @@ class RedStar(AutoShardedClient):
         timer = self.config.get("global_tick_interval", 15)
         while self.logged_in:
             await sleep(timer)
-            create_task(self.plugin_manager.hook_event("on_global_tick", datetime.utcnow(), timer))
+            create_task(self.plugin_manager.hook_event("on_global_tick", utcnow(), timer))

@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from discord import AuditLogAction, Forbidden
-from discord.utils import escape_mentions
+from discord.utils import escape_mentions, utcnow
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
 from red_star.rs_utils import split_message, respond, close_markdown
@@ -114,7 +114,7 @@ class DiscordLogger(BasePlugin):
         if "pin_update" not in blacklist:
             cnt = None
             try:
-                new_pin = (datetime.utcnow() - last_pin < timedelta(seconds=5))
+                new_pin = (utcnow() - last_pin < timedelta(seconds=5))
             except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
                 new_pin = False
             if new_pin:  # Get the pinned message if it's a new pin; can't get the unpinned messages sadly

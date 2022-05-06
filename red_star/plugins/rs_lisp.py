@@ -5,6 +5,7 @@ import operator as op
 import re
 import random
 import datetime
+import discord.utils
 from time import time
 from collections import OrderedDict
 from red_star.rs_errors import CustomCommandSyntaxError
@@ -201,7 +202,7 @@ def _str(*args):
 
 
 def eztime(*args):
-    now = datetime.datetime.utcnow()
+    now = discord.utils.utcnow()
 
     if args:
         strf = args[0] if args[0] else "%Y-%m-%d @ %H:%M:%S"
