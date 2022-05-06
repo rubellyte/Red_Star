@@ -1,6 +1,7 @@
+import discord.utils
 from datetime import timedelta
 from discord import AuditLogAction, Forbidden
-from discord.utils import escape_mentions, utcnow
+# from discord.utils import escape_mentions, utcnow
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
 from red_star.rs_utils import split_message, respond, close_markdown
@@ -48,7 +49,7 @@ class DiscordLogger(BasePlugin):
                     continue
                 for msg in split_message(logs, splitter="\n"):
                     if msg and not msg.isspace():
-                        await log_channel.send(escape_mentions(msg))
+                        await log_channel.send(discord.utils.escape_mentions(msg))
                 self.log_items[gid].clear()
 
     async def on_message_delete(self, msg):
@@ -114,7 +115,7 @@ class DiscordLogger(BasePlugin):
         if "pin_update" not in blacklist:
             cnt = None
             try:
-                new_pin = (utcnow() - last_pin < timedelta(seconds=5))
+                new_pin = (discord.utils.utcnow() - last_pin < timedelta(seconds=5))
             except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
                 new_pin = False
             if new_pin:  # Get the pinned message if it's a new pin; can't get the unpinned messages sadly
@@ -152,7 +153,7 @@ class DiscordLogger(BasePlugin):
                 # find audit log entries for kicking of member with our ID, created in last five seconds.
                 # Hopefully five seconds is enough
                 latest_logs = member.guild.audit_logs(action=AuditLogAction.kick, limit=1)
-                kick_event = await latest_logs.get(target__id=member.id)
+                kick_event = await discord.utils.get(latest_logs, target__id=member.id)
             except Forbidden:
                 kick_event = None
             if kick_event:
@@ -172,7 +173,8 @@ class DiscordLogger(BasePlugin):
         if "role_update" not in blacklist:
             diff = []
             try:
-                audit_event = await after.guild.audit_logs(action=AuditLogAction.role_update, limit=1).get()
+                audit_event = await discord.utils.get(
+                        after.guild.audit_logs(action=AuditLogAction.role_update, limit=1))
             except Forbidden:
                 audit_event = None
 
