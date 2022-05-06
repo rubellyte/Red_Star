@@ -128,8 +128,8 @@ class MusicPlayer(BasePlugin):
             print(urls)
             # Is it supposed to be a search query, or a bunch of URLs?
             if len(urls) > 1:
-                url_validator = re.compile(r"https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}"
-                                           r"\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)")
+                url_validator = re.compile(r"https?://(www\.)?[-a-zA-Z\d@:%._+~#=]{1,256}\.[a-zA-Z\d()]{1,6}"
+                                           r"\b([-a-zA-Z\d()@:%_+.~#?&/=]*)")
                 print("validating")
                 if any((not url_validator.fullmatch(url) and " " not in url) for url in urls):
                     # If it's just a plain search query (no URLs, no quoted spaces), join it back together for QoL
@@ -605,7 +605,6 @@ class GuildPlayer:
                 return
 
     async def _enqueue_playlist(self, entries):
-        time_until_song = ""
         if len(self.queue) > 0:
             time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
             time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"

@@ -72,7 +72,8 @@ def main():
     try:
         bot.run(bot.config["token"])
     except LoginFailure:
-        base_logger.error("Bot token is invalid! Please confirm that the token exists in configuration and is correct.")
+        base_logger.error("Bot token is invalid! "
+                          "Please confirm that the token exists in configuration and is correct.")
         raise SystemExit
 
 

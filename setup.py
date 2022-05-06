@@ -1,4 +1,3 @@
-import sys
 import setuptools
 from red_star.rs_version import version
 

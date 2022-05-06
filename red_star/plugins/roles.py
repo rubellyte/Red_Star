@@ -1,6 +1,6 @@
 import shlex
 from string import capwords
-from discord import InvalidArgument, HTTPException, Colour
+from discord import HTTPException, Colour
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError
 from red_star.rs_utils import respond, is_positive, find_role, group_items, RSArgumentParser
@@ -120,7 +120,7 @@ class RoleCommands(BasePlugin):
                 try:
                     # since I can't create a role with a preset position :T
                     await t_role.edit(position=rolepos)
-                except (InvalidArgument, HTTPException):
+                except (ValueError, HTTPException):
                     # oh hey, why are we copying this role again?
                     name = args[1].capitalize()
                     await t_role.delete()

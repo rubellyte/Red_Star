@@ -9,7 +9,7 @@ from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_message
 from red_star.command_dispatcher import Command
-from discord import InvalidArgument, HTTPException
+from discord import HTTPException
 from traceback import format_exception, format_exc
 
 
@@ -68,7 +68,7 @@ class BotManagement(BasePlugin):
         try:
             await self.client.user.edit(avatar=img)
             await respond(msg, "**AVATAR UPDATED.**")
-        except InvalidArgument:
+        except ValueError:
             raise CommandSyntaxError("Image must be a PNG or JPG")
         except HTTPException:
             raise UserPermissionError("Cannot change avatar at this time.")

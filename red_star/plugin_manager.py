@@ -182,7 +182,7 @@ class PluginManager:
         """
         plugins = set(self.active_plugins.values())
         for plugin in plugins:
-            hook = getattr(plugin, event, False)
+            hook = getattr(plugin, event, None)
             if hook:
                 # noinspection PyBroadException
                 try:
