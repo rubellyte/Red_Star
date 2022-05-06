@@ -210,7 +210,7 @@ class BotManagement(BasePlugin):
         if path.startswith("/"):
             path = path[1:]
         path_list = path.split("/")
-        conf_dict.pop("token", None)  # Don't wanna leak that by accident!
+        conf_dict.pop("token", None)  # Don't want to leak that by accident!
 
         for k in path_list:
             if not k:
@@ -413,7 +413,7 @@ class BotManagement(BasePlugin):
     @staticmethod
     def _list_or_dict_subscript(obj, key):
         """
-        Helper function to use key as a key if obj is a dict, or as an int index if list.
+        Helper function to use key as a key if obj is a dict, or as an int index if a list.
 
         :param obj: The object to subscript.
         :param key: The key to subscript with.

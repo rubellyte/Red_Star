@@ -599,7 +599,7 @@ class GuildPlayer:
                     # If it's just a video, throw it in
                     else:
                         to_queue.append(vid_info)
-            # Queuing is handle by _enqueue_playlist function. Don't bother it if we got nothing.
+            # Queuing is handled by _enqueue_playlist function. Don't bother it if we got nothing.
             if len(to_queue) > 0:
                 create_task(self._enqueue_playlist(to_queue))
                 return

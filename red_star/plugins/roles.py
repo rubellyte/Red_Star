@@ -36,7 +36,7 @@ class RoleCommands(BasePlugin):
             raise CommandSyntaxError(e)
 
         parser = RSArgumentParser()
-        parser.add_argument("command")                      # Well it's gonna be there.
+        parser.add_argument("command")                      # Well it's going to be there.
         parser.add_argument("role")                         # The role name/ID
         parser.add_argument("-n", "--name")                 # New role name
         parser.add_argument("-c", "--colour", "--color")    # New role colour
@@ -88,7 +88,7 @@ class RoleCommands(BasePlugin):
             raise CommandSyntaxError(e)
 
         parser = RSArgumentParser()
-        parser.add_argument("command")                      # Well it's gonna be there.
+        parser.add_argument("command")                      # Well it's going be there.
         parser.add_argument("role")                         # Name of the new role
         parser.add_argument("template")                     # Permission donor name/ID
         parser.add_argument("-n", "--name")                 # New role name

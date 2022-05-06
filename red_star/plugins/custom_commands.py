@@ -499,7 +499,7 @@ class CustomCommands(BasePlugin):
             fp = BytesIO()
             await msg.attachments[0].save(fp)
 
-            # poor mans deflating. We're still storing JSON, but we want to store the least JSON possible.
+            # poor man's deflating. We're still storing JSON, but we want to store the least JSON possible.
             content = json.dumps(decode_json(fp.getvalue()), separators=(',', ':'), ensure_ascii=False)
         except json.decoder.JSONDecodeError as e:
             raise CommandSyntaxError(e)

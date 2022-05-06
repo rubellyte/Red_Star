@@ -220,7 +220,7 @@ class BasePlugin:
 
     async def activate(self):
         """
-        The method called when the plugin is initialized. Should be used to get all of the Discord-related
+        The method called when the plugin is initialized. Should be used to get all the Discord-related
         initialization out of the way.
         Raise an exception in this method to cancel activation, say if a required package isn't installed.
         """

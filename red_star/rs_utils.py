@@ -355,7 +355,7 @@ def is_positive(string):
 
 def verify_embed(embed: dict):
     """
-    A big ugly function to verify the embed dict as best as we can.
+    A big ugly function to verify the embed dict as best we can.
     Made even uglier by the verbosity I choose to include in the verification.
     :param embed:
     :return:

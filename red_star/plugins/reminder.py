@@ -44,7 +44,7 @@ class ReminderPlugin(BasePlugin):
         dm: bool
         recurring: list
 
-        # number of days in each months, for checking
+        # number of days in each month, for checking
         _mdays = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
         def __post_init__(self):
