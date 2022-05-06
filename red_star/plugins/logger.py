@@ -93,8 +93,8 @@ class DiscordLogger(BasePlugin):
                 diff_str = f"`Old username: `{before}\n`New username: `{after}\n"
                 log_str = f"Old username: {before}\nNew username: {after}\n"
             if before.avatar != after.avatar:
-                diff_str = f"{diff_str}`New avatar: `{after.avatar_url}\n"
-                log_str = f"{log_str}New avatar: {after.avatar_url}\n"
+                diff_str = f"{diff_str}`New avatar: `{after.avatar.url}\n"
+                log_str = f"{log_str}New avatar: {after.avatar.url}\n"
             if before.nick != after.nick:
                 diff_str = f"{diff_str}`Old nick: `{before.nick}\n`New nick: `{after.nick}\n"
                 log_str = f"{log_str}Old nick: {before.nick}\nNew nick: {after.nick}\n"
