@@ -27,7 +27,7 @@ class RedStar(AutoShardedClient):
         intents = Intents.default()
         intents.members = True
         intents.message_content = True
-        super().__init__(intents=intents)
+        super().__init__(intents=intents, enable_debug_events=(argv.verbose >= 2), http_trace=(argv.verbose >= 3))
 
         self.storage_dir = storage_dir
         self.plugin_directories = [Path.cwd() / "plugins"]
