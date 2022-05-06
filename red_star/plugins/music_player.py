@@ -51,7 +51,7 @@ class MusicPlayer(BasePlugin):
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("music_player.json")
 
-        self.players = {}
+        self.players: dict[int, GuildPlayer] = dict()
 
         self.ydl_options = self.plugin_config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
