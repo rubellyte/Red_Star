@@ -26,6 +26,7 @@ class RedStar(AutoShardedClient):
 
         intents = Intents.default()
         intents.members = True
+        intents.message_content = True
         super().__init__(intents=intents)
 
         self.storage_dir = storage_dir
