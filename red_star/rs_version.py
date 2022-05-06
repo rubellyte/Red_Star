@@ -10,6 +10,6 @@ class VersionInfo(namedtuple("VersionInfo", 'major minor patch releaselevel')):
         return verstr
 
 
-version_tuple = VersionInfo(major=2, minor=2, patch=4, releaselevel="release")
+version_tuple = VersionInfo(major=2, minor=3, patch=0, releaselevel="alpha")
 
 version = version_tuple.as_string()
