@@ -3,8 +3,7 @@ from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, split_message, find_role
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from copy import deepcopy
-from discord import Member
-from discord.errors import HTTPException
+import discord
 import shlex
 
 
@@ -20,14 +19,14 @@ class RoleRequest(BasePlugin):
         }
     }
 
-    def _initialize(self, gid):
+    def _initialize(self, gid: str):
         if gid not in self.plugin_config:
             self.plugin_config[gid] = deepcopy(self.plugin_config['default'])
 
     async def activate(self):
         self.reacts = self.config_manager.get_plugin_config_file("role_request_reaction_messages.json")
 
-    async def on_member_join(self, member: Member):
+    async def on_member_join(self, member: discord.Member):
         """
         Handles the call of on_member_join to apply the default roles, if any.
         """
@@ -43,7 +42,7 @@ class RoleRequest(BasePlugin):
              syntax="[-a/--add (role mentions/ids/names)] [-r/--remove (role mentions/ids/names)]",
              perms={"manage_roles"},
              category="role_request")
-    async def _manage(self, msg):
+    async def _manage(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
 
@@ -91,7 +90,7 @@ class RoleRequest(BasePlugin):
                  "Role can be specified by name or ID. Please don't mention roles.",
              syntax="(role)",
              category="role_request")
-    async def _requestrole(self, msg):
+    async def _requestrole(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         try:
@@ -122,7 +121,7 @@ class RoleRequest(BasePlugin):
              syntax="[-a/--add (role mentions/ids/names)] [-r/--remove (role mentions/ids/names)]",
              perms={"manage_roles"},
              category="role_request")
-    async def _manage_default(self, msg):
+    async def _manage_default(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
 
@@ -172,7 +171,7 @@ class RoleRequest(BasePlugin):
              perms={"manage_roles"},
              category="role_request",
              run_anywhere=True)
-    async def _offer_roles(self, msg):
+    async def _offer_roles(self, msg: discord.Message):
         args = msg.content.split()[1::]
         found = []
         for emote, roleQuery in zip(args[::2], args[1::2]):
@@ -187,13 +186,13 @@ class RoleRequest(BasePlugin):
             for r, _ in found:
                 try:
                     await message.add_reaction(r)
-                except HTTPException:
+                except discord.HTTPException:
                     await message.delete()
                     raise CommandSyntaxError('Do not use emoji unavailable to the bot.')
             self.reacts[str(message.id)] = parsed_found
             self.reacts.save()
 
-    async def on_raw_reaction_add(self, payload):
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """
         :param payload:
         :return:
@@ -216,7 +215,7 @@ class RoleRequest(BasePlugin):
                 return
             await msg.remove_reaction(payload.emoji, user)
 
-    async def on_raw_reaction_remove(self, payload):
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
         """
         :param payload:
         :return:
@@ -238,7 +237,7 @@ class RoleRequest(BasePlugin):
                 await user.remove_roles(*roles, reason="Removed by request through plugin.")
                 return
 
-    async def on_message_delete(self, msg):
+    async def on_message_delete(self, msg: discord.Message):
         mid = str(msg.id)
         if mid in self.reacts:
             del self.reacts[mid]

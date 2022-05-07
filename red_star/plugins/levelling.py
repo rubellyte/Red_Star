@@ -2,7 +2,7 @@ from red_star.plugin_manager import BasePlugin
 from red_star.rs_utils import respond, find_user, is_positive, JsonFileDict, group_items
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError
-from discord.errors import Forbidden
+import discord
 
 
 class Levelling(BasePlugin):
@@ -25,11 +25,11 @@ class Levelling(BasePlugin):
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("xp.json")
 
-    async def on_message(self, msg):
+    async def on_message(self, msg: discord.Message):
         if not self.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
             self._give_xp(msg)
 
-    async def on_message_delete(self, msg):
+    async def on_message_delete(self, msg: discord.Message):
         if not self.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
             self._take_xp(msg)
 
@@ -39,7 +39,7 @@ class Levelling(BasePlugin):
              doc="Lists all registered users from highest XP to lowest, up to amount specified or 10.",
              syntax="[number]",
              category="levelling")
-    async def _listxp(self, msg):
+    async def _listxp(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         xp_dict = self.storage.setdefault(gid, dict())
@@ -84,7 +84,7 @@ class Levelling(BasePlugin):
              doc="Shows your xp or xp of specified user.",
              syntax="[user]",
              category="levelling")
-    async def _xp(self, msg):
+    async def _xp(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         args = msg.content.split(None, 1)
@@ -115,7 +115,7 @@ class Levelling(BasePlugin):
              syntax="[depth]",
              perms={"manage_guild"},
              category="levelling")
-    async def _evalxp(self, msg):
+    async def _evalxp(self, msg: discord.Message):
         args = msg.content.split(None, 1)
         if len(args) > 1:
             try:
@@ -133,7 +133,7 @@ class Levelling(BasePlugin):
                     try:
                         async for message in channel.history(limit=depth):
                             self._give_xp(message)
-                    except Forbidden:
+                    except discord.Forbidden:
                         continue
 
         self.storage.save()
@@ -144,7 +144,7 @@ class Levelling(BasePlugin):
              syntax="[user]",
              perms={"manage_guild"},
              category="levelling")
-    async def _nukexp(self, msg):
+    async def _nukexp(self, msg: discord.Message):
         gid = str(msg.guild.id)
         args = msg.content.split(None, 1)
 
@@ -172,7 +172,7 @@ class Levelling(BasePlugin):
              syntax="[option] [value]",
              perms={"manage_guild"},
              category="levelling")
-    async def _setxp(self, msg):
+    async def _setxp(self, msg: discord.Message):
         gid = str(msg.guild.id)
         args = msg.content.split(" ", 2)
         cfg = self.plugin_config.setdefault(gid, self.plugin_config['default'].copy())
@@ -205,7 +205,7 @@ class Levelling(BasePlugin):
 
     # Utilities
 
-    def _give_xp(self, msg):
+    def _give_xp(self, msg: discord.Message):
         gid = str(msg.guild.id)
         uid = str(msg.author.id)
         if uid in self.storage.setdefault(gid, dict()):
@@ -213,13 +213,13 @@ class Levelling(BasePlugin):
         else:
             self.storage[gid][uid] = self._calc_xp(msg.clean_content, gid)
 
-    def _take_xp(self, msg):
+    def _take_xp(self, msg: discord.Message):
         gid = str(msg.guild.id)
         uid = str(msg.author.id)
         if uid in self.storage.setdefault(gid, dict()):
             self.storage[gid][uid] -= self._calc_xp(msg.clean_content, gid)
 
-    def _calc_xp(self, txt, gid):
+    def _calc_xp(self, txt: str, gid: str):
         """
         :type txt:str
         :param txt:message to calculate the xp for

@@ -2,7 +2,7 @@ from red_star.plugin_manager import BasePlugin
 from red_star.rs_utils import respond
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError
-from discord import File, NotFound
+import discord
 from io import BytesIO
 
 
@@ -17,7 +17,7 @@ class DumpChannel(BasePlugin):
              syntax="(latest message ID) (earliest message ID) [filename]",
              perms={"manage_messages"},
              run_anywhere=True)
-    async def _dump(self, msg):
+    async def _dump(self, msg: discord.Message):
         args = msg.content.split(" ", 3)
         if len(args) < 3:
             raise CommandSyntaxError("Wrong number of arguments.")
@@ -32,11 +32,11 @@ class DumpChannel(BasePlugin):
             raise CommandSyntaxError("Second Argument is not a valid integer.")
         try:
             m_start = await msg.channel.fetch_message(m_start)
-        except NotFound:
+        except discord.NotFound:
             raise CommandSyntaxError(f"No message with ID {m_start}")
         try:
             m_end = await msg.channel.fetch_message(m_end)
-        except NotFound:
+        except discord.NotFound:
             raise CommandSyntaxError(f"No message with ID {m_end}")
 
         if len(args) > 3:
@@ -56,5 +56,5 @@ class DumpChannel(BasePlugin):
         t_msg = await respond(msg, f"**AFFIRMATIVE. Processing file {t_name}.**")
         async with msg.channel.typing():
             await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                          file=File(BytesIO(bytes("".join(t_list), encoding="utf-8")), filename=t_name))
+                          file=discord.File(BytesIO(bytes("".join(t_list), encoding="utf-8")), filename=t_name))
         await t_msg.delete()

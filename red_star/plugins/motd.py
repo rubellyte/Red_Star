@@ -1,3 +1,4 @@
+from __future__ import annotations
 import datetime
 import json
 import discord.utils
@@ -6,6 +7,10 @@ from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError, DataCarrier
 from red_star.rs_utils import respond, get_guild_config, RSArgumentParser
 from red_star.command_dispatcher import Command
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import discord
 
 
 class MOTD(BasePlugin):
@@ -48,12 +53,12 @@ class MOTD(BasePlugin):
                     self.logger.error(f"MotD file {motd_file} for guild {guild.name} couldn't be decoded! Skipping...")
                     continue
 
-    async def on_global_tick(self, time, _):
+    async def on_global_tick(self, time: datetime.datetime, _):
         if time.day != self.last_run:
             self.last_run = time.day
             await self._display_motd(time.date())
 
-    async def _display_motd(self, date: datetime.datetime):
+    async def _display_motd(self, date: datetime.date):
         for guild in self.client.guilds:
             try:
                 chan = self.channel_manager.get_channel(guild, "motd")
@@ -74,7 +79,7 @@ class MOTD(BasePlugin):
                 line = choice(lines)
             await chan.send(line)
 
-    def _get_motds(self, options, date, valid=None):
+    def _get_motds(self, options: dict, date: datetime.date | None, valid: set = None):
         if not valid:
             valid = {date.strftime("%b").lower(), date.strftime("%a").lower(),
                      str(date.day), "week-" + str(week_of_month(date))}
@@ -97,7 +102,7 @@ class MOTD(BasePlugin):
              perms={"manage_guild"},
              category="bot_management",
              syntax="[-h/--holiday] (/path/of/date) (message)")
-    async def _addmotd(self, msg):
+    async def _addmotd(self, msg: discord.Message):
         holiday = False
         try:
             path, new_motd = msg.clean_content.split(None, 2)[1:]
@@ -133,7 +138,7 @@ class MOTD(BasePlugin):
              category="debug",
              syntax="[-d/--day number] [-wd/--weekday weekday] [-mw/--monthweek week-x] [-m/--month month]"
                     "OR [-dt/--dt ISO-format date]")
-    async def _testmotd(self, msg):
+    async def _testmotd(self, msg: discord.Message):
         today = datetime.datetime.now()
         parser = RSArgumentParser()
         parser.add_argument("-d",  "--day", default=str(today.day))
@@ -153,7 +158,7 @@ class MOTD(BasePlugin):
                         or args.weekday not in self.valid_weekdays \
                         or args.monthweek not in self.valid_monthweeks:
                     raise CommandSyntaxError("One of the arguments is not valid.")
-                lines = self._get_motds(motds, None, valid=(args.month, args.day, args.weekday, args.monthweek))
+                lines = self._get_motds(motds, None, valid={args.month, args.day, args.weekday, args.monthweek})
         except DataCarrier as dc:
             lines = dc.data
         lines = "\n".join(lines)
@@ -162,13 +167,13 @@ class MOTD(BasePlugin):
         await respond(msg, f"```\n{lines}```")
 
 
-def week_of_month(date):
+def week_of_month(date: datetime.date):
     first_of_month = date.replace(day=1).weekday()
     if first_of_month == 6:
         first_of_month -= 7
     return (date.day + first_of_month) // 7 + 1
     
 
-def is_last_week_of_month(date):
+def is_last_week_of_month(date: datetime.date):
     last_of_month = date.replace(month=(date.month % 12 + 1), day=1) - datetime.timedelta(days=1)
     return week_of_month(date) == week_of_month(last_of_month)

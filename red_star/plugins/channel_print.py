@@ -8,7 +8,7 @@ from urllib.error import URLError
 import mimetypes
 import re
 import json
-from discord import File, Message
+import discord
 from io import BytesIO
 
 
@@ -96,7 +96,7 @@ class ChannelPrint(BasePlugin):
              category="channel_print",
              run_anywhere=True,
              delcall=True)
-    async def _print(self, msg):
+    async def _print(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         cmd, *args = msg.clean_content.split(None, 1)
@@ -143,8 +143,8 @@ class ChannelPrint(BasePlugin):
                         _file = urlopen(post['file'])
                         if int(_file.info()['Content-Length']) > self.plugin_config['max_filesize']:
                             raise ValueError("File too big.")
-                        _file = File(_file,
-                                     filename="wallfile" + mimetypes.guess_extension(_file.info()['Content-Type']))
+                        _file = discord.File(_file,
+                                             filename="wallfile" + mimetypes.guess_extension(_file.info()['Content-Type']))
                     except (URLError, TypeError, ValueError) as e:
                         self.logger.info(f"Attachment file error in {msg.guild}:\n{e}")
                         await self.plugin_manager.hook_event("on_log_event", msg.guild,
@@ -162,7 +162,7 @@ class ChannelPrint(BasePlugin):
              syntax="(document)",
              perms={"manage_messages"},
              category="channel_print")
-    async def _deleteprint(self, msg):
+    async def _deleteprint(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         try:
@@ -181,7 +181,7 @@ class ChannelPrint(BasePlugin):
              doc="Lists all available documents.",
              perms={"manage_messages"},
              category="channel_print")
-    async def _listprint(self, msg):
+    async def _listprint(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         if gid not in self.walls:
@@ -196,14 +196,14 @@ class ChannelPrint(BasePlugin):
              syntax="(document)",
              perms={"manage_messages"},
              category="channel_print")
-    async def _dumpprint(self, msg):
+    async def _dumpprint(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
             await respond(msg, "**AFFIRMATIVE. Uploading file.**",
-                          file=File(BytesIO(bytes(json.dumps(self.walls[gid][name], indent=2, ensure_ascii=False),
-                                                  encoding="utf8")), filename=name+'.json'))
+                          file=discord.File(BytesIO(bytes(json.dumps(self.walls[gid][name], indent=2, ensure_ascii=False),
+                                                          encoding="utf8")), filename=name+'.json'))
         except IndexError:
             raise CommandSyntaxError("Document name required.")
         except KeyError:
@@ -216,7 +216,7 @@ class ChannelPrint(BasePlugin):
              syntax="(document_id) (code block or attached file)",
              perms={"manage_messages"},
              category="channel_print")
-    async def _uploadprint(self, msg: Message):
+    async def _uploadprint(self, msg: discord.Message):
         gid = str(msg.guild.id)
         if gid not in self.walls:
             self.walls[gid] = dict()
@@ -262,6 +262,6 @@ class ChannelPrint(BasePlugin):
              doc="Reloads all documents from list. You probably shouldn't be using this too often.",
              bot_maintainers_only=True,
              category="channel_print")
-    async def _printreload(self, msg):
+    async def _printreload(self, msg: discord.Message):
         self.walls.reload()
         await respond(msg, "**AFFIRMATIVE. Printout documents reloaded.**")

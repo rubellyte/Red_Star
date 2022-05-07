@@ -1,8 +1,9 @@
+from __future__ import annotations
 from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, RSArgumentParser, decode_json, group_items
-from discord import Embed, File, Message, Reaction, Forbidden, NotFound
+import discord
 from io import BytesIO
 from difflib import SequenceMatcher
 import shlex
@@ -33,7 +34,7 @@ class Character:
 
     _fields = ['owner', 'name', 'image', 'money', 'inv', 'inv_key', 'fields']
 
-    def __init__(self, parent: "RoleplayEconomy", guild: str, character: str):
+    def __init__(self, parent: RoleplayEconomy, guild: str, character: str):
         self._parent = parent
         # init the guild, to save up on _initialize calls
         self._parent._initchar(guild)
@@ -112,11 +113,11 @@ class Character:
                        if v]
         }
 
-    def embed(self):
+    def embed(self) -> discord.Embed:
         """
         Function that generates a character sheet embed.
         """
-        t_embed = Embed(type="rich", colour=0xFF0000)
+        t_embed = discord.Embed(type="rich", colour=0xFF0000)
         t_embed.title = self.name
 
         # optional fields are only added if they're present.
@@ -189,15 +190,15 @@ class Shop:
 
     _mpage: int  # total amount of pages
     _gid: str  # guild id
-    _parent: "RoleplayEconomy"  # parent class.
-    _message: Message  # message that the shop is displayed in
+    _parent: RoleplayEconomy  # parent class.
+    _message: discord.Message  # message that the shop is displayed in
 
     _items: list  # the items to be displayed in the message, generated on init and cached.
 
     _emoji = "◀🇽▶"
     _len = 10
 
-    def __init__(self, parent: "RoleplayEconomy", user: int, gid: str, category: str = ""):
+    def __init__(self, parent: RoleplayEconomy, user: int, gid: str, category: str = ""):
         self._parent = parent
         self.user = user
         self.category = category
@@ -224,7 +225,7 @@ class Shop:
 
         self._mpage = len(self._items) // self._len
 
-    async def post(self, msg):
+    async def post(self, msg: discord.Message):
         # Creates the shop message and adds itself to the parent storage.
         # Separated from the main init on account of being async (and being more readable this way).
         self._message = await respond(msg, self.text())
@@ -233,7 +234,7 @@ class Shop:
         await self._message.add_reaction('▶')
         self._parent.shops[self._gid][self._message.id] = self
 
-    def text(self):
+    def text(self) -> str:
         # Generates the shop text, by gluing header and footer onto a few item strings.
         text = "```asciidoc\n" \
                f"{'.🙡Item Shop🙣.':^48}\n{'='*48}\n"
@@ -243,7 +244,7 @@ class Shop:
         text += f"\n\n{p:^48}```"
         return text
 
-    async def react(self, reaction: Reaction):
+    async def react(self, reaction: discord.Reaction):
         if reaction.emoji == '🇽':
             del self._parent.shops[self._gid][self._message.id]
             await self._message.delete()
@@ -325,15 +326,15 @@ class RoleplayEconomy(BasePlugin):
 
     # Util Functions
 
-    def _initchar(self, gid):
+    def _initchar(self, gid: str):
         if gid not in self.chars:
             self.chars[gid] = self.chars.get('default', {'default_char': self.char_base})
 
-    def _inititem(self, gid):
+    def _inititem(self, gid: str):
         if gid not in self.shop_items:
             self.shop_items[gid] = self.shop_items.get('default', {'default_item': self.item_base})
 
-    def _initbio(self, gid, name):
+    def _initbio(self, gid: str, name: str):
         if name not in self.chars[gid]:
             if self.bios and name in self.bios.get(gid, {}):
                 self.chars[gid][name] = deepcopy(self.chars[gid].get('default_char', self.char_base))
@@ -344,7 +345,7 @@ class RoleplayEconomy(BasePlugin):
                 raise CommandSyntaxError(f"No such character: {name}")
 
     @staticmethod
-    def _generate_item_embed(item: dict, custom=False):
+    def _generate_item_embed(item: dict, custom: bool = False):
         """
         Helper function to generate item embeds, given (overriden) item data.
         The function does not do its own overriding on account of that requiring it be tied to Character class.
@@ -353,7 +354,7 @@ class RoleplayEconomy(BasePlugin):
         :return:
         """
 
-        item_embed = Embed(type="rich", colour=0xFF0000)
+        item_embed = discord.Embed(type="rich", colour=0xFF0000)
         item_embed.title = item['name'] + (" ★" if custom else "")
         item_embed.description = f"{item['description']}\n\nPrice: {item['buy_price']}/{item['sell_price']}"
         if item['image']:
@@ -367,7 +368,7 @@ class RoleplayEconomy(BasePlugin):
         return item_embed
 
     @staticmethod
-    def _verify_item(item):
+    def _verify_item(item: dict) -> dict:
 
         # fields : name, category, description, image, inshop, buy_price, sell_price, fields {}
         # just make sure they're at least correct length/type in general.
@@ -402,7 +403,7 @@ class RoleplayEconomy(BasePlugin):
         except (KeyError, TypeError):
             raise CommandSyntaxError('Item or Override must be a dict.')
 
-    def _find_item(self, gid: str, query: str):
+    def _find_item(self, gid: str, query: str) -> (dict, [dict]):
         """
         Function to find a possible item using sequence matcher.
         Collects possible candidates and returns them too, but don't count on that if it does find a match.
@@ -428,7 +429,7 @@ class RoleplayEconomy(BasePlugin):
 
         return item, possible
 
-    def _verify_char(self, char: dict, default: dict):
+    def _verify_char(self, char: dict, default: dict) -> dict:
         try:
             # char_base = {
             #     "name": "Default Name",
@@ -492,7 +493,7 @@ class RoleplayEconomy(BasePlugin):
              syntax="(name) [-[-i]tem/-[-k]eyitem (pos/item name) [-[-d]ump] [-[-g]ive recipient [amount]] "
                     "[-[-s]ell [amount]]] [-[-d]ump] [-[-p]ay (recipient) (amount)] [-[-b]uy (item) [amount]]",
              category="role_play_economy")
-    async def _char(self, msg):
+    async def _char(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         parser = RSArgumentParser()
@@ -533,9 +534,9 @@ class RoleplayEconomy(BasePlugin):
                 # or you know, grabbing them to edit.
                 async with msg.channel.typing():
                     await respond(msg, "**AFFIRMATIVE. File upload completed.**",
-                                  file=File(BytesIO(bytes(json.dumps(item, indent=2, ensure_ascii=False),
-                                                          encoding="utf8")),
-                                            filename=item['name'] + '.json'))
+                                  file=discord.File(BytesIO(bytes(json.dumps(item, indent=2, ensure_ascii=False),
+                                                                  encoding="utf8")),
+                                                    filename=item['name'] + '.json'))
             elif args['give']:
                 # char (name) -i/k (item) -g (name) [amount]
                 # attempts to give an item to another character. We assume that char ids are one word long.
@@ -600,9 +601,9 @@ class RoleplayEconomy(BasePlugin):
             # the second part of the multipurpose -d flag. Dumps character for backup/editing.
             async with msg.channel.typing():
                 await respond(msg, "**AFFIRMATIVE. File upload completed.**",
-                              file=File(BytesIO(bytes(json.dumps(char._chars[char.id], indent=2, ensure_ascii=False),
-                                                      encoding="utf8")),
-                                        filename=char.id + '.json'))
+                              file=discord.File(BytesIO(bytes(json.dumps(char._chars[char.id], indent=2, ensure_ascii=False),
+                                                              encoding="utf8")),
+                                                filename=char.id + '.json'))
         elif args['pay']:
             # char (name) -p (name) (amount)
             # transfers money between characters, pretty straightforward.
@@ -685,7 +686,7 @@ class RoleplayEconomy(BasePlugin):
              syntax="(name) (item) [amount]",
              perms={"manage_messages"},
              category="role_play_economy")
-    async def _give(self, msg):
+    async def _give(self, msg: discord.Message):
         gid = str(msg.guild.id)
         parser = RSArgumentParser()
         parser.add_argument('command')
@@ -732,7 +733,7 @@ class RoleplayEconomy(BasePlugin):
              syntax="(name) (item) [amount]",
              perms={"manage_messages"},
              category="role_play_economy")
-    async def _take(self, msg):
+    async def _take(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         parser = RSArgumentParser()
@@ -787,7 +788,7 @@ class RoleplayEconomy(BasePlugin):
              syntax="(name) [json code block/file]",
              perms={"manage_messages"},
              category="role_play_economy")
-    async def _givecustom(self, msg):
+    async def _givecustom(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         # to allow both names with spaces and code blocks, we split the message once.
@@ -847,7 +848,7 @@ class RoleplayEconomy(BasePlugin):
                  "the name precisely right.",
              syntax="(item)",
              category="role_play_economy")
-    async def _dumpitem(self, msg):
+    async def _dumpitem(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._inititem(gid)
 
@@ -861,9 +862,9 @@ class RoleplayEconomy(BasePlugin):
         if item:
             await respond(msg, "**AFFIRMATIVE. Dumping following item:**",
                           embed=self._generate_item_embed(self.shop_items[gid][item]),
-                          file=File(BytesIO(bytes(json.dumps(self.shop_items[gid][item], ensure_ascii=False, indent=2),
-                                                  encoding="utf8")),
-                                    filename=item + '.json'))
+                          file=discord.File(BytesIO(bytes(json.dumps(self.shop_items[gid][item], ensure_ascii=False, indent=2),
+                                                          encoding="utf8")),
+                                            filename=item + '.json'))
         elif possible:
             for split_msg in group_items(possible, message="**ANALYSIS: Perhaps you meant one of these items?**"):
                 await respond(msg, split_msg)
@@ -876,7 +877,7 @@ class RoleplayEconomy(BasePlugin):
                  "the name precisely right.",
              syntax="(item)",
              category="role_play_economy")
-    async def _iteminfo(self, msg):
+    async def _iteminfo(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._inititem(gid)
 
@@ -903,7 +904,7 @@ class RoleplayEconomy(BasePlugin):
              perms={"manage_messages"},
              category="role_play_economy",
              run_anywhere=True)
-    async def _uploaditem(self, msg):
+    async def _uploaditem(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._inititem(gid)
 
@@ -953,7 +954,7 @@ class RoleplayEconomy(BasePlugin):
              perms={"manage_messages"},
              category="role_play_economy",
              run_anywhere=True)
-    async def _deleteitem(self, msg):
+    async def _deleteitem(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._inititem(gid)
 
@@ -979,7 +980,7 @@ class RoleplayEconomy(BasePlugin):
              perms={"manage_messages"},
              category="role_play_economy",
              run_anywhere=True)
-    async def _listitems(self, msg):
+    async def _listitems(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         for split_msg in group_items((f"{i['name']:<24}: {i_id}" for i_id, i in self.shop_items[gid].items()),
@@ -993,7 +994,7 @@ class RoleplayEconomy(BasePlugin):
              perms={"manage_messages"},
              category="role_play_economy",
              run_anywhere=True)
-    async def _uploadchar(self, msg):
+    async def _uploadchar(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initchar(gid)
 
@@ -1042,7 +1043,7 @@ class RoleplayEconomy(BasePlugin):
              perms={"manage_messages"},
              category="role_play_economy",
              run_anywhere=True)
-    async def _deletechar(self, msg):
+    async def _deletechar(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initchar(gid)
 
@@ -1069,7 +1070,7 @@ class RoleplayEconomy(BasePlugin):
              perms={"manage_messages"},
              category="role_play_economy",
              run_anywhere=True)
-    async def _listchars(self, msg):
+    async def _listchars(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         for split_msg in group_items((f"{i['name']:<32}: {i_id}" for i_id, i in self.chars[gid].items()),
@@ -1082,7 +1083,7 @@ class RoleplayEconomy(BasePlugin):
              syntax="[category]",
              category="role_play_economy",
              delcall=True)
-    async def _shop(self, msg):
+    async def _shop(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         try:
@@ -1103,7 +1104,7 @@ class RoleplayEconomy(BasePlugin):
     @Command("ShopCategories",
              doc="Lists all available shop categories.",
              category="role_play_economy")
-    async def _shopcategories(self, msg):
+    async def _shopcategories(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
         categories = {x['category'] for x in self.shop_items[gid].values() if x['category'] and x['inshop']}
@@ -1115,7 +1116,7 @@ class RoleplayEconomy(BasePlugin):
              doc="Lists all available shop items.",
              syntax="[category]",
              category="role_play_economy")
-    async def _shopitems(self, msg):
+    async def _shopitems(self, msg: discord.Message):
         gid = str(msg.guild.id)
         try:
             selector = msg.clean_content.split(None, 1)[1].lower()
@@ -1134,7 +1135,7 @@ class RoleplayEconomy(BasePlugin):
              doc="Reloads characters from disk.",
              category="role_play_economy",
              bot_maintainers_only=True)
-    async def _reloadchars(self, msg):
+    async def _reloadchars(self, msg: discord.Message):
         self.chars.reload()
         await respond(msg, "**AFFIRMATIVE. Characters reloaded.**")
 
@@ -1148,7 +1149,7 @@ class RoleplayEconomy(BasePlugin):
 
     # Events
 
-    async def on_reaction_add(self, reaction, user):
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.Member):
         gid = str(reaction.message.guild.id)
         mid = reaction.message.id
 
@@ -1161,7 +1162,7 @@ class RoleplayEconomy(BasePlugin):
             if user.id != self.client.user.id:
                 try:
                     await reaction.message.remove_reaction(reaction.emoji, user)
-                except (Forbidden, NotFound):
+                except (discord.Forbidden, discord.NotFound):
                     pass
 
     async def on_global_tick(self, *_):

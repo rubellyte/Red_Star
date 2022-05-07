@@ -1,11 +1,12 @@
+from __future__ import annotations
 import re
 import json
 import shlex
+import discord
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, find_role, find_user, split_message, decode_json, RSArgumentParser
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
-from discord import Embed, File
 from io import BytesIO
 from dataclasses import dataclass, asdict
 from copy import deepcopy
@@ -49,7 +50,7 @@ class Roleplay(BasePlugin):
 
         lim_64 = ["race", "gender", "height", "age", "name"]
 
-        def set(self, field: str, value=None):
+        def set(self, field: str, value: str = None):
             _field = field.lower()
             if _field not in self.fields:
                 raise KeyError(f"{_field} is not a valid field.")
@@ -61,7 +62,7 @@ class Roleplay(BasePlugin):
                 self.__dict__[_field] = 'undefined' if _field in self.mandatory_fields else ''
 
         @classmethod
-        def blank_bio(cls, author: int, name: str):
+        def blank_bio(cls, author: int, name: str) -> Roleplay.Bio:
             new_bio_dict = dict(zip(cls.fields, [''] * 15))
             for field in cls.mandatory_fields:
                 new_bio_dict[field] = 'undefined'
@@ -83,14 +84,14 @@ class Roleplay(BasePlugin):
                 raise CommandSyntaxError('Empty name provided.')
             return clean[:64]
 
-        def embed(self, guild, roles) -> Embed:
+        def embed(self, guild: discord.Guild, roles: [discord.Role]) -> discord.Embed:
             """
             Generates a pretty discord embed of this role.
             :param guild: guild that the bio belongs to, for member and role searching
             :param roles: list of accepted race roles
             :return:
             """
-            t_embed = Embed(type="rich", colour=16711680)
+            t_embed = discord.Embed(type="rich", colour=16711680)
 
             role = find_role(guild, self.race)
 
@@ -120,7 +121,7 @@ class Roleplay(BasePlugin):
 
             return t_embed
 
-        def as_dict(self):
+        def as_dict(self) -> dict:
             return {"__classhint__": "bio", **asdict(self)}
 
     async def activate(self):
@@ -129,7 +130,7 @@ class Roleplay(BasePlugin):
         self.bios = self.config_manager.get_plugin_config_file("bios.json", json_save_args=save_args,
                                                                json_load_args=load_args)
 
-    def _load_bio(self, obj: dict):
+    def _load_bio(self, obj: dict) -> Roleplay.Bio | dict:
         if obj.pop('__classhint__', None) == 'bio':
             return self.Bio(**obj)
         else:
@@ -146,7 +147,7 @@ class Roleplay(BasePlugin):
              syntax="[-a/--add (role mentions/ids/names)] [-r/--remove (role mentions/ids/names)]",
              perms={"manage_messages"},
              category="role_play")
-    async def _racerole(self, msg):
+    async def _racerole(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
 
@@ -194,7 +195,7 @@ class Roleplay(BasePlugin):
              doc="Allows the user to request one of the approved race roles for themselves.",
              syntax="(role)",
              category="role_play")
-    async def _getracerole(self, msg):
+    async def _getracerole(self, msg: discord.Message):
         gid = str(msg.guild.id)
         if not self.plugin_config[gid].get("allow_race_requesting", False):
             return
@@ -221,7 +222,7 @@ class Roleplay(BasePlugin):
     @Command("ListRaceRoles",
              doc="Lists all approved race roles.",
              category="role_play")
-    async def _listraceroles(self, msg):
+    async def _listraceroles(self, msg: discord.Message):
         gid = str(msg.guild.id)
         if not self.plugin_config[gid].get("allow_race_requesting", False):
             return
@@ -234,7 +235,7 @@ class Roleplay(BasePlugin):
              doc="Lists all available bios in the database.",
              syntax="[user]",
              category="role_play")
-    async def _listbio(self, msg):
+    async def _listbio(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         args = msg.content.split(" ", 1)
@@ -269,7 +270,7 @@ class Roleplay(BasePlugin):
              syntax="(name) [-s/--set (field) [value]] [-c/--create] [-d/--dump] [-r/--rename (new name)] [--delete]",
              category="role_play",
              run_anywhere=True)
-    async def _bio(self, msg):
+    async def _bio(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
 
@@ -335,7 +336,7 @@ class Roleplay(BasePlugin):
                 t_bio = json.dumps(t_bio, indent=2, ensure_ascii=False)
                 async with msg.channel.typing():
                     await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                                  file=File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=char + ".json"))
+                                  file=discord.File(BytesIO(bytes(t_bio, encoding="utf-8")), filename=char + ".json"))
 
             # changing the bio key in the storage dict, effectively renaming it
             if args['rename']:
@@ -372,7 +373,7 @@ class Roleplay(BasePlugin):
                  "See output of ",
              syntax="(attach file to the message, or put JSON contents into a code block following the command)",
              category="role_play")
-    async def _uploadbio(self, msg):
+    async def _uploadbio(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
 
@@ -445,7 +446,7 @@ class Roleplay(BasePlugin):
              doc="Administrative function that reloads the bios from the file.",
              category="role_play",
              bot_maintainers_only=True)
-    async def _reloadbio(self, msg):
+    async def _reloadbio(self, msg: discord.Message):
         self.bios.reload()
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
@@ -486,21 +487,21 @@ class Roleplay(BasePlugin):
 
     # util commands
 
-    async def _update_bio_pin(self, guild, char):
+    async def _update_bio_pin(self, guild: discord.Guild, char: str):
         gid = str(guild.id)
         g_cfg = self.plugin_config[gid]
         if char in g_cfg['pinned_bios']:
             bio_msg = await guild.get_channel(g_cfg['pinned_bios_channel']).fetch_message(g_cfg['pinned_bios'][char])
             await bio_msg.edit(embed=self.bios[gid][char].embed(guild, g_cfg['race_roles']))
 
-    def _initialize(self, gid):
+    def _initialize(self, gid: str):
         if gid not in self.plugin_config:
             self.plugin_config[gid] = deepcopy(self.default_config["default"])
             self.config_manager.save_config()
         if gid not in self.bios:
             self.bios[gid] = {}
 
-    async def on_message_delete(self, msg):
+    async def on_message_delete(self, msg: discord.Message):
         gid = str(msg.guild.id)
         g_cfg = self.plugin_config.setdefault(gid, self.plugin_config['default'].copy())
 

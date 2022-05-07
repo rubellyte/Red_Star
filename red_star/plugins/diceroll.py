@@ -1,3 +1,5 @@
+import discord
+
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_utils import respond
 from red_star.command_dispatcher import Command
@@ -159,7 +161,7 @@ class DiceRoll(BasePlugin):
              syntax="[number]D(die/F)[A/D][+/-bonus]",
              category="role_play",
              run_anywhere=True)
-    async def _roll(self, msg):
+    async def _roll(self, msg: discord.Message):
         args = msg.clean_content.split(None, 1)
         if len(args) < 2:
             raise CommandSyntaxError("Requires a roll expression.")
