@@ -1,9 +1,11 @@
+from __future__ import annotations
 import json
 import logging
 import sys
 from pathlib import Path
 from shutil import copyfile
 from red_star.rs_utils import JsonFileDict
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
