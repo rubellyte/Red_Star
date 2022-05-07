@@ -85,7 +85,7 @@ class AdminCommands(BasePlugin):
         else:
             # dry run to test your query
             deleted = [m async for m in msg.channel.history(limit=args['count'], before=before_msg,
-                                                            after=after_msg).filter(check)]
+                                                            after=after_msg) if check(m)]
 
         # if you REALLY want those messages
         if args['verbose']:
