@@ -4,6 +4,9 @@ import sys
 from pathlib import Path
 from shutil import copyfile
 from red_star.rs_utils import JsonFileDict
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import discord
 
 
 class ConfigManager:
@@ -62,19 +65,20 @@ class ConfigManager:
             file.save()
         self.logger.debug("Saved config files.")
 
-    def get_plugin_config(self, name):
+    def get_plugin_config(self, name: str):
         if name not in self.config["plugins"]:
             self.config["plugins"][name] = {}
         conf = self.config["plugins"][name]
         return conf
 
-    def init_plugin_config(self, name, default_config):
+    def init_plugin_config(self, name: str, default_config: dict):
         new_config = default_config.copy()
         current_config = self.config["plugins"].get(name, {})
         new_config.update(current_config)
         self.config["plugins"][name] = new_config
 
-    def get_plugin_config_file(self, filename, json_save_args=None, json_load_args=None) -> JsonFileDict:
+    def get_plugin_config_file(self, filename: str, json_save_args: dict = None,
+                               json_load_args: dict = None) -> JsonFileDict:
         if filename in self.plugin_config_files:
             file_obj = self.plugin_config_files[filename]
         else:
@@ -92,5 +96,5 @@ class ConfigManager:
             self.plugin_config_files[filename] = file_obj
         return file_obj
 
-    def is_maintainer(self, member):
-        return member.id in self.config.get('bot_maintainers', [])
+    def is_maintainer(self, user: discord.abc.User):
+        return user.id in self.config.get('bot_maintainers', [])

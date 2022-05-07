@@ -1,7 +1,7 @@
 import json
 import re
+import discord
 from asyncio import sleep
-from discord import Embed
 from string import capwords
 from urllib.request import urlopen
 from red_star.plugin_manager import BasePlugin
@@ -71,7 +71,7 @@ class Info(BasePlugin):
              doc="Displays information on commands.",
              syntax="[category/command]",
              category="info")
-    async def _help(self, msg):
+    async def _help(self, msg: discord.Message):
         if not self.categories:
             await self.build_help()
         try:
@@ -112,11 +112,11 @@ class Info(BasePlugin):
     @Command("About",
              doc="Displays information about the bot.",
              category="info")
-    async def _about(self, msg):
+    async def _about(self, msg: discord.Message):
         deco = self.client.command_dispatcher.conf[str(msg.guild.id)]["command_prefix"]
         desc = f"Red Star: General purpose command AI for Discord.\n" \
                f"Use {deco}help for command information."
-        em = Embed(title="About Red Star", color=0xFF0000, description=desc)
+        em = discord.Embed(title="About Red Star", color=0xFF0000, description=desc)
         em.set_thumbnail(url="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png")
         em.add_field(name="GitHub", value="https://github.com/medeor413/Red_Star")
         em.add_field(name="Version", value=version)

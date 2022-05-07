@@ -1,3 +1,4 @@
+import discord
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import ChannelNotFoundError
 from red_star.rs_utils import sub_user_data, respond, get_guild_config
@@ -48,25 +49,25 @@ class Announcer(BasePlugin):
             except ChannelNotFoundError:
                 continue
 
-    async def _ping_response(self, msg):
+    async def _ping_response(self, msg: discord.Message):
         gid = str(msg.guild.id)
         response = sub_user_data(msg.author, choice(get_guild_config(self, gid, "ping_message_options")))
         await respond(msg, response)
 
     # Event hooks
 
-    async def on_message(self, msg):
+    async def on_message(self, msg: discord.Message):
         gid = str(msg.guild.id)
         ping_messages = get_guild_config(self, gid, "ping_messages")
         ping_messages_everyone = get_guild_config(self, gid, "ping_messages_on_everyone")
         if ping_messages and (ping_messages_everyone >= msg.mention_everyone) and msg.guild.me.mentioned_in(msg):
             await self._ping_response(msg)
 
-    async def on_member_join(self, msg):
-        gid = str(msg.guild.id)
-        text = sub_user_data(msg, get_guild_config(self, gid, "new_member_announce_message"))
+    async def on_member_join(self, member: discord.Member):
+        gid = str(member.guild.id)
+        text = sub_user_data(member, get_guild_config(self, gid, "new_member_announce_message"))
         try:
-            chan = self.channel_manager.get_channel(msg.guild, "welcome")
+            chan = self.channel_manager.get_channel(member.guild, "welcome")
             await chan.send(text)
         except ChannelNotFoundError:
             pass

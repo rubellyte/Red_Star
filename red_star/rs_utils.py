@@ -1,9 +1,18 @@
 # Miscellaneous utility functions and classes found here.
+from __future__ import annotations
 import argparse
 import re
 import json
 from red_star.rs_errors import CommandSyntaxError
 from urllib.parse import urlparse
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import discord
+    from pathlib import Path
+    from plugin_manager import BasePlugin
+
+JsonValues = None | bool | str | int | float | list | dict
 
 
 class JsonFileDict(dict):
@@ -11,21 +20,21 @@ class JsonFileDict(dict):
     Dictionary subclass that handles saving the file on edits automatically.
     Try not to instantiate this class directly; instead, use the config_manager's factory method,
     ConfigManager.get_plugin_config_file.
-    :param pathlib.Path path: The path that should be saved to.
+    :param Path path: The path that should be saved to.
     """
 
-    def __init__(self, path, json_save_args=None, json_load_args=None, **kwargs):
+    def __init__(self, path: Path, json_save_args: dict = None, json_load_args: dict = None, **kwargs):
         super().__init__(**kwargs)
         self.path = path
         self.json_save_args = {} if json_save_args is None else json_save_args
         self.json_load_args = {} if json_load_args is None else json_load_args
         self.reload()
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: JsonValues):
         super().__setitem__(key, value)
         self.save()
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str):
         super().__delitem__(key)
         self.save()
 
@@ -39,41 +48,41 @@ class JsonFileDict(dict):
 
 
 class RSNamespace(argparse.Namespace):
-    def __getitem__(self, key):
+    def __getitem__(self, key: str):
         try:
             return self.__getattribute__(key)
         except AttributeError:
             raise KeyError
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value):
         self.__setattr__(key, value)
 
 
 class RSArgumentParser(argparse.ArgumentParser):
 
-    def __init__(self, add_help=False, ignore_unrecognized_arguments=True, **kwargs):
+    def __init__(self, add_help: bool = False, ignore_unrecognized_arguments: bool = True, **kwargs):
         self.ignore_unrecognized_arguments = ignore_unrecognized_arguments
         super().__init__(add_help=add_help, **kwargs)
 
-    def exit(self, status=0, message=None):
+    def exit(self, status: int = 0, message: str = None):
         raise CommandSyntaxError(message)
 
-    def error(self, message):
+    def error(self, message: str):
         raise CommandSyntaxError(message)
 
-    def parse_args(self, args=None, namespace=None):
+    def parse_args(self, args: [str] = None, namespace: argparse.Namespace = None):
         args, argv = self.parse_known_args(args, namespace)
         if argv and not self.ignore_unrecognized_arguments:
             self.error(f"Unrecognized arguments: {' '.join(argv)}")
         return args
 
-    def parse_known_args(self, args=None, namespace=None):
+    def parse_known_args(self, args: [str] = None, namespace: argparse.Namespace = None):
         if namespace is None:
             namespace = RSNamespace()
         return super().parse_known_args(args=args, namespace=namespace)
 
 
-def get_guild_config(cls, gid, key):
+def get_guild_config(cls: BasePlugin, gid: str, key: str) -> JsonValues:
     """
     Gets guild-specific configuration for an option, or fills it in with the default if unspecified.
     :param BasePlugin cls: The class calling the function, so it can access plugin-specific configs.
@@ -90,7 +99,7 @@ def get_guild_config(cls, gid, key):
     return cls.plugin_config[gid][key]
 
 
-def sub_user_data(user, text):
+def sub_user_data(user: discord.abc.User, text: str) -> str:
     """
     Replaces certain tags in data with user info.
     :param user: The User object to get data from.
@@ -110,7 +119,7 @@ def sub_user_data(user, text):
     return text
 
 
-def find_user(guild, search, return_all=False):
+def find_user(guild: discord.Guild, search: str, return_all: bool = False) -> discord.Member | [discord.Member]:
     """
     Convenience function to find users via several checks.
     :param guild: The discord.Guild object in which to search.
@@ -132,7 +141,7 @@ def find_user(guild, search, return_all=False):
         return final
 
 
-def find_role(guild, search, return_all=False):
+def find_role(guild: discord.Guild, search: str, return_all: bool = False) -> discord.Role | [discord.Role]:
     """
     Convenience function to find users via several checks.
     :param guild: The discord.Guild object in which to search.
@@ -154,10 +163,10 @@ def find_role(guild, search, return_all=False):
         return final
 
 
-async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
+async def respond(msg: discord.Message, response: str = None, allow_mention_everyone: bool = False, **kwargs):
     """
     Convenience function to respond to a given message. Replaces certain
-    patterns with data from the message.
+    patterns with data from the message. Extra kwargs will be passed through to send().
     :param msg: The message to respond to.
     :param response: The text to respond with.
     :param allow_mention_everyone: If True, disables the automatic @everyone and @here filtering. Defaults to False.
@@ -212,7 +221,12 @@ def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
             return final_strings
 
 
-def close_markdown(input_string):
+def close_markdown(input_string: str) -> (str, str):
+    """
+    A helper function that *attempts* to close markdown left open.
+    :param input_string: The string you want to close markdown on.
+    :return: A tuple containing the markdown-closed string, and the extra characters that were added to close it.
+    """
     code_block_matches = re.findall(r"```\w+\n", input_string)
     in2 = re.sub(r"```\w+\n", "```", input_string)
     md_matches = re.findall(r"(\*\*|\*|~~|__|\|\||```|`)", in2)
@@ -223,7 +237,8 @@ def close_markdown(input_string):
     return output, unclosed_matches
 
 
-def group_items(items, message="", header='```\n', footer='```', joiner='\n'):
+def group_items(items: [str], message: str = "", header: str = '```\n', footer: str = '```',
+                joiner: str = '\n') -> [str]:
     """
     Utility function to group a number of list items into sub-2000 length strings for posting through discord.
     Assumes every item is a string and is below 2000 symbols itself.
@@ -255,7 +270,7 @@ def group_items(items, message="", header='```\n', footer='```', joiner='\n'):
     return result
 
 
-def ordinal(n):
+def ordinal(n: int) -> str:
     """
     Black magic that turns numbers into ordinal representation (1 -> 1st)
     :param n: number to be converted
@@ -264,10 +279,15 @@ def ordinal(n):
     return "%d%s" % (n, "tsnrhtdd"[((n // 10) % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
-def decode_json(data):
+def decode_json(data: bytes) -> JsonValues:
+    """
+    A function that tries to decode JSON files in a few common encodings that might come in from users.
+    :param data: The raw bytes of the file.
+    :return: A valid JSON data type parsed from the file.
+    """
     try:
         try:
-            json_str = data.decode()
+            json_str = data.decode("utf8")
         except UnicodeDecodeError:
             try:
                 json_str = data.decode(encoding="windows-1252")
@@ -285,7 +305,7 @@ def decode_json(data):
     return json_object
 
 
-def pretty_time(seconds):
+def pretty_time(seconds: float) -> str:
     """
     Pretty time display function
     :param seconds: time in seconds
@@ -310,7 +330,7 @@ def pretty_time(seconds):
     if days > 1:
         result_list.append(f"{days} days")
     elif days == 1:
-        result_list.append("1 day_seconds")
+        result_list.append("1 day")
 
     if hours > 0:
         if minutes == seconds == 0:
@@ -336,7 +356,7 @@ def pretty_time(seconds):
     return ", ".join(result_list)
 
 
-def is_positive(string):
+def is_positive(string: str):
     """
     Returns True if the string is a positive word and False if the string is a negative word
     :type string: str

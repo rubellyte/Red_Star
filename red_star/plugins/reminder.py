@@ -2,15 +2,15 @@ from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, group_items
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
-import discord.utils
 import datetime
 import shlex
 import re
-from discord import Message, HTTPException
+import discord
+import discord.utils
 from dataclasses import dataclass
 from asyncio import create_task
 
-recurDecode = {
+RECUR_DECODE = {
     "h": ('hour', 'hours'),
     "d": ('day', 'days'),
     "m": ('month', 'months'),
@@ -112,7 +112,7 @@ class ReminderPlugin(BasePlugin):
                  "Valid input includes '23//', ':30:' and '1/1/@12::'",
              category="reminder",
              run_anywhere=True)
-    async def _remind(self, msg: Message):
+    async def _remind(self, msg: discord.Message):
         parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("reminder", default=[], nargs="*")
@@ -154,7 +154,7 @@ class ReminderPlugin(BasePlugin):
             args['everyone'] = args['here'] = False
             try:
                 await msg.delete()
-            except HTTPException:
+            except discord.HTTPException:
                 pass
 
         # just because the bot can mention everyone, doesn't mean that anyone with command access should be able to.
@@ -164,7 +164,7 @@ class ReminderPlugin(BasePlugin):
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
             try:
                 _recur = (args['recurring'][0].lower(), int(args['recurring'][1:]))
-                _recurstr = f" Recurring every {recurDecode[_recur[0]][0] if _recur[1]==1 else str(_recur[1])+' '+recurDecode[_recur[0]][1]}."
+                _recurstr = f" Recurring every {RECUR_DECODE[_recur[0]][0] if _recur[1] == 1 else str(_recur[1]) + ' ' + RECUR_DECODE[_recur[0]][1]}."
                 if _recur[1] <= 0:
                     raise ValueError
             except ValueError:
@@ -197,7 +197,7 @@ class ReminderPlugin(BasePlugin):
              doc="Prints out a list of all reminders of the user.\nUse del argument and an index from said list to "
                  "remove reminders.",
              category="reminder")
-    async def _remindlist(self, msg: Message):
+    async def _remindlist(self, msg: discord.Message):
         uid = msg.author.id
         gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
@@ -228,7 +228,7 @@ class ReminderPlugin(BasePlugin):
                  "remove reminders.",
              category="reminder",
              perms={"manage_messages"})
-    async def _remindlistall(self, msg: Message):
+    async def _remindlistall(self, msg: discord.Message):
         gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
 
@@ -253,7 +253,7 @@ class ReminderPlugin(BasePlugin):
         else:
             raise CommandSyntaxError
 
-    async def on_global_tick(self, now, _):
+    async def on_global_tick(self, now: datetime.datetime, _):
         save_flag = False
         for guild in filter(lambda x: str(x.id) in self.storage, self.client.guilds):
             gid = str(guild.id)

@@ -1,4 +1,5 @@
 import asyncio
+import discord
 import json
 import re
 import shlex
@@ -9,7 +10,6 @@ from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_message
 from red_star.command_dispatcher import Command
-from discord import HTTPException
 from traceback import format_exception, format_exc
 
 
@@ -19,7 +19,7 @@ class BotManagement(BasePlugin):
     author = "medeor413"
     description = "A plugin that allows bot maintainers to interface with core bot options through Discord."
 
-    async def on_dm_message(self, msg):
+    async def on_dm_message(self, msg: discord.Message):
         if msg.author == self.client.user:
             return
         maintainers = [self.client.get_user(x) for x in self.config_manager.config.get("bot_maintainers", [])]
@@ -34,7 +34,7 @@ class BotManagement(BasePlugin):
              doc="Returns the current message latency of the bot.",
              syntax="N/A",
              dm_command=True)
-    async def _ping(self, msg):
+    async def _ping(self, msg: discord.Message):
         await respond(msg, f"**ANALYSIS: Current latency is {round(self.client.latency * 1000)} ms.**")
 
     @Command("Shutdown",
@@ -42,7 +42,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              dm_command=True,
              bot_maintainers_only=True)
-    async def _shutdown(self, msg):
+    async def _shutdown(self, msg: discord.Message):
         await respond(msg, "**AFFIRMATIVE. SHUTTING DOWN.**")
         raise SystemExit
 
@@ -52,7 +52,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _update_avatar(self, msg):
+    async def _update_avatar(self, msg: discord.Message):
         try:
             url = msg.content.split(None, 1)[1]
             img = urllib.request.urlopen(url).read()
@@ -70,7 +70,7 @@ class BotManagement(BasePlugin):
             await respond(msg, "**AVATAR UPDATED.**")
         except ValueError:
             raise CommandSyntaxError("Image must be a PNG or JPG")
-        except HTTPException:
+        except discord.HTTPException:
             raise UserPermissionError("Cannot change avatar at this time.")
 
     @Command("UpdateName",
@@ -79,7 +79,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _update_name(self, msg):
+    async def _update_name(self, msg: discord.Message):
         args = msg.clean_content.split()[1:]
         edit_username = False
         if args[0].lower() in ("-p", "--permanent"):
@@ -107,7 +107,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _activate(self, msg):
+    async def _activate(self, msg: discord.Message):
         plgname = msg.content.split()[1]
         try:
             permanent = is_positive(msg.content.split()[2])
@@ -132,7 +132,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _deactivate(self, msg):
+    async def _deactivate(self, msg: discord.Message):
         plgname = msg.content.split()[1].lower()
         try:
             permanent = is_positive(msg.content.split()[2])
@@ -155,7 +155,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _reload_plugin(self, msg):
+    async def _reload_plugin(self, msg: discord.Message):
         plgname = msg.content.split()[1].lower()
         if plgname == self.name:
             await respond(msg, f"**WARNING: Cannot deactivate {self.name}.**")
@@ -169,7 +169,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _list_plugins(self, msg):
+    async def _list_plugins(self, msg: discord.Message):
         active_plgs = ", ".join(self.plugins.keys())
         if not active_plgs:
             active_plgs = "None."
@@ -187,7 +187,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _get_config(self, msg):
+    async def _get_config(self, msg: discord.Message):
         args = msg.clean_content.split()[1:]
         if args[0] in ("-f", "--file"):
             args.pop(0)
@@ -242,7 +242,7 @@ class BotManagement(BasePlugin):
              category="bot_management",
              bot_maintainers_only=True,
              dm_command=True)
-    async def _set_config(self, msg):
+    async def _set_config(self, msg: discord.Message):
         parser = RSArgumentParser()
         parser.add_argument("path")
         parser.add_argument("value", nargs="*")
@@ -360,7 +360,7 @@ class BotManagement(BasePlugin):
              category="debug",
              perms={"manage_guild"},
              dm_command=True)
-    async def _last_error(self, msg):
+    async def _last_error(self, msg: discord.Message):
         try:
             args = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
@@ -388,7 +388,7 @@ class BotManagement(BasePlugin):
              bot_maintainers_only=True,
              run_anywhere=True,
              dm_command=True)
-    async def _execute(self, msg):
+    async def _execute(self, msg: discord.Message):
         try:
             arg = re.split(r"\s+", msg.content, 1)[1]
             t_match = re.match(r"`([^\n\r`]+)`|```.*?\s+(.*)```", arg, re.DOTALL)
@@ -411,7 +411,7 @@ class BotManagement(BasePlugin):
             self.res = self.EmptySentinel()
 
     @staticmethod
-    def _list_or_dict_subscript(obj, key):
+    def _list_or_dict_subscript(obj: dict | list, key: str):
         """
         Helper function to use key as a key if obj is a dict, or as an int index if a list.
 

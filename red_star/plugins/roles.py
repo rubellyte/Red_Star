@@ -1,6 +1,6 @@
 import shlex
+import discord
 from string import capwords
-from discord import HTTPException, Colour
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError
 from red_star.rs_utils import respond, is_positive, find_role, group_items, RSArgumentParser
@@ -21,7 +21,7 @@ class RoleCommands(BasePlugin):
              doc="Edits the specified role name, colour, hoist (show separately from others) "
                  "and mentionable properties.\nOptions must be specified as \"--option value\" or \"-o value\".\n"
                  "Colour can be reset by setting it to 0.")
-    async def _edit_role(self, msg):
+    async def _edit_role(self, msg: discord.Message):
         """
         a command for editing a role.
         !editrole (role name) [name=name][colour=colour][hoist=hoist][mentionable=mentionable]
@@ -51,7 +51,7 @@ class RoleCommands(BasePlugin):
                 try:
                     arg_dict = {
                         "name": args['name'] if args['name'] else None,
-                        "colour": Colour(int(args['colour'], 16)) if args['colour'] else None,
+                        "colour": discord.Colour(int(args['colour'], 16)) if args['colour'] else None,
                         "hoist": is_positive(args['hoist']) if args['hoist'] else None,
                         "mentionable": is_positive(args['mentionable']) if args['mentionable'] else None,
                         "position": max(0, args['position']) if args['position'] else None
@@ -76,7 +76,7 @@ class RoleCommands(BasePlugin):
                     "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Creates a role based on an existing role (for position and permissions), "
              "with parameters similar to editrole")
-    async def _createrole(self, msg):
+    async def _createrole(self, msg: discord.Message):
         """
         a command for creating a role
         takes names for new role and a role that will be copied for position/permissions
@@ -105,7 +105,7 @@ class RoleCommands(BasePlugin):
                     arg_dict = {
                         "name": parsed_args['name'] if parsed_args['name'] else args[1],
                         "permissions": role.permissions,
-                        "colour": Colour(int(parsed_args['colour'], 16)) if parsed_args['colour'] else role.colour,
+                        "colour": discord.Colour(int(parsed_args['colour'], 16)) if parsed_args['colour'] else role.colour,
                         "hoist": is_positive(parsed_args['hoist']) if parsed_args['hoist'] else role.hoist,
                         "mentionable": is_positive(parsed_args['mentionable'])
                         if parsed_args['mentionable'] else role.mentionable
@@ -120,7 +120,7 @@ class RoleCommands(BasePlugin):
                 try:
                     # since I can't create a role with a preset position :T
                     await t_role.edit(position=rolepos)
-                except (ValueError, HTTPException):
+                except (ValueError, discord.HTTPException):
                     # oh hey, why are we copying this role again?
                     name = args[1].capitalize()
                     await t_role.delete()
@@ -143,7 +143,7 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role) [position].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Deletes first encounter of the role with the given name and optionally position.")
-    async def _deleterole(self, msg):
+    async def _deleterole(self, msg: discord.Message):
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -172,7 +172,7 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role).\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Returns all the info about the given role.")
-    async def _inforole(self, msg):
+    async def _inforole(self, msg: discord.Message):
         """
         provides an infodump of a role, including permissions and position
         """
@@ -212,7 +212,7 @@ class RoleCommands(BasePlugin):
              category="roles",
              perms={"manage_roles"},
              doc="Lists all roles.")
-    async def _listroles(self, msg):
+    async def _listroles(self, msg: discord.Message):
         """
         lists all roles along with position and color
         """

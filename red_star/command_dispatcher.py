@@ -1,3 +1,4 @@
+from __future__ import annotations
 import inspect
 import logging
 from asyncio import sleep
@@ -5,6 +6,11 @@ from sys import exc_info
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from discord import Forbidden
 from red_star.rs_utils import respond, sub_user_data
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import discord
+    import plugin_manager
 
 
 class CommandDispatcher:
@@ -203,7 +209,7 @@ class Command:
         :return: The now-wrapped command, with all the trappings.
         """
 
-        async def wrapped(s, msg):
+        async def wrapped(s: plugin_manager.BasePlugin, msg: discord.Message):
             if msg.guild is None and self.dm_command:  # The permission check was handled pre-call.
                 return await f(s, msg)
             user_perms = {x for x, y in msg.channel.permissions_for(msg.author) if y}

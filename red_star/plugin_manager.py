@@ -1,3 +1,4 @@
+from __future__ import annotations
 import inspect
 import logging
 import importlib
@@ -5,13 +6,21 @@ import importlib.util
 from sys import exc_info, modules
 from types import ModuleType
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Type
+    from red_star.client import RedStar
+    from red_star.channel_manager import ChannelManager
+    from red_star.config_manager import ConfigManager
+
 
 class PluginManager:
     """
     Manages the loading of plugins and dispatching of event hooks.
     """
 
-    def __init__(self, client):
+    def __init__(self, client: RedStar):
         self.client = client
         self.config_manager = client.config_manager
         self.channel_manager = client.channel_manager
@@ -29,7 +38,7 @@ class PluginManager:
     def __repr__(self):
         return f"<PluginManager: Plugins: {self.plugins.keys()}, Active: {self.active_plugins}>"
 
-    def load_all_plugins(self, plugin_paths):
+    def load_all_plugins(self, plugin_paths: [Path]):
         self.logger.debug("Loading plugins...")
         self.plugin_package.__path__.extend(str(x) for x in plugin_paths)
         for path in plugin_paths:
@@ -37,7 +46,7 @@ class PluginManager:
         self.config_manager.save_config()
         self.logger.info(f"Loaded {len(self.plugins)} plugins from {len(self.modules)} modules.")
 
-    def _load_plugin_folder(self, plugin_path):
+    def _load_plugin_folder(self, plugin_path: Path):
         self.logger.debug(f"Loading plugins from {plugin_path}...")
         loaded = set()
         plugin_path.mkdir(parents=True, exist_ok=True)
@@ -56,13 +65,13 @@ class PluginManager:
                     self.logger.error(f"File {file.stem} missing when load attempted!")
                     continue
 
-    def _load_module(self, module_name):
+    def _load_module(self, module_name: str):
         mod = importlib.import_module(f"red_star_plugins.{module_name}")
         self.modules[module_name] = mod
         self.logger.debug(f"Imported module {module_name}.")
         return mod
 
-    def _get_plugin_class(self, plugin_module):
+    def _get_plugin_class(self, plugin_module: ModuleType) -> set[Type["BasePlugin"]]:
         def predicate(cls):
             return inspect.isclass(cls) and issubclass(cls, BasePlugin) and cls is not BasePlugin
 
@@ -84,7 +93,7 @@ class PluginManager:
             class_list.add(obj)
         return class_list
 
-    def load_plugin(self, plugin_module):
+    def load_plugin(self, plugin_module: ModuleType):
         classes = self._get_plugin_class(plugin_module)
         for cls in classes:
             self.plugins[cls.name] = cls()
@@ -121,7 +130,7 @@ class PluginManager:
                 del self.active_plugins[n]
                 self.command_dispatcher.deregister_plugin(plugin)
 
-    async def activate(self, name):
+    async def activate(self, name: str):
         try:
             plg = self.plugins[name]
             if name not in self.active_plugins:
@@ -139,7 +148,7 @@ class PluginManager:
         except KeyError:
             self.logger.error(f"Attempted to activate non-existent plugin {name}.")
 
-    async def deactivate(self, name):
+    async def deactivate(self, name: str):
         try:
             plg = self.plugins[name]
             if name in self.active_plugins:
@@ -157,7 +166,7 @@ class PluginManager:
         except KeyError:
             self.logger.error(f"Attempted to deactivate non-existent plugin {name}.")
 
-    async def reload_plugin(self, name):
+    async def reload_plugin(self, name: str):
         try:
             self.logger.info(f"Reloading plugin module {name}.")
             was_active = False
@@ -173,7 +182,7 @@ class PluginManager:
         except KeyError:
             self.logger.error(f"Attempted to reload non-existent plugin module {name}.")
 
-    async def hook_event(self, event, *args, **kwargs):
+    async def hook_event(self, event: str, *args, **kwargs):
         """
         Dispatches an event, with its data, to all plugins.
         :param event: The name of the event. Should match the calling function.
@@ -208,9 +217,9 @@ class BasePlugin:
     # Attributes added by plugin manager
     plugins: dict = {}
     plugin_config: dict = {}
-    client: "client.RedStar"
-    config_manager: "config_manager.ConfigManager"
-    channel_manager: "channel_manager.ChannelManager"
+    client: RedStar
+    config_manager: ConfigManager
+    channel_manager: ChannelManager
     plugin_manager: PluginManager
     logger = logging.Logger
     # User-defined attributes for use internally

@@ -1,8 +1,14 @@
+from __future__ import annotations
 from red_star.rs_errors import ChannelNotFoundError
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import discord
+    from red_star.client import RedStar
 
 
 class ChannelManager:
-    def __init__(self, client):
+    def __init__(self, client: RedStar):
         self.client = client
         self.config_manager = client.config_manager
         self.conf = self.config_manager.get_plugin_config_file("channel_manager.json")
@@ -17,7 +23,7 @@ class ChannelManager:
             "categories": {}
         }
 
-    def add_guild(self, gid):
+    def add_guild(self, gid: str):
         if gid not in self.conf:
             self.client.logger.info(f"Registered new guild: {gid}")
             self.conf[gid] = self.default_config.copy()
@@ -30,7 +36,7 @@ class ChannelManager:
         guild_conf["categories"] = new_categories
         self.conf.save()
 
-    def get_channel(self, guild, chantype):
+    def get_channel(self, guild: discord.Guild, chantype: str):
         gid = str(guild.id)
         chantype = chantype.lower()
         chan = self.conf[gid]["channels"][chantype]
@@ -39,7 +45,7 @@ class ChannelManager:
             raise ChannelNotFoundError(chantype)
         return chan
 
-    def set_channel(self, guild, chantype, channel):
+    def set_channel(self, guild: discord.Guild, chantype: str, channel: discord.abc.GuildChannel):
         gid = str(guild.id)
         chantype = chantype.lower()
         if channel:
@@ -48,14 +54,14 @@ class ChannelManager:
             self.conf[gid]["channels"][chantype] = None
         self.conf.save()
 
-    def get_category(self, guild, category: str):
+    def get_category(self, guild: discord.Guild, category: str):
         guild_categories = self.conf[str(guild.id)]["categories"]
         if category.lower() in guild_categories:
             return guild_categories[category.lower()]
         else:
             return None
 
-    def channel_in_category(self, guild, category, channel):
+    def channel_in_category(self, guild: discord.Guild, category: str, channel: discord.abc.GuildChannel):
         guild_categories = self.conf[str(guild.id)]["categories"]
         if category.lower() not in guild_categories:
             return False
@@ -63,7 +69,7 @@ class ChannelManager:
             return False
         return True
 
-    def add_channel_to_category(self, guild, category, channel):
+    def add_channel_to_category(self, guild: discord.Guild, category: str, channel: discord.abc.GuildChannel):
         category = self.conf[str(guild.id)]["categories"].setdefault(category.lower(), [])
         if channel.id not in category:
             category.append(channel.id)
@@ -72,7 +78,7 @@ class ChannelManager:
         else:
             return False
 
-    def remove_channel_from_category(self, guild, category, channel):
+    def remove_channel_from_category(self, guild: discord.Guild, category: str, channel: discord.abc.GuildChannel):
         gid = str(guild.id)
         category = category.lower()
         if self.channel_in_category(guild, category, channel):

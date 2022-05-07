@@ -3,7 +3,7 @@ from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, RSArgumentParser
 from red_star.command_dispatcher import Command
 import shlex
-from discord import Embed, Message
+import discord
 
 
 class Voting(BasePlugin):
@@ -33,12 +33,8 @@ class Voting(BasePlugin):
         active = False
         allow_retracting = True
 
-        def __init__(self, msg, hid=None, vote_limit=1, author=None, allow_retracting=True):
-            """
-            :type msg:discord.Message
-            :param msg:
-            :param hid:
-            """
+        def __init__(self, msg: discord.Message, hid: str = None, vote_limit: int = 1, author: int = None,
+                     allow_retracting: bool = True):
             self.message = msg
             self.author = author
             self.id = msg.id
@@ -49,14 +45,13 @@ class Voting(BasePlugin):
             self.allow_retracting = allow_retracting
             self.options = {}
 
-        def setquery(self, query):
+        def setquery(self, query: str):
             """
-            :type query:str
             :param query: string of the voting question/query
             """
             self.query = query
 
-        async def add_option(self, option):
+        async def add_option(self, option: str):
             if len(self.options) < 20:
                 self.vote_count[self._abc[len(self.options)]] = 0
                 await self.message.add_reaction(self._emo[len(self.options)])
@@ -66,23 +61,30 @@ class Voting(BasePlugin):
             await self.message.edit(content="", embed=self._build_embed())
 
         def _build_embed(self):
-            t_embed = Embed(type="rich", colour=16711680)
+            t_embed = discord.Embed(type="rich", colour=16711680)
             t_embed.title = f"\"{self.hid}\""
             t_embed.description = f"{self.query}\n\nBy <@{self.author}>"
             for k, v in self.options.items():
                 t_embed.add_field(name=f"{self._a_e[k]}", value=f"{v} : {self.vote_count[k]}")
             return t_embed
 
-        async def add_reaction(self, reaction, user):
+        async def add_reaction(self, reaction: discord.Reaction, user: discord.Member):
             if isinstance(reaction.emoji, str) and self.active:
                 if reaction.emoji not in self._emo or not await self.vote(self._e_a[reaction.emoji], user):
                     await reaction.message.remove_reaction(reaction.emoji, user)
 
-        async def remove_reaction(self, reaction, user):
+        async def remove_reaction(self, reaction: discord.Reaction, user: discord.Member):
             if isinstance(reaction.emoji, str) and reaction.emoji in self._emo and self.active:
                 await self.vote(self._e_a[reaction.emoji], user, False)
 
-        async def vote(self, option, user, up=True):
+        async def vote(self, option: str, user: discord.Member, up: bool = True) -> bool:
+            """
+
+            :param option: The option for which the vote is being placed.
+            :param user: The user placing the vote.
+            :param up: Whether this is a placement or retraction of a vote.
+            :return: bool: Whether the vote or retraction was successful.
+            """
             if user.id not in self.votes:
                 self.votes[user.id] = set()
             if up:
@@ -111,7 +113,7 @@ class Voting(BasePlugin):
                  "HID is used to interact with the poll through other commands, keep it one word.",
              run_anywhere=True,
              category="voting")
-    async def _startvote(self, msg: Message):
+    async def _startvote(self, msg: discord.Message):
         """
         Generates a vote, posts a vote embed.
         :type msg: discord.Message
@@ -153,7 +155,7 @@ class Voting(BasePlugin):
              doc="Ends the given vote. You must be the creator of the vote to end it.\n"
                  "Alternatively, you must have manage_messages permission or be a bot maintainer.",
              category="voting")
-    async def _endvote(self, msg: Message):
+    async def _endvote(self, msg: discord.Message):
         args = msg.clean_content.split(maxsplit=1)
         gid = str(msg.guild.id)
 
@@ -186,7 +188,7 @@ class Voting(BasePlugin):
              doc="Allows users to vote without using reactions.\n"
                  "Use \"DownVote\" variant to remove your vote, if possible.",
              category="voting")
-    async def _vote(self, msg: Message):
+    async def _vote(self, msg: discord.Message):
         args = shlex.split(msg.clean_content)
         gid = str(msg.guild.id)
 
@@ -207,7 +209,7 @@ class Voting(BasePlugin):
                 else:
                     raise CommandSyntaxError(f"Incorrect voting option {args[2]}")
 
-    async def on_reaction_add(self, reaction, user):
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
         """
         :type reaction:discord.Reaction
         :param reaction:
@@ -218,7 +220,7 @@ class Voting(BasePlugin):
         if gid in self.polls and reaction.message.id in self.polls[gid]:
             await self.polls[gid][reaction.message.id].add_reaction(reaction, user)
 
-    async def on_reaction_remove(self, reaction, user):
+    async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
         """
         :type reaction:discord.Reaction
         :param reaction:

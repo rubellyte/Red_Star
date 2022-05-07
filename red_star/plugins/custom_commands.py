@@ -1,11 +1,11 @@
 import datetime
 import json
 import re
+import discord
 from asyncio import sleep, create_task
 from io import BytesIO
 from os import remove, path
 from red_star.plugin_manager import BasePlugin
-from discord import Embed, File, Forbidden, utils, Colour
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError, CustomCommandSyntaxError
 from red_star.rs_utils import respond, find_user, decode_json, group_items
@@ -63,7 +63,7 @@ class CustomCommands(BasePlugin):
 
     # Event hooks
 
-    async def on_message(self, msg):
+    async def on_message(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         deco = self.plugin_config[gid]["cc_prefix"]
@@ -74,7 +74,7 @@ class CustomCommands(BasePlugin):
                     try:
                         await msg.author.send(f"**WARNING: You are banned from usage of custom commands on this "
                                               f"server.**")
-                    except Forbidden:
+                    except discord.Forbidden:
                         pass
                     return
                 elif self.channel_manager.channel_in_category(msg.guild, "no_cc", msg.channel):
@@ -110,7 +110,7 @@ class CustomCommands(BasePlugin):
              doc="Reloads custom commands from file.",
              category="custom_commands",
              bot_maintainers_only=True)
-    async def _reloadccs(self, msg):
+    async def _reloadccs(self, msg: discord.Message):
         self.ccs.reload()
         await respond(msg, "**AFFIRMATIVE. CCS reloaded.**")
 
@@ -119,7 +119,7 @@ class CustomCommands(BasePlugin):
                  "RSLisp Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content, in plain text or in an attached file)",
              category="custom_commands")
-    async def _createcc(self, msg):
+    async def _createcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
@@ -178,7 +178,7 @@ class CustomCommands(BasePlugin):
              doc="Uploads the contents of the specified custom command as a text file.",
              syntax="(name)",
              category="custom_commands")
-    async def _dumpcc(self, msg):
+    async def _dumpcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
@@ -190,8 +190,8 @@ class CustomCommands(BasePlugin):
         if name in self.ccs[gid]:
             async with msg.channel.typing():
                 await respond(msg, "**AFFIRMATIVE. Completed file upload.**",
-                              file=File(BytesIO(bytes(self.ccs[gid][name]["content"], encoding="utf-8")),
-                                        filename=name + ".lisp"))
+                              file=discord.File(BytesIO(bytes(self.ccs[gid][name]["content"], encoding="utf-8")),
+                                                filename=name + ".lisp"))
         else:
             raise CommandSyntaxError(f"No such custom command {name}.")
 
@@ -199,7 +199,7 @@ class CustomCommands(BasePlugin):
              doc="Edits a custom command you created.",
              syntax="(name) (content, in plain text or in an attached file)",
              category="custom_commands")
-    async def _editcc(self, msg):
+    async def _editcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
@@ -241,7 +241,7 @@ class CustomCommands(BasePlugin):
              doc="Deletes a custom command.",
              syntax="(name)",
              category="custom_commands")
-    async def _delcc(self, msg):
+    async def _delcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         if msg.author.id in self.bans[gid]["cc_create_ban"]:
@@ -266,7 +266,7 @@ class CustomCommands(BasePlugin):
              doc="Displays information about a custom command.",
              syntax="(name)",
              category="custom_commands")
-    async def _ccinfo(self, msg):
+    async def _ccinfo(self, msg: discord.Message):
         try:
             name = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
@@ -278,7 +278,7 @@ class CustomCommands(BasePlugin):
             cc_data = self.ccs[gid][name]
             last_edited = f"Last Edited: {cc_data['last_edited']}\n" if cc_data["last_edited"] else ""
             cc_locked = "Yes" if cc_data["locked"] else "No"
-            author = utils.get(msg.guild.members, id=cc_data["author"])
+            author = discord.utils.get(msg.guild.members, id=cc_data["author"])
             if author:
                 author = str(author)
             else:
@@ -294,7 +294,7 @@ class CustomCommands(BasePlugin):
              doc="Searches CCs by name or author.",
              syntax="(name, author, or */all)",
              category="custom_commands")
-    async def _searchccs(self, msg):
+    async def _searchccs(self, msg: discord.Message):
         search = msg.content.split(None, 1)[1].lower()
         if not search:
             raise CommandSyntaxError("No search provided.")
@@ -322,7 +322,7 @@ class CustomCommands(BasePlugin):
              syntax="(name)",
              category="custom_commands",
              perms={"manage_messages"})
-    async def _lockcc(self, msg):
+    async def _lockcc(self, msg: discord.Message):
         try:
             name = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
@@ -343,7 +343,7 @@ class CustomCommands(BasePlugin):
              syntax="(name) (category)",
              category="custom_commands",
              perms={"manage_messages"})
-    async def _restrictcc(self, msg):
+    async def _restrictcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         if gid not in self.ccs:
             self.ccs[gid] = {}
@@ -372,7 +372,7 @@ class CustomCommands(BasePlugin):
              syntax="(user)",
              category="custom_commands",
              perms={"manage_messages"})
-    async def _mutecc(self, msg):
+    async def _mutecc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         user = find_user(msg.guild, msg.content.split(None, 1)[1])
@@ -390,7 +390,7 @@ class CustomCommands(BasePlugin):
              syntax="(user)",
              category="custom_commands",
              perms={"manage_messages"})
-    async def _bancc(self, msg):
+    async def _bancc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         user = find_user(msg.guild, msg.content.split(None, 1)[1])
@@ -408,7 +408,7 @@ class CustomCommands(BasePlugin):
              syntax="(user)",
              category="custom_commands",
              perms={"manage_messages"})
-    async def _listccban(self, msg):
+    async def _listccban(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
         banned_users = {}
@@ -434,7 +434,7 @@ class CustomCommands(BasePlugin):
                  "stack), drop, modf, round, rndint.\n"
                  "Constants: e, pi, tau, m2f (one meter in feet), m2i (one meter in inches), rnd.",
              run_anywhere=True)
-    async def _rpncmd(self, msg):
+    async def _rpncmd(self, msg: discord.Message):
         if self.rpn_path is None:
             return
 
@@ -469,7 +469,7 @@ class CustomCommands(BasePlugin):
              syntax="(custom command)",
              category="custom_commands",
              perms={"manage_messages"})
-    async def _evalcc(self, msg):
+    async def _evalcc(self, msg: discord.Message):
         program = msg.content.split(None, 1)[1]
         try:
             program = parse(program)
@@ -493,7 +493,7 @@ class CustomCommands(BasePlugin):
                  "File itself must be valid JSON.",
              syntax="(file id) (description) +json file",
              category="custom_commands")
-    async def _uploadccdata(self, msg):
+    async def _uploadccdata(self, msg: discord.Message):
         try:
             _, fid, desc = msg.clean_content.split(None, 2)
             fp = BytesIO()
@@ -539,7 +539,7 @@ class CustomCommands(BasePlugin):
              doc="Prints a list of all available data files, including first line of description (shortened to 50 "
                  "characters), owner and size.",
              category="custom_commands")
-    async def _listccdata(self, msg):
+    async def _listccdata(self, msg: discord.Message):
         # since the descriptions may be multiline, it's nice to remove any possible newlines and what comes after.
         def desc(v: CCFileMetadata):
             return v.desc.split('\n')[0][:50]
@@ -554,7 +554,7 @@ class CustomCommands(BasePlugin):
              doc="Removes a data file.",
              syntax="(file id)",
              category="custom_commands")
-    async def _delccdata(self, msg):
+    async def _delccdata(self, msg: discord.Message):
         try:
             fid = msg.clean_content.split(None, 1)[1].lower()[:20]
 
@@ -576,7 +576,7 @@ class CustomCommands(BasePlugin):
                  "size and description.",
              syntax="(file id)",
              category="custom_commands")
-    async def _ccdata(self, msg):
+    async def _ccdata(self, msg: discord.Message):
         try:
             fid = msg.clean_content.split()[1].lower()[:20]
             if fid in self.ccfdata:
@@ -591,7 +591,7 @@ class CustomCommands(BasePlugin):
              doc="Changes the description associated to one given.",
              syntax="(file id) (description)",
              category="custom_commands")
-    async def _editccdata(self, msg):
+    async def _editccdata(self, msg: discord.Message):
         try:
             _, fid, desc = msg.clean_content.split(None, 2)
             if fid in self.ccfdata:
@@ -608,26 +608,26 @@ class CustomCommands(BasePlugin):
              doc="Uploads the specified data file",
              syntax="(file id)",
              category="custom_commands")
-    async def _dumpccdata(self, msg):
+    async def _dumpccdata(self, msg: discord.Message):
         try:
             _, fid = msg.clean_content.split(None, 1)
             fid = fid.lower()[:20]
             if fid in self.ccfdata:
                 async with msg.channel.typing():
                     await respond(msg, "**AFFIRMATIVE.**",
-                                  file=File((self.ccfolder/(fid+'.json')).resolve().as_posix(),
-                                            filename=fid + ".json"))
+                                  file=discord.File((self.ccfolder / (fid + '.json')).resolve().as_posix(),
+                                                    filename=fid + ".json"))
             else:
                 raise CommandSyntaxError(f"No file {fid} found.")
         except ValueError:
             raise CommandSyntaxError
 
     @staticmethod
-    async def _rm_msg(msg):
+    async def _rm_msg(msg: discord.Message):
         await sleep(1)
         await msg.delete()
 
-    def _initialize(self, gid):
+    def _initialize(self, gid: str):
         if gid not in self.plugin_config:
             self.plugin_config[gid] = self.default_config["default"].copy()
             self.config_manager.save_config()
@@ -637,7 +637,7 @@ class CustomCommands(BasePlugin):
                 "cc_use_ban": []
             }
 
-    async def run_cc(self, cmd, msg):
+    async def run_cc(self, cmd: str, msg: discord.Message):
         gid = str(msg.guild.id)
         if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
             await respond(msg, f"**WARNING: Custom command {cmd} is locked.**")
@@ -667,7 +667,7 @@ class CustomCommands(BasePlugin):
 
     #  tag functions that *require* the discord machinery
 
-    def _env(self, msg):
+    def _env(self, msg: discord.Message):
         gid = str(msg.guild.id)
         cmd = msg.content[len(self.plugin_config[gid]["cc_prefix"]):].split()[0].lower()
         env = standard_env(max_runtime=self.plugin_config.get('rslisp_max_runtime', 0))
@@ -676,7 +676,7 @@ class CustomCommands(BasePlugin):
         env['usernick'] = msg.author.display_name
         env['usermention'] = msg.author.mention
         try:
-            author = utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
+            author = discord.utils.get(msg.guild.members, id=self.ccs[gid][cmd]['author'])
             env['authorname'] = author.name
             env['authornick'] = author.display_name
         except (AttributeError, KeyError):
@@ -692,17 +692,17 @@ class CustomCommands(BasePlugin):
 
         return env
 
-    def _delcall(self, msg):
+    def _delcall(self, msg: discord.Message):
         create_task(self._rm_msg(msg))
 
     @staticmethod
-    def _hasrole(msg, *args):
+    def _hasrole(msg: discord.Message, *args: [str]) -> bool:
         _args = map(str.lower, args)
         return any([x.name.lower() in _args for x in msg.author.roles])
 
     @staticmethod
-    def _embed(msg, _, kwargs):
-        embed = Embed(type="rich", colour=16711680)
+    def _embed(msg: discord.Message, _, kwargs: dict[str, str | int | list]):
+        embed = discord.Embed(type="rich", colour=16711680)
         can_post = False
         for name, value in kwargs.items():
             can_post = True
@@ -710,7 +710,7 @@ class CustomCommands(BasePlugin):
                 embed.title = value
             elif name.lower() in ["!color", "!colour"]:
                 try:
-                    embed.colour = value if isinstance(value, int) else Colour(int(value, 16))
+                    embed.colour = value if isinstance(value, int) else discord.Colour(int(value, 16))
                 except ValueError:
                     pass
             elif name.lower() == "!url":
@@ -734,7 +734,7 @@ class CustomCommands(BasePlugin):
         if can_post:
             create_task(respond(msg, None, embed=embed))
 
-    def _file(self, filename):
+    def _file(self, filename: str):
         if not filename.isidentifier():
             raise CustomCommandSyntaxError(f"file error: illegal filename {filename}")
         try:

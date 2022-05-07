@@ -1,8 +1,8 @@
 from red_star.plugin_manager import BasePlugin
-from discord import utils, VoiceChannel
 from red_star.rs_utils import respond
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
+import discord
 import shlex
 
 
@@ -19,7 +19,7 @@ class ChannelManagerCommands(BasePlugin):
              syntax="[channel type]",
              category="channel_management",
              perms={"manage_guild"})
-    async def _get_channel_cmd(self, msg):
+    async def _get_channel_cmd(self, msg: discord.Message):
         gid = str(msg.guild.id)
         try:
             chantype = msg.clean_content.split(None, 1)[1].lower()
@@ -41,7 +41,7 @@ class ChannelManagerCommands(BasePlugin):
              category="channel_management",
              perms={"manage_guild"},
              run_anywhere=True)
-    async def _set_channel_cmd(self, msg):
+    async def _set_channel_cmd(self, msg: discord.Message):
         args = shlex.split(msg.content)
 
         if len(args) > 1:
@@ -58,8 +58,9 @@ class ChannelManagerCommands(BasePlugin):
         if len(args) > 2:
             if chantype.startswith("voice"):
                 channel = args[2].lower()
-                channel = utils.find(lambda x: isinstance(x, VoiceChannel) and x.name.lower() == channel,
-                                     msg.guild.channels)
+                channel = discord.utils.find(
+                        lambda x: isinstance(x, discord.VoiceChannel) and x.name.lower() == channel,
+                        msg.guild.channels)
                 if not channel:
                     raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
             else:
@@ -83,7 +84,7 @@ class ChannelManagerCommands(BasePlugin):
              syntax="[category]",
              category="channel_management",
              perms={"manage_guild"})
-    async def _get_category(self, msg):
+    async def _get_category(self, msg: discord.Message):
         gid = str(msg.guild.id)
         try:
             category = msg.clean_content.split(None, 1)[1].lower()
@@ -106,7 +107,7 @@ class ChannelManagerCommands(BasePlugin):
              syntax="[-c/--create](category) (channel)",
              category="channel_management",
              perms={"manage_guild"})
-    async def _add_to_category(self, msg):
+    async def _add_to_category(self, msg: discord.Message):
         args = shlex.split(msg.content)
         ignore_missing = False
         try:
@@ -125,7 +126,7 @@ class ChannelManagerCommands(BasePlugin):
             if category.startswith("voice"):
                 for arg in args[2:]:
                     channel = arg.lower()
-                    channel = utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
+                    channel = discord.utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
                     if not channel:
                         raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
                     if self.channel_manager.add_channel_to_category(msg.guild, category, channel):
@@ -149,7 +150,7 @@ class ChannelManagerCommands(BasePlugin):
              syntax="(category) (channel)",
              category="channel_management",
              perms={"manage_guild"})
-    async def _rm_from_category(self, msg):
+    async def _rm_from_category(self, msg: discord.Message):
         args = shlex.split(msg.content)
         if len(args) > 1:
             category = args[1].lower()
@@ -164,7 +165,7 @@ class ChannelManagerCommands(BasePlugin):
             if category.startswith("voice"):
                 for arg in args[2:]:
                     channel = arg.lower()
-                    channel = utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
+                    channel = discord.utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
                     if not channel:
                         raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found")
                     if self.channel_manager.remove_channel_from_category(msg.guild, category, channel):

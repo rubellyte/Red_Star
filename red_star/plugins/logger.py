@@ -1,7 +1,6 @@
+import discord
 import discord.utils
-from datetime import timedelta
-from discord import AuditLogAction, Forbidden
-# from discord.utils import escape_mentions, utcnow
+import datetime
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError
 from red_star.rs_utils import split_message, respond, close_markdown
@@ -52,7 +51,7 @@ class DiscordLogger(BasePlugin):
                         await log_channel.send(discord.utils.escape_mentions(msg))
                 self.log_items[gid].clear()
 
-    async def on_message_delete(self, msg):
+    async def on_message_delete(self, msg: discord.Message):
         blacklist = self.plugin_config.setdefault(str(msg.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "message_delete" not in blacklist and msg.author != self.client.user:
@@ -68,7 +67,7 @@ class DiscordLogger(BasePlugin):
             self.logger.info(f"{msg.author}'s message at {msgtime} in {msg.channel} of {msg.guild} was deleted:\n"
                              f"Contents:\n{contents}{attaches.replace('**','')}")
 
-    async def on_message_edit(self, before, after):
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "message_edit" not in blacklist and after.author != self.client.user:
@@ -85,7 +84,7 @@ class DiscordLogger(BasePlugin):
                              f"at {msgtime} in {after.channel} of {after.guild}.\n"
                              f"Old contents:\n{old_contents}\nNew contents:\n{contents}")
 
-    async def on_member_update(self, before, after):
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "member_update" not in blacklist:
@@ -109,13 +108,13 @@ class DiscordLogger(BasePlugin):
             self.emit_log(f"**ANALYSIS: User {after} was modified:**\n{diff_str}", after.guild)
             self.logger.info(f"User {after} was modified:\n{log_str}")
 
-    async def on_guild_channel_pins_update(self, channel, last_pin):
+    async def on_guild_channel_pins_update(self, channel: discord.TextChannel, last_pin: datetime.datetime):
         blacklist = self.plugin_config.setdefault(str(channel.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "pin_update" not in blacklist:
             cnt = None
             try:
-                new_pin = (discord.utils.utcnow() - last_pin < timedelta(seconds=5))
+                new_pin = (discord.utils.utcnow() - last_pin < datetime.timedelta(seconds=5))
             except TypeError:  # last_pin can be None if the last pin in a channel was unpinned
                 new_pin = False
             if new_pin:  # Get the pinned message if it's a new pin; can't get the unpinned messages sadly
@@ -126,35 +125,35 @@ class DiscordLogger(BasePlugin):
             self.logger.info(f"A message was {'' if new_pin else 'un'}pinned in {channel} of {channel.guild}\n"
                              f"{f'Message: {cnt[0]}: {cnt[1]}' if new_pin else ''}")
 
-    async def on_member_ban(self, guild, member):
+    async def on_member_ban(self, guild: discord.Guild, member: discord.Member):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
         if "member_ban" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} was banned.**", guild)
             self.logger.info(f"User {member} was benned in {guild}.")
 
-    async def on_member_unban(self, guild, member):
+    async def on_member_unban(self, guild: discord.Guild, member: discord.Member):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
         if "member_unban" not in blacklist:
             self.emit_log(f"**ANALYSIS: Ban was lifted from user {member}.**", guild)
             self.logger.info(f"Ban was lifted from user {member} in {guild}")
 
-    async def on_member_join(self, member):
+    async def on_member_join(self, member: discord.Member):
         blacklist = self.plugin_config.setdefault(str(member.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "member_join" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} has joined the server. User id: `{member.id}`**", member.guild)
             self.logger.info(f"User {member} has joined {member.guild}. User id: {member.id}.")
 
-    async def on_member_remove(self, member):
+    async def on_member_remove(self, member: discord.Member):
         blacklist = self.plugin_config.setdefault(str(member.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "member_leave" not in blacklist:
             try:
                 # find audit log entries for kicking of member with our ID, created in last five seconds.
                 # Hopefully five seconds is enough
-                latest_logs = member.guild.audit_logs(action=AuditLogAction.kick, limit=1)
+                latest_logs = member.guild.audit_logs(action=discord.AuditLogAction.kick, limit=1)
                 kick_event = await discord.utils.get(latest_logs, target__id=member.id)
-            except Forbidden:
+            except discord.Forbidden:
                 kick_event = None
             if kick_event:
                 kicker = kick_event.user
@@ -167,15 +166,15 @@ class DiscordLogger(BasePlugin):
                 self.emit_log(f"**ANALYSIS: User {member} has left the server. User id: `{member.id}`**", member.guild)
                 self.logger.info(f"User {member} has left {member.guild}. User id: {member.id}.")
 
-    async def on_guild_role_update(self, before, after):
+    async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
         blacklist = self.plugin_config.setdefault(str(after.guild.id),
                                                   self.plugin_config["default"])["log_event_blacklist"]
         if "role_update" not in blacklist:
             diff = []
             try:
                 audit_event = await discord.utils.get(
-                        after.guild.audit_logs(action=AuditLogAction.role_update, limit=1))
-            except Forbidden:
+                        after.guild.audit_logs(action=discord.AuditLogAction.role_update, limit=1))
+            except discord.Forbidden:
                 audit_event = None
 
             if before.name == after.name \
@@ -226,13 +225,13 @@ class DiscordLogger(BasePlugin):
                              f"{audit_event.user if audit_event else 'someone'}:\n"
                              f"{diff}")
 
-    async def on_log_event(self, guild, string, *, log_type="log_event"):
+    async def on_log_event(self, guild: discord.Guild, string: str, *, log_type="log_event"):
         blacklist = self.plugin_config.setdefault(str(guild.id), self.plugin_config["default"])["log_event_blacklist"]
         if log_type not in blacklist:
             self.emit_log(string, guild)
             self.logger.info(string)
 
-    def emit_log(self, log_str, guild):
+    def emit_log(self, log_str: str, guild: discord.Guild):
         guild_log_queue = self.log_items.setdefault(str(guild.id), [])
         guild_log_queue.append(log_str)
 
@@ -241,12 +240,12 @@ class DiscordLogger(BasePlugin):
              syntax="[add|remove type]",
              category="bot_management",
              perms={"manage_guild"})
-    async def _logevent(self, msg):
+    async def _logevent(self, msg: discord.Message):
         cfg = self.plugin_config.setdefault(str(msg.guild.id), self.plugin_config["default"])["log_event_blacklist"]
         try:
             action, event_type = msg.clean_content.lower().split(" ", 2)[1:]
             if event_type not in self.log_events:
-                await respond(f"**Log event {event_type} does not exist.\n"
+                await respond(msg, f"**Log event {event_type} does not exist.\n"
                               f"Valid events:** `{', '.join(self.log_events)}`")
                 return
         except ValueError:

@@ -1,9 +1,10 @@
+import datetime
+import discord
 import enum
 import logging
 import re
 import shlex
-from asyncio import create_task, get_running_loop, run_coroutine_threadsafe, TimeoutError
-from discord import FFmpegPCMAudio, PCMVolumeTransformer, Embed, ClientException
+import asyncio
 from math import floor, ceil
 from functools import partial
 from os import remove as remove_file
@@ -68,7 +69,7 @@ class MusicPlayer(BasePlugin):
     @Command("JoinVoice", "JoinVC",
              doc="Tells the bot to join the voice channel you're currently in.",
              category="music_player")
-    async def _join_voice(self, msg):
+    async def _join_voice(self, msg: discord.Message):
         try:
             voice_channel = msg.author.voice.channel
         except AttributeError:
@@ -79,7 +80,7 @@ class MusicPlayer(BasePlugin):
                 await player.voice_client.move_to(voice_channel)
             else:
                 player = await self.create_player(voice_channel, msg.channel)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             raise CommandSyntaxError("Bot failed to join channel. Make sure bot can access the channel.")
         await respond(msg, f"**AFFIRMATIVE. Connected to channel {voice_channel.name}.**")
         return player
@@ -87,7 +88,7 @@ class MusicPlayer(BasePlugin):
     @Command("LeaveVoice", "LeaveVC",
              doc="Tells the bot to leave the voice channel it's currently in.",
              category="music_player")
-    async def _leave_voice(self, msg):
+    async def _leave_voice(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player:
             try:
@@ -118,7 +119,7 @@ class MusicPlayer(BasePlugin):
                  "and all after it. Multiple slices can be used on one playlist by separating them with ,.",
              syntax="(url) [url_2] [url_3]...",
              category="music_player")
-    async def _play_song(self, msg):
+    async def _play_song(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player:
             player = await self._join_voice(msg)
@@ -142,7 +143,7 @@ class MusicPlayer(BasePlugin):
     @Command("SongQueue", "Queue",
              doc="Tells the bot to list the current song queue.",
              category="music_player")
-    async def _list_queue(self, msg):
+    async def _list_queue(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player:
             await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
@@ -160,7 +161,7 @@ class MusicPlayer(BasePlugin):
     @Command("NowPlaying", "SongInfo",
              doc="Displays detailed information about the currently playing song.",
              category="music_player")
-    async def _song_info(self, msg):
+    async def _song_info(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player or not player.current_song:
             await respond(msg, "**ANALYSIS: There is no song currently playing.**")
@@ -169,7 +170,7 @@ class MusicPlayer(BasePlugin):
         desc = vid.get("description", "*No description.*")
         if len(desc) > 2048:
             desc = desc[:2045] + "..."
-        embed = Embed(title=vid.get("title", "Unknown"), description=desc, url=vid["url"])
+        embed = discord.Embed(title=vid.get("title", "Unknown"), description=desc, url=vid["url"])
         if vid.get("thumbnail") is not None:
             embed.set_thumbnail(url=vid["thumbnail"])
         if vid.get("uploader") is not None:
@@ -192,7 +193,7 @@ class MusicPlayer(BasePlugin):
              syntax="(index)",
              perms="mute_members",
              category="music_player")
-    async def _delete_song(self, msg):
+    async def _delete_song(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player:
             await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
@@ -233,7 +234,7 @@ class MusicPlayer(BasePlugin):
                  "automatically reset volume at the end of the current song.",
              syntax="[-t/--temporary] (0-100)",
              category="music_player")
-    async def _set_volume(self, msg):
+    async def _set_volume(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         new_volume = 0
@@ -267,7 +268,7 @@ class MusicPlayer(BasePlugin):
                  "is specified.",
              syntax="[n/normal|rs/repeat_song|rq/repeat_queue|s/shuffle|sr/shuffle_repeat]",
              category="music_player")
-    async def _song_mode(self, msg):
+    async def _song_mode(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         try:
@@ -294,7 +295,7 @@ class MusicPlayer(BasePlugin):
              doc="Enables or disables shuffling of song order.",
              syntax="[true/yes/on/false/no/off",
              category="music_player")
-    async def _shuffle_toggle(self, msg):
+    async def _shuffle_toggle(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         shuffle_on = player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT)
@@ -331,7 +332,7 @@ class MusicPlayer(BasePlugin):
              doc="Modifies repeating mode of song queue.",
              syntax="[song/one/queue/all/false/no/off]",
              category="music_player")
-    async def _repeat_mode(self, msg):
+    async def _repeat_mode(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         try:
@@ -382,7 +383,7 @@ class MusicPlayer(BasePlugin):
     @Command("SkipSong", "Skip",
              doc="Tells the bot to skip the currently playing song.",
              category="music_player")
-    async def _skip_song(self, msg):
+    async def _skip_song(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         if not player or not player.is_playing:
@@ -399,7 +400,7 @@ class MusicPlayer(BasePlugin):
              doc="Tells the bot to pause or resume the current song.",
              perms="mute_members",
              category="music_player")
-    async def _pause_song(self, msg):
+    async def _pause_song(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player or player.is_playing is False:
             await respond(msg, "**WARNING: No music currently playing.**")
@@ -413,7 +414,7 @@ class MusicPlayer(BasePlugin):
              doc="Tells the bot to stop playing songs and empty the queue.",
              perms="mute_members",
              category="music_player")
-    async def _stop_music(self, msg):
+    async def _stop_music(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player or not player.is_playing:
             await respond(msg, "**ANALYSIS: No music currently playing.")
@@ -428,7 +429,7 @@ class MusicPlayer(BasePlugin):
              syntax="(user)",
              perms="mute_members",
              category="music_player")
-    async def _music_ban(self, msg):
+    async def _music_ban(self, msg: discord.Message):
         try:
             ban_store = self.storage["banned_users"][str(msg.guild.id)]
         except KeyError:
@@ -461,7 +462,7 @@ class MusicPlayer(BasePlugin):
              syntax="[(option) (value)]",
              perms="manage_guild",
              category="music_player")
-    async def _music_config(self, msg):
+    async def _music_config(self, msg: discord.Message):
         gid = str(msg.guild.id)
         try:
             opt, val = msg.clean_content.split(None, 2)[1:]
@@ -491,7 +492,7 @@ class MusicPlayer(BasePlugin):
 
     # Utility functions
 
-    async def on_global_tick(self, _, dt):
+    async def on_global_tick(self, _, dt: datetime.datetime):
         # Cache reaper
         save_required = False
         for file, dl_time in self.storage["downloaded_songs"].copy().items():
@@ -509,14 +510,14 @@ class MusicPlayer(BasePlugin):
         for player in tuple(self.players.values()):
             await player.idle_check(dt)
 
-    async def create_player(self, voice_channel, text_channel):
+    async def create_player(self, voice_channel: discord.VoiceChannel, text_channel: discord.TextChannel):
         async with text_channel.typing():
             voice_client = await voice_channel.connect()
             player = GuildPlayer(self, voice_client, text_channel)
             self.players[voice_channel.guild.id] = player
         return player
 
-    def check_user_permission(self, user, player):
+    def check_user_permission(self, user: discord.Member, player: "GuildPlayer"):
         try:
             if user.id in self.storage["banned_users"].get(str(player.voice_client.guild.id), []):
                 raise UserPermissionError("You are banned from using the music player.")
@@ -526,12 +527,12 @@ class MusicPlayer(BasePlugin):
             raise UserPermissionError("The bot is not currently in a voice channel.")
         return True
 
-    def get_guild_player(self, msg):
+    def get_guild_player(self, msg: discord.Message):
         return self.players.get(msg.guild.id, None)
 
 
 class GuildPlayer:
-    def __init__(self, parent, voice_client, channel):
+    def __init__(self, parent: MusicPlayer, voice_client: discord.VoiceClient, channel: discord.TextChannel):
         self.parent = parent
         self.text_channel = channel
         self.voice_client = voice_client
@@ -549,7 +550,7 @@ class GuildPlayer:
         self.gid = str(voice_client.guild.id)
         self._alone_time = 0
 
-    async def prepare_playlist(self, urls):
+    async def prepare_playlist(self, urls: [str]):
         async with self.text_channel.typing():
             # Fetch video info
             with YoutubeDL(self.parent.ydl_options) as ydl:
@@ -558,8 +559,8 @@ class GuildPlayer:
                 for url in urls:
                     try:
                         pl_slice = re.match(r"([^{`]+)`*(?:{([^}]*)})?", url)
-                        vid_info = await get_running_loop().run_in_executor(None, partial(ydl.extract_info,
-                                                                                          pl_slice[1], download=False))
+                        vid_info = await asyncio.get_running_loop().run_in_executor(
+                                None, partial(ydl.extract_info, pl_slice[1], download=False))
                     except YoutubeDLError as e:
                         await self.text_channel.send(f"**WARNING. An error occurred while downloading video <{url}>. "
                                                      f"It will not be queued.\nError details:** `{e}`")
@@ -601,10 +602,10 @@ class GuildPlayer:
                         to_queue.append(vid_info)
             # Queuing is handled by _enqueue_playlist function. Don't bother it if we got nothing.
             if len(to_queue) > 0:
-                create_task(self._enqueue_playlist(to_queue))
+                asyncio.create_task(self._enqueue_playlist(to_queue))
                 return
 
-    async def _enqueue_playlist(self, entries):
+    async def _enqueue_playlist(self, entries: [dict]):
         if len(self.queue) > 0:
             time_until_song = self.queue_duration + (self.current_song.get("duration", 0) - self.play_time)
             time_until_song = f"\nTime until your song: {pretty_duration(time_until_song)}"
@@ -617,8 +618,8 @@ class GuildPlayer:
                     # We only want to extract info if we don't already have it. Things get a little funky otherwise.
                     if vid.get("_type") in ("url", "url_transparent"):
                         try:
-                            vid = await get_running_loop().run_in_executor(None, partial(ydl.extract_info, vid["url"],
-                                                                                         download=False))
+                            vid = await asyncio.get_running_loop().run_in_executor(
+                                    None, partial(ydl.extract_info, vid["url"], download=False))
                         # Skip broken videos while trying the rest
                         except YoutubeDLError as e:
                             await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
@@ -641,8 +642,8 @@ class GuildPlayer:
                         continue
                     if not self.is_playing:
                         try:
-                            create_task(self._play())
-                        except ClientException:
+                            asyncio.create_task(self._play())
+                        except discord.ClientException:
                             pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
         if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
@@ -650,13 +651,13 @@ class GuildPlayer:
             for msg in split_message(final_msg):
                 await self.text_channel.send(msg)
 
-    async def _process_video(self, vid):
+    async def _process_video(self, vid: dict):
         if not vid:
             raise TypeError
         if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
-                    await get_running_loop().run_in_executor(None, partial(ydl.process_info, vid))
+                    await asyncio.get_running_loop().run_in_executor(None, partial(ydl.process_info, vid))
                     vid["filename"] = ydl.prepare_filename(vid)
                     self.parent.storage["downloaded_songs"][vid["filename"]] = time()
                     self.parent.storage.save()
@@ -724,15 +725,15 @@ class GuildPlayer:
             self.volume = self.prev_volume
             self.prev_volume = None
             await self.text_channel.send(f"**ANALYSIS: Volume reset to {int(self.volume * 100)}%.**")
-        source = PCMVolumeTransformer(FFmpegPCMAudio(file, before_options=before_args, options="-vn"),
-                                      volume=self._volume)
-        self.voice_client.play(source, after=partial(self._after, loop=get_running_loop()))
+        source = discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(file, before_options=before_args, options="-vn"),
+                                              volume=self._volume)
+        self.voice_client.play(source, after=partial(self._after, loop=asyncio.get_running_loop()))
         self._song_start_time = time()
         self.current_song = next_song
         self._skip_votes = set()
         await self.text_channel.send(f"**NOW PLAYING: {next_song['title']}.**")
 
-    def toggle_pause(self):
+    def toggle_pause(self) -> bool:
         if self.voice_client.is_paused():
             self.voice_client.resume()
             self._song_start_time += (time() - self._song_pause_time)
@@ -742,10 +743,10 @@ class GuildPlayer:
             self._song_pause_time = time()
             return True
 
-    def _after(self, error, loop):
+    def _after(self, error: Exception, loop: asyncio.AbstractEventLoop):
         if error:
             self.logger.error(error)
-        run_coroutine_threadsafe(self._play(), loop)
+        asyncio.run_coroutine_threadsafe(self._play(), loop)
 
     def stop(self):
         self.is_playing = False
@@ -757,7 +758,7 @@ class GuildPlayer:
         self.voice_client.stop()
 
     @property
-    def play_time(self):
+    def play_time(self) -> float:
         try:
             if self.voice_client.is_paused():
                 return self._song_pause_time - self._song_start_time
@@ -767,7 +768,7 @@ class GuildPlayer:
             return 0
 
     @property
-    def progress(self):
+    def progress(self) -> (float, float, float):
         try:
             fraction = self.play_time / self.current_song["duration"]
         except ZeroDivisionError:
@@ -791,11 +792,11 @@ class GuildPlayer:
             await self.text_channel.send(f"**AFFIRMATIVE. Skip vote recorded. {votes_needed} votes needed to skip.**")
 
     @property
-    def volume(self):
+    def volume(self) -> float:
         return self._volume
 
     @volume.setter
-    def volume(self, val):
+    def volume(self, val: float):
         self._volume = val
         try:
             self.voice_client.source.volume = val
@@ -803,13 +804,13 @@ class GuildPlayer:
             pass
 
     @property
-    def queue_duration(self):
+    def queue_duration(self) -> float:
         try:
             return sum(vid["duration"] for vid in self.queue)
         except TypeError:
             return 0
 
-    def print_queue(self):
+    def print_queue(self) -> str:
         str_list = []
         for i, vid in enumerate(self.queue):
             duration = fixed_width_duration(vid.get("duration", 0))
@@ -820,7 +821,7 @@ class GuildPlayer:
             str_list.append(f"[{i+1:02d}][{title:-<59}][{duration}]")
         return "```\n{}```".format("\n".join(str_list))
 
-    def print_now_playing(self):
+    def print_now_playing(self) -> str:
         play_time, duration, progress = self.progress
         dur_str = fixed_width_duration(play_time) + "/" + fixed_width_duration(duration)
         progbar = progress_bar(progress, 70)
@@ -829,7 +830,7 @@ class GuildPlayer:
             title = title[:54] + "..."
         return f"[{title:-<57}][{dur_str}]\n[{progbar}]"
 
-    async def idle_check(self, dt):
+    async def idle_check(self, dt: datetime.datetime):
         alone = len(self.voice_client.channel.members) <= 1
         if not alone:
             self._alone_time = 0
@@ -841,7 +842,7 @@ class GuildPlayer:
             del self.parent.players[int(self.gid)]
 
 
-def seconds_to_minutes(secs, hours=False):
+def seconds_to_minutes(secs: float, hours: bool = False) -> tuple[int, int] | tuple[int, int, int]:
     mn, sec = divmod(secs, 60)
     if hours:
         hr, mn = divmod(mn, 60)
@@ -850,7 +851,7 @@ def seconds_to_minutes(secs, hours=False):
         return int(mn), int(ceil(sec))
 
 
-def pretty_duration(seconds):
+def pretty_duration(seconds: float) -> str:
     if seconds <= 0:
         return "Unknown"
     elif seconds >= 3600:
@@ -861,7 +862,7 @@ def pretty_duration(seconds):
         return f"{minutes:02d}:{seconds:02d}"
 
 
-def fixed_width_duration(seconds):
+def fixed_width_duration(seconds: float) -> str:
     minutes, seconds = seconds_to_minutes(seconds)
     if seconds <= 0:
         return "--:--"
@@ -873,7 +874,7 @@ def fixed_width_duration(seconds):
         return f"{minutes:02d}:{seconds:02d}"
 
 
-def progress_bar(progress, length=70):
+def progress_bar(progress: float, length: int = 70) -> str:
     if not 0 <= progress <= 1:
         raise ValueError("First argument is expected to be a floating-point between 0 and 1.")
     bars = floor(length * progress)
@@ -887,5 +888,5 @@ class SongMode(enum.Enum):
     SHUFFLE = "shuffle"
     SHUFFLE_REPEAT = "shuffle_repeat"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name

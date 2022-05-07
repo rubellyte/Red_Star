@@ -3,7 +3,7 @@ import math
 import random
 
 
-def _parse_rpn(args):
+def _parse_rpn(args: [str]):
     args = [x for x in args]
     if len(args) == 0:
         raise SyntaxError("<rpn> tag requires arguments.")
