@@ -1,0 +1,45 @@
+{
+    "_notes": "This is an example MotD file, intended to explain how to write your own.",
+    "options": [
+        "A top-level 'options' array can be selected from on any non-holiday."
+    ],
+    "14": {
+        "options": [
+            "These options can only be selected on the 14th day of a month.",
+            "You can use any number from 1 to 31."
+        ]
+    },
+    "wed": {
+        "options": [
+            "These options can only be selected on a Wednesday.",
+            "You can use any three-letter weekday abbreviation, case-insensitive."
+        ]
+    },
+    "week-2": {
+        "options": [
+            "These options can only be selected in the second week of any month.",
+            "You can use week-1 through week-5, case-insensitive."
+        ]
+    },
+    "jan": {
+        "options": [
+            "These options can only be selected from in the month of January.",
+            "You can use any three-letter month abbreviation, case-insensitive."
+        ]
+    },
+    "feb": {
+        "wed": {
+            "options": [
+                "You can nest these qualifiers infinitely deep, in any order.",
+                "These options will only be selected on Wednesday in February."
+            ]
+        },
+        "14": {
+            "holiday": true,
+            "options": [
+                "The holiday tag can be used to exclude any more general MotDs on specific dates.",
+                "These options, and only these options, will be selected on February 14th, Valentine's Day."
+            ]
+        }
+    }
+}
