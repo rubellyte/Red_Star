@@ -512,7 +512,7 @@ def lisp_eval(x, env=None):
             return proc(*args)
     except Exception as e:
         if len(str(e)) > 1500:
-            e = "..." + re.match(r"(?:.+)(\(.+?\): .+?$)", str(e)).group(1)
+            e = "..." + re.match(r".+(\(.+?\): .+?$)", str(e)).group(1)
         try:
             raise CustomCommandSyntaxError(f"({x[0]}): {e}")
         except IndexError:
