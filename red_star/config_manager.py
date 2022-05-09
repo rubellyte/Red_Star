@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import logging
+import shutil
 import sys
 from pathlib import Path
 from shutil import copyfile
@@ -54,8 +55,33 @@ class ConfigManager:
                                   f"Please correct the error below and restart.", exc_info=True)
             sys.exit(1)
 
-        if "plugins" not in self.config:
-            self.config["plugins"] = {}
+        if self.config.get("global", {}).get("__config_version", 0) < 2:
+            self._port_config_to_v2()
+
+    def _port_config_to_v2(self):
+        # Function to reorganize from plugin-first heirarchy to server-first heirarchy. Plugins that use their own
+        # config files will have to manage this themselves.
+        self.logger.warning("Porting configuration to newer format. Backup will be created.")
+        backup_path = self.config_file_path.stem + "_old_v1" + self.config_file_path.suffix
+        shutil.copyfile(str(self.config_file_path), backup_path)
+        new_config = {
+            "global": {
+                "__config_version": 2,
+                "bot_maintainers": self.config["bot_maintainers"],
+                "token": self.config["token"]
+            },
+            "default": {}
+        }
+        for plugin, config in self.config["plugins"].items():
+            for k, v in config.items():
+                if k.isdigit():
+                    new_config[k] = {plugin: v}
+                elif k == "default":
+                    new_config["default"][plugin] = v
+                else:
+                    new_config["global"][plugin] = {k: v}
+        self.config = new_config
+        self.save_config()
 
     def save_config(self):
         temp_path = Path(str(self.config_file_path) + "_bak")
@@ -67,17 +93,14 @@ class ConfigManager:
             file.save()
         self.logger.debug("Saved config files.")
 
-    def get_plugin_config(self, name: str):
-        if name not in self.config["plugins"]:
-            self.config["plugins"][name] = {}
-        conf = self.config["plugins"][name]
-        return conf
+    def get_global_config(self, plugin: str, default_config=None):
+        return self.config["global"].setdefault(plugin, default_config)
 
-    def init_plugin_config(self, name: str, default_config: dict):
-        new_config = default_config.copy()
-        current_config = self.config["plugins"].get(name, {})
-        new_config.update(current_config)
-        self.config["plugins"][name] = new_config
+    def get_server_config(self, guild: discord.Guild, plugin: str, default_config=None):
+        if default_config is None:
+            default_config = {}
+        default_config = self.config["default"].setdefault(plugin, default_config)
+        return self.config.setdefault(str(guild.id), {}).setdefault(plugin, default_config)
 
     def get_plugin_config_file(self, filename: str, json_save_args: dict = None,
                                json_load_args: dict = None) -> JsonFileDict:

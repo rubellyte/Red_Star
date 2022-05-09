@@ -92,7 +92,7 @@ class RoleCommands(BasePlugin):
         parser.add_argument("role")                         # Name of the new role
         parser.add_argument("template")                     # Permission donor name/ID
         parser.add_argument("-n", "--name")                 # New role name
-        parser.add_argument("-c", "--colour", "--color")    # New role colour
+        parser.add_argument("-c", "--color", "--colour")    # New role colour
         parser.add_argument("-h", "--hoist")                # To separate the role or not
         parser.add_argument("-m", "--mentionable")          # To allow role being mentioned
         parser.add_argument("-p", "--position", type=int)   # Changing position (DON'T ACTUALLY USE IT)
@@ -105,7 +105,7 @@ class RoleCommands(BasePlugin):
                     arg_dict = {
                         "name": parsed_args['name'] if parsed_args['name'] else args[1],
                         "permissions": role.permissions,
-                        "colour": discord.Colour(int(parsed_args['colour'], 16)) if parsed_args['colour'] else role.colour,
+                        "colour": discord.Color(int(parsed_args['color'], 16)) if parsed_args['color'] else role.color,
                         "hoist": is_positive(parsed_args['hoist']) if parsed_args['hoist'] else role.hoist,
                         "mentionable": is_positive(parsed_args['mentionable'])
                         if parsed_args['mentionable'] else role.mentionable

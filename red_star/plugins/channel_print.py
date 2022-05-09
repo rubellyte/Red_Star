@@ -75,7 +75,7 @@ class ChannelPrint(BasePlugin):
     author = "GTG3000"
     description = "A plugin that allows printing of prepared multi-message data."
 
-    default_config = {
+    default_global_config = {
         "max_filesize": 1024 * 1024 * 8  # max 8 mb
     }
     log_events = {"print_event"}
@@ -129,7 +129,7 @@ class ChannelPrint(BasePlugin):
         try:
             wall = verify_document(wall)
             if not cmd.lower().endswith("force"):
-                verify_links(wall, self.plugin_config['max_filesize'])
+                verify_links(wall, self.global_plugin_config['max_filesize'])
         except ValueError as e:
             raise CommandSyntaxError(e)
 
@@ -141,10 +141,10 @@ class ChannelPrint(BasePlugin):
                 if 'file' in post:
                     try:
                         _file = urlopen(post['file'])
-                        if int(_file.info()['Content-Length']) > self.plugin_config['max_filesize']:
+                        if int(_file.info()['Content-Length']) > self.global_plugin_config['max_filesize']:
                             raise ValueError("File too big.")
-                        _file = discord.File(_file,
-                                             filename="wallfile" + mimetypes.guess_extension(_file.info()['Content-Type']))
+                        ext = mimetypes.guess_extension(_file.info()['Content-Type'])
+                        _file = discord.File(_file, filename="wallfile" + ext)
                     except (URLError, TypeError, ValueError) as e:
                         self.logger.info(f"Attachment file error in {msg.guild}:\n{e}")
                         await self.plugin_manager.hook_event("on_log_event", msg.guild,
@@ -201,9 +201,9 @@ class ChannelPrint(BasePlugin):
 
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
+            dump_data = bytes(json.dumps(self.walls[gid][name], indent=2, ensure_ascii=False), encoding="utf8")
             await respond(msg, "**AFFIRMATIVE. Uploading file.**",
-                          file=discord.File(BytesIO(bytes(json.dumps(self.walls[gid][name], indent=2, ensure_ascii=False),
-                                                          encoding="utf8")), filename=name+'.json'))
+                          file=discord.File(BytesIO(dump_data), filename=name+'.json'))
         except IndexError:
             raise CommandSyntaxError("Document name required.")
         except KeyError:

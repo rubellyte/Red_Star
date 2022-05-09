@@ -16,9 +16,9 @@ class Info(BasePlugin):
     version = "1.1"
     author = "medeor413"
     description = "A plugin that provides commands for fetching information about other commands, or the bot itself."
-    default_config = {
+    default_global_config = {
         "message_maintainers_when_update_available": True
-    }
+    } # TODO: this cannot be in a plugin any more
 
     async def activate(self):
         self.commands = {}
@@ -38,7 +38,7 @@ class Info(BasePlugin):
         await self.build_help()
 
     async def build_help(self):
-        self.commands = self.client.command_dispatcher.commands
+        self.commands = self.plugins["command_dispatcher"].commands
         self.categories = {}
         for command in self.commands.values():
             name = command.name
@@ -59,7 +59,7 @@ class Info(BasePlugin):
                 self.logger.warning(f"Red Star is out of date!\n"
                                     f"Running version: {version}; latest version: {ver[0]}\n"
                                     f"Please update Red Star as soon as possible.")
-                if self.plugin_config["message_maintainers_when_update_available"]:
+                if self.global_plugin_config["message_maintainers_when_update_available"]:
                     maintainers = [self.client.get_user(i) for i in
                                    self.config_manager.config.get("bot_maintainers", [])]
                     for user in maintainers:
@@ -113,7 +113,7 @@ class Info(BasePlugin):
              doc="Displays information about the bot.",
              category="info")
     async def _about(self, msg: discord.Message):
-        deco = self.client.command_dispatcher.conf[str(msg.guild.id)]["command_prefix"]
+        deco = self.plugins["command_dispatcher"].conf["command_prefix"]
         desc = f"Red Star: General purpose command AI for Discord.\n" \
                f"Use {deco}help for command information."
         em = discord.Embed(title="About Red Star", color=0xFF0000, description=desc)

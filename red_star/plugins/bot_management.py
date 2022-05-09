@@ -113,13 +113,16 @@ class BotManagement(BasePlugin):
             permanent = is_positive(msg.content.split()[2])
         except IndexError:
             permanent = False
-        all_plugins = self.plugin_manager.plugins
+        all_plugins = self.plugin_manager.plugin_classes
         if plgname in all_plugins:
             if plgname not in self.plugins:
-                if plgname in self.config_manager.config["disabled_plugins"] and permanent:
-                    self.config_manager.config["disabled_plugins"].remove(plgname)
-                    self.config_manager.save_config()
-                await self.plugin_manager.activate(plgname)
+                if permanent:
+                    disabled_plugins = self.config_manager.get_server_config(
+                            self.guild, "plugin_manager")["disabled_plugins"]
+                    if plgname in disabled_plugins:
+                        disabled_plugins.remove(plgname)
+                        self.config_manager.save_config()
+                await self.plugin_manager.activate(self.guild, plgname)
                 await respond(msg, f"**ANALYSIS: Plugin {plgname} was activated successfully.**")
             else:
                 await respond(msg, f"**ANALYSIS: Plugin {plgname} is already activated.**")
@@ -141,10 +144,13 @@ class BotManagement(BasePlugin):
         if plgname == self.name:
             await respond(msg, f"**WARNING: Cannot deactivate {self.name}.**")
         elif plgname in self.plugins:
-            if plgname not in self.config_manager.config["disabled_plugins"] and permanent:
-                self.config_manager.config["disabled_plugins"].append(plgname)
-                self.config_manager.save_config()
-            await self.plugin_manager.deactivate(plgname)
+            if permanent:
+                disabled_plugins = self.config_manager.get_server_config(
+                        self.guild, "plugin_manager")["disabled_plugins"]
+                if plgname not in disabled_plugins:
+                    disabled_plugins.append(plgname)
+                    self.config_manager.save_config()
+            await self.plugin_manager.deactivate(self.guild, plgname)
             await respond(msg, f"**ANALYSIS: Plugin {plgname} was deactivated successfully.**")
         else:
             await respond(msg, f"**ANALYSIS: Plugin {plgname} is not active.**")
@@ -173,7 +179,7 @@ class BotManagement(BasePlugin):
         active_plgs = ", ".join(self.plugins.keys())
         if not active_plgs:
             active_plgs = "None."
-        all_plgs = list(self.plugin_manager.plugins)
+        all_plgs = list(self.plugin_manager.plugin_classes)
         inactive_plgs = ", ".join([x for x in all_plgs if x not in self.plugins])
         if not inactive_plgs:
             inactive_plgs = "None."
@@ -366,7 +372,7 @@ class BotManagement(BasePlugin):
         except IndexError:
             raise CommandSyntaxError("No error context specified.")
         if args == "command":
-            e = self.client.command_dispatcher.last_error
+            e = self.plugins["command_dispatcher"].last_error
         elif args == "event":
             e = self.plugin_manager.last_error
         elif args == "unhandled":

@@ -30,10 +30,10 @@ class CustomCommands(BasePlugin):
     description = "A plugin that allows users to create custom commands using Red Star's " \
                   "custom RSLisp language dialect."
     default_config = {
-        "default": {
-            "cc_prefix": "!!",
-            "cc_limit": 25
-        },
+        "cc_prefix": "!!",
+        "cc_limit": 25
+    }
+    default_global_config = {
         "rslisp_max_runtime": 5,
         "rslisp_minify": True,
         "cc_file_quota": 1024 * 1024,  # one megabyte
@@ -66,7 +66,7 @@ class CustomCommands(BasePlugin):
     async def on_message(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        deco = self.plugin_config[gid]["cc_prefix"]
+        deco = self.config["cc_prefix"]
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):
@@ -77,7 +77,7 @@ class CustomCommands(BasePlugin):
                     except discord.Forbidden:
                         pass
                     return
-                elif self.channel_manager.channel_in_category(msg.guild, "no_cc", msg.channel):
+                elif self.channel_manager.channel_in_category("no_cc", msg.channel):
                     await self.plugin_manager.hook_event("on_log_event", msg.guild,
                                                          f"**WARNING: Attempted CC use in restricted channel"
                                                          f" {msg.channel.mention} by: {msg.author.display_name}**",
@@ -93,7 +93,7 @@ class CustomCommands(BasePlugin):
                         self.ccs[gid][cmd]["restricted"] = []
                     if self.ccs[gid][cmd]["restricted"]:
                         for t_cat in self.ccs[gid][cmd]["restricted"]:
-                            if self.channel_manager.channel_in_category(msg.guild, t_cat, msg.channel):
+                            if self.channel_manager.channel_in_category(t_cat, msg.channel):
                                 break
                         else:
                             await self.plugin_manager.hook_event("on_log_event", msg.guild,
@@ -146,7 +146,7 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**WARNING: Custom command {name} already exists.**")
         else:
             user_cc_count = len([True for cc in self.ccs[gid].values() if cc["author"] == msg.author.id])
-            cc_limit = self.plugin_config[gid].get("cc_limit", 100)
+            cc_limit = self.config.get("cc_limit", 100)
 
             if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and not \
                     msg.channel.permissions_for(msg.author).manage_messages and user_cc_count >= cc_limit:
@@ -162,7 +162,7 @@ class CustomCommands(BasePlugin):
                 return
             newcc = {
                 "name": name,
-                "content": reprint(parse(content)) if self.plugin_config['rslisp_minify'] else content,
+                "content": reprint(parse(content)) if self.global_plugin_config['rslisp_minify'] else content,
                 "author": msg.author.id,
                 "date_created": datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S"),
                 "last_edited": None,
@@ -227,7 +227,8 @@ class CustomCommands(BasePlugin):
                 except Exception as err:
                     await respond(msg, f"**WARNING: Custom command is invalid. Error: {err}**")
                     return
-                cc_data["content"] = reprint(parse(content)) if self.plugin_config['rslisp_minify'] else content
+                cc_data["content"] = reprint(parse(content)) if \
+                    self.global_plugin_config['rslisp_minify'] else content
                 cc_data["last_edited"] = datetime.datetime.now().strftime("%Y-%m-%d @ %H:%M:%S")
                 self.ccs[gid][name] = cc_data
                 self.ccs.save()
@@ -354,7 +355,7 @@ class CustomCommands(BasePlugin):
         if name in self.ccs[gid]:
             whitelist = self.ccs[gid][name].setdefault("restricted", [])
 
-            if self.channel_manager.get_category(msg.guild, category):
+            if self.channel_manager.get_category(category):
                 if category not in whitelist:
                     whitelist.append(category)
                     await respond(msg, f"**AFFIRMATIVE. Custom command {name} restricted to category {category}.**")
@@ -451,7 +452,7 @@ class CustomCommands(BasePlugin):
         # TODO: figure out if we can make multiprocessing work after all, this is kind of a hack.
         process = Popen(args, stdout=PIPE, stderr=PIPE, encoding="utf-8")
         try:
-            output, err = process.communicate(timeout=self.plugin_config.get('rslisp_max_runtime', 5))
+            output, err = process.communicate(timeout=self.global_plugin_config.get('rslisp_max_runtime', 5))
             process.wait()
             if err:
                 raise CommandSyntaxError(output)
@@ -521,14 +522,14 @@ class CustomCommands(BasePlugin):
             total_size -= self.ccfdata[fid].size
 
         size = len(content)
-        if total_size + size > self.plugin_config['cc_file_quota'] \
+        if total_size + size > self.global_plugin_config['cc_file_quota'] \
                 and not self.config_manager.is_maintainer(msg.author):
             raise UserPermissionError("File exceeds size quota. Remaining quota: "
-                                      f"{self.plugin_config['cc_file_quota']-total_size} bytes.")
+                                      f"{self.global_plugin_config['cc_file_quota']-total_size} bytes.")
 
         self.ccfdata[fid] = CCFileMetadata(msg.author.id, size, desc.replace('\r', ''))
 
-        total_size = self.plugin_config['cc_file_quota'] - total_size - size
+        total_size = self.global_plugin_config['cc_file_quota'] - total_size - size
 
         with (self.ccfolder / (fid + '.json')).open('w', encoding='utf8') as fp:
             fp.write(content)
@@ -628,9 +629,6 @@ class CustomCommands(BasePlugin):
         await msg.delete()
 
     def _initialize(self, gid: str):
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = self.default_config["default"].copy()
-            self.config_manager.save_config()
         if gid not in self.bans:
             self.bans[gid] = {
                 "cc_create_ban": [],
@@ -669,8 +667,8 @@ class CustomCommands(BasePlugin):
 
     def _env(self, msg: discord.Message):
         gid = str(msg.guild.id)
-        cmd = msg.content[len(self.plugin_config[gid]["cc_prefix"]):].split()[0].lower()
-        env = standard_env(max_runtime=self.plugin_config.get('rslisp_max_runtime', 0))
+        cmd = msg.content[len(self.config["cc_prefix"]):].split()[0].lower()
+        env = standard_env(max_runtime=self.global_plugin_config.get('rslisp_max_runtime', 0))
 
         env['username'] = msg.author.name
         env['usernick'] = msg.author.display_name

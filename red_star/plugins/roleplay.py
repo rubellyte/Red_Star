@@ -9,7 +9,6 @@ from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from io import BytesIO
 from dataclasses import dataclass, asdict
-from copy import deepcopy
 
 
 class Roleplay(BasePlugin):
@@ -18,12 +17,10 @@ class Roleplay(BasePlugin):
     author = "GTG3000"
 
     default_config = {
-        "default": {
-            "allow_race_requesting": False,
-            "race_roles": [],
-            "pinned_bios": {},
-            "pinned_bios_channel": False
-        }
+        "allow_race_requesting": False,
+        "race_roles": [],
+        "pinned_bios": {},
+        "pinned_bios_channel": False
     }
 
     @dataclass
@@ -148,9 +145,6 @@ class Roleplay(BasePlugin):
              perms={"manage_messages"},
              category="role_play")
     async def _racerole(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-
         parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("-a", "--add", default=[], nargs='+')
@@ -159,8 +153,7 @@ class Roleplay(BasePlugin):
         args = parser.parse_args(shlex.split(msg.content))
 
         if not (args['add'] or args['remove']):
-            approved_roles = "\n".join(x.name for x in msg.guild.roles
-                                       if x.id in self.plugin_config[gid]["race_roles"])
+            approved_roles = "\n".join(x.name for x in msg.guild.roles if x.id in self.config["race_roles"])
             for split_msg in split_message(f"**ANALYSIS: Currently approved race roles:**```\n{approved_roles}```"):
                 await respond(msg, split_msg)
         else:
@@ -172,13 +165,13 @@ class Roleplay(BasePlugin):
             removed_roles = []
 
             for role in args['add']:
-                if role.id not in self.plugin_config[gid]["race_roles"]:
+                if role.id not in self.config["race_roles"]:
                     added_roles.append(role.name)
-                    self.plugin_config[gid]["race_roles"].append(role.id)
+                    self.config["race_roles"].append(role.id)
             for role in args['remove']:
-                if role.id in self.plugin_config[gid]["race_roles"]:
+                if role.id in self.config["race_roles"]:
                     removed_roles.append(role.name)
-                    self.plugin_config[gid]["race_roles"].remove(role.id)
+                    self.config["race_roles"].remove(role.id)
 
             if added_roles or removed_roles:
                 output_str = "**AFFIRMATIVE. ANALYSIS:**\n```diff\n"
@@ -196,14 +189,12 @@ class Roleplay(BasePlugin):
              syntax="(role)",
              category="role_play")
     async def _getracerole(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        if not self.plugin_config[gid].get("allow_race_requesting", False):
+        if not self.config.get("allow_race_requesting", False):
             return
-        self._initialize(gid)
         args = msg.content.split(" ", 1)
         preexisting_roles = []
         for role in msg.author.roles:
-            if role.id in self.plugin_config[gid]["race_roles"]:
+            if role.id in self.config["race_roles"]:
                 preexisting_roles.append(role)
         await msg.author.remove_roles(*preexisting_roles)
         if len(args) < 2:
@@ -211,7 +202,7 @@ class Roleplay(BasePlugin):
         else:
             role = find_role(msg.guild, args[1])
             if role:
-                if role.id in self.plugin_config[gid]["race_roles"]:
+                if role.id in self.config["race_roles"]:
                     await msg.author.add_roles(role)
                     await respond(msg, f"**AFFIRMATIVE. Race role {role.name} granted.**")
                 else:
@@ -223,11 +214,9 @@ class Roleplay(BasePlugin):
              doc="Lists all approved race roles.",
              category="role_play")
     async def _listraceroles(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        if not self.plugin_config[gid].get("allow_race_requesting", False):
+        if not self.config.get("allow_race_requesting", False):
             return
-        self._initialize(gid)
-        approved_roles = "\n".join(x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["race_roles"])
+        approved_roles = "\n".join(x.name for x in msg.guild.roles if x.id in self.config["race_roles"])
         for split_msg in split_message(f"**ANALYSIS: Currently approved race roles:**```\n{approved_roles}```"):
             await respond(msg, split_msg)
 
@@ -237,7 +226,6 @@ class Roleplay(BasePlugin):
              category="role_play")
     async def _listbio(self, msg: discord.Message):
         gid = str(msg.guild.id)
-        self._initialize(gid)
         args = msg.content.split(" ", 1)
         if len(args) > 1:
             owner = find_user(msg.guild, args[1])
@@ -272,7 +260,6 @@ class Roleplay(BasePlugin):
              run_anywhere=True)
     async def _bio(self, msg: discord.Message):
         gid = str(msg.guild.id)
-        self._initialize(gid)
 
         parser = RSArgumentParser()
         parser.add_argument('command')
@@ -347,9 +334,9 @@ class Roleplay(BasePlugin):
                 self.bios[gid][new_name] = self.bios[gid][char]
                 del self.bios[gid][char]
 
-                if char in self.plugin_config[gid]['pinned_bios']:
-                    self.plugin_config[gid]['pinned_bios'][new_name] = self.plugin_config[gid]['pinned_bios'][char]
-                    del self.plugin_config[gid]['pinned_bios'][char]
+                if char in self.config['pinned_bios']:
+                    self.config['pinned_bios'][new_name] = self.config['pinned_bios'][char]
+                    del self.config['pinned_bios'][char]
 
                 await respond(msg, f"**AFFIRMATIVE. Character {char} can now be accessed as {new_name}.**")
                 char = new_name
@@ -357,16 +344,16 @@ class Roleplay(BasePlugin):
             # deletes the specified bio.
             if args['delete']:
                 del self.bios[gid][char]
-                if char in self.plugin_config[gid]['pinned_bios']:
-                    bio_msg = await msg.guild.get_channel(self.plugin_config[gid]['pinned_bios_channel'])\
-                        .fetch_message(self.plugin_config[gid]['pinned_bios'][char])
+                if char in self.config['pinned_bios']:
+                    bio_msg = await msg.guild.get_channel(self.config['pinned_bios_channel'])\
+                        .fetch_message(self.config['pinned_bios'][char])
                     await bio_msg.delete()  # deleting the actual record happens in on_message_delete
                 await respond(msg, f"**AFFIRMATIVE. Character {char} has been deleted.**")
 
             self.bios.save()
         else:
             await respond(msg, None,
-                          embed=self.bios[gid][char].embed(msg.guild, self.plugin_config[gid]['race_roles']))
+                          embed=self.bios[gid][char].embed(msg.guild, self.config['race_roles']))
 
     @Command("UploadBio",
              doc="Parses a JSON file or a JSON codeblock to update/create character bios.\n"
@@ -375,7 +362,6 @@ class Roleplay(BasePlugin):
              category="role_play")
     async def _uploadbio(self, msg: discord.Message):
         gid = str(msg.guild.id)
-        self._initialize(gid)
 
         if msg.attachments:
             # there is a file uploaded with the message, grab and decode it.
@@ -461,12 +447,12 @@ class Roleplay(BasePlugin):
              delcall=True)
     async def _pinbio(self, msg):
         gid = str(msg.guild.id)
-        g_cfg = self.plugin_config[gid]
+        g_cfg = self.config
 
         if g_cfg.setdefault('pinned_bios_channel', msg.channel.id) != msg.channel.id:
             if g_cfg['pinned_bios']:
                 raise CommandSyntaxError(f"Autopinned bios must all be in channel "
-                                         f"<#{self.plugin_config[gid]['pinned_bios_channel']}>.")
+                                         f"<#{self.config['pinned_bios_channel']}>.")
             else:
                 g_cfg['pinned_bios_channel'] = msg.channel.id
 
@@ -489,21 +475,13 @@ class Roleplay(BasePlugin):
 
     async def _update_bio_pin(self, guild: discord.Guild, char: str):
         gid = str(guild.id)
-        g_cfg = self.plugin_config[gid]
+        g_cfg = self.config
         if char in g_cfg['pinned_bios']:
             bio_msg = await guild.get_channel(g_cfg['pinned_bios_channel']).fetch_message(g_cfg['pinned_bios'][char])
             await bio_msg.edit(embed=self.bios[gid][char].embed(guild, g_cfg['race_roles']))
 
-    def _initialize(self, gid: str):
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = deepcopy(self.default_config["default"])
-            self.config_manager.save_config()
-        if gid not in self.bios:
-            self.bios[gid] = {}
-
     async def on_message_delete(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        g_cfg = self.plugin_config.setdefault(gid, self.plugin_config['default'].copy())
+        g_cfg = self.config
 
         if 'pinned_bios' in g_cfg and msg.id in g_cfg['pinned_bios'].values():
             key = [k for k, v in g_cfg['pinned_bios'].items() if v == msg.id].pop()

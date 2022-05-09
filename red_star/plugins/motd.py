@@ -5,7 +5,7 @@ import discord.utils
 from random import choice
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError, DataCarrier
-from red_star.rs_utils import respond, get_guild_config, RSArgumentParser
+from red_star.rs_utils import respond, RSArgumentParser
 from red_star.command_dispatcher import Command
 
 from typing import TYPE_CHECKING
@@ -40,7 +40,7 @@ class MOTD(BasePlugin):
         self.motds_folder.mkdir(parents=True, exist_ok=True)
         self.last_run = discord.utils.utcnow().day
         for guild in self.client.guilds:
-            motd_file = get_guild_config(self, str(guild.id), "motd_file")
+            motd_file = self.config["motd_file"]
             if motd_file not in self.motds:
                 try:
                     file_path = self.motds_folder / motd_file
@@ -59,25 +59,24 @@ class MOTD(BasePlugin):
             await self._display_motd(time.date())
 
     async def _display_motd(self, date: datetime.date):
-        for guild in self.client.guilds:
-            try:
-                chan = self.channel_manager.get_channel(guild, "motd")
-                motd_path = get_guild_config(self, str(guild.id), "motd_file")
-                motds = self.motds[motd_path]
-            except ChannelNotFoundError:
-                continue
-            try:
-                lines = self._get_motds(motds, date)
-            except DataCarrier as dc:
-                lines = dc.data
-            try:
-                line = choice(lines)
-                line = date.strftime(line)
-            except IndexError:
-                continue
-            except ValueError:
-                line = choice(lines)
-            await chan.send(line)
+        try:
+            chan = self.channel_manager.get_channel("motd")
+            motd_path = self.config["motd_file"]
+            motds = self.motds[motd_path]
+        except ChannelNotFoundError:
+            return
+        try:
+            lines = self._get_motds(motds, date)
+        except DataCarrier as dc:
+            lines = dc.data
+        try:
+            line = choice(lines)
+            line = date.strftime(line)
+        except IndexError:
+            return
+        except ValueError:
+            line = choice(lines)
+        await chan.send(line)
 
     def _get_motds(self, options: dict, date: datetime.date | None, valid: set = None):
         if not valid:
@@ -112,7 +111,7 @@ class MOTD(BasePlugin):
                 path, new_motd = new_motd.split(None, 1)
         except ValueError:
             raise CommandSyntaxError("Not enough arguments.")
-        motd_file = get_guild_config(self, str(msg.guild.id), "motd_file")
+        motd_file = self.config["motd_file"]
         motds = self.motds[motd_file]
         motd_file = self.motds_folder / motd_file
 
@@ -147,7 +146,7 @@ class MOTD(BasePlugin):
         parser.add_argument("-m",  "--month", default=today.strftime("%b").lower())
         parser.add_argument("-dt", "--date", default=None, type=datetime.datetime.fromisoformat)
         args = parser.parse_args(msg.clean_content.split()[1:])
-        motd_path = get_guild_config(self, str(msg.guild.id), "motd_file")
+        motd_path = self.config["motd_file"]
         motds = self.motds[motd_path]
         try:
             if args.date:

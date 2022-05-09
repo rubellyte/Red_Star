@@ -265,7 +265,7 @@ class RoleplayEconomy(BasePlugin):
     description = "A plugin that provides functionality for keeping (DM-controlled) character sheets and supporting " \
                   "an item store for in-roleplay purchases."
 
-    default_config = {
+    default_global_config = {
         "shop_delay": 120
     }
 
@@ -600,10 +600,9 @@ class RoleplayEconomy(BasePlugin):
         elif args['dump']:
             # the second part of the multipurpose -d flag. Dumps character for backup/editing.
             async with msg.channel.typing():
+                file_data = bytes(json.dumps(char._chars[char.id], indent=2, ensure_ascii=False), encoding="utf8")
                 await respond(msg, "**AFFIRMATIVE. File upload completed.**",
-                              file=discord.File(BytesIO(bytes(json.dumps(char._chars[char.id], indent=2, ensure_ascii=False),
-                                                              encoding="utf8")),
-                                                filename=char.id + '.json'))
+                              file=discord.File(BytesIO(file_data), filename=char.id + '.json'))
         elif args['pay']:
             # char (name) -p (name) (amount)
             # transfers money between characters, pretty straightforward.
@@ -860,11 +859,10 @@ class RoleplayEconomy(BasePlugin):
         item, possible = self._find_item(gid, item)
 
         if item:
+            item_dump = bytes(json.dumps(self.shop_items[gid][item], ensure_ascii=False, indent=2), encoding="utf8")
             await respond(msg, "**AFFIRMATIVE. Dumping following item:**",
                           embed=self._generate_item_embed(self.shop_items[gid][item]),
-                          file=discord.File(BytesIO(bytes(json.dumps(self.shop_items[gid][item], ensure_ascii=False, indent=2),
-                                                          encoding="utf8")),
-                                            filename=item + '.json'))
+                          file=discord.File(BytesIO(item_dump), filename=item + '.json'))
         elif possible:
             for split_msg in group_items(possible, message="**ANALYSIS: Perhaps you meant one of these items?**"):
                 await respond(msg, split_msg)
@@ -1171,6 +1169,6 @@ class RoleplayEconomy(BasePlugin):
             self._save_chars = False
         for guild_shops in self.shops.values():
             for mid in [k for k, v in guild_shops.items()
-                        if time() - v.time > self.plugin_config.get('shop_delay', 120)]:
+                        if time() - v.time > self.global_plugin_config.get('shop_delay', 120)]:
                 await guild_shops[mid]._message.delete()
                 del guild_shops[mid]

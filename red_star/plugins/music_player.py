@@ -15,7 +15,7 @@ from yt_dlp.utils import YoutubeDLError
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
-from red_star.rs_utils import respond, split_message, get_guild_config, find_user, is_positive
+from red_star.rs_utils import respond, split_message, find_user, is_positive
 
 
 class MusicPlayer(BasePlugin):
@@ -24,6 +24,13 @@ class MusicPlayer(BasePlugin):
     author = "medeor413 (original by GTG3000)"
     description = "A plugin for playing audio from videos in a voice channel."
     default_config = {
+        "max_queue_length": 30,
+        "max_video_length": 1800,
+        "vote_skip_threshold": 0.5,
+        "print_queue_on_edit": True,
+        "idle_disconnect_time": 300
+    }
+    default_global_config = {
         "save_audio": True,
         "video_cache_clear_age": 259200,
         "default_volume": 15,
@@ -40,13 +47,6 @@ class MusicPlayer(BasePlugin):
             "noplaylist": True,
             "no_color": True
         },
-        "default": {
-            "max_queue_length": 30,
-            "max_video_length": 1800,
-            "vote_skip_threshold": 0.5,
-            "print_queue_on_edit": True,
-            "idle_disconnect_time": 300
-        }
     }
 
     async def activate(self):
@@ -54,7 +54,7 @@ class MusicPlayer(BasePlugin):
 
         self.players: dict[int, GuildPlayer] = dict()
 
-        self.ydl_options = self.plugin_config["youtube_dl_config"].copy()
+        self.ydl_options = self.global_plugin_config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
         self.ydl_options["extract_flat"] = "in_playlist"
         self.ydl_options["outtmpl"] = str(self.client.storage_dir / "music_cache" /
@@ -225,7 +225,7 @@ class MusicPlayer(BasePlugin):
         except IndexError:
             raise CommandSyntaxError("Integer provided is not a valid index")
         await respond(msg, f"**AFFIRMATIVE. Deleted song at position {index + 1} ({del_song['title']}).**")
-        if get_guild_config(self, str(msg.guild.id), "print_queue_on_edit") and player.queue:
+        if self.config["print_queue_on_edit"] and player.queue:
             for split_msg in split_message(f"**ANALYSIS: Current queue:**{player.print_queue()}"):
                 await respond(msg, split_msg)
 
@@ -371,7 +371,7 @@ class MusicPlayer(BasePlugin):
                 await respond(msg, "**AFFIRMATIVE. Repeat mode set to queue.**")
         else:
             if player.song_mode in (SongMode.NORMAL, SongMode.SHUFFLE):
-                await respond("**ANALYSIS: Repeat mode is disabled.**")
+                await respond(msg, "**ANALYSIS: Repeat mode is disabled.**")
             elif player.song_mode is SongMode.SHUFFLE_REPEAT:
                 player.already_played.clear()
                 player.song_mode = SongMode.SHUFFLE
@@ -463,11 +463,10 @@ class MusicPlayer(BasePlugin):
              perms="manage_guild",
              category="music_player")
     async def _music_config(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         try:
             opt, val = msg.clean_content.split(None, 2)[1:]
         except ValueError:
-            current_conf = "\n".join(f"{k}: {v}" for k, v in self.plugin_config[gid].items())
+            current_conf = "\n".join(f"{k}: {v}" for k, v in self.config.items())
             await respond(msg, f"**ANALYSIS: Current configuration:**```{current_conf}```")
             return
         opt = opt.lower()
@@ -487,7 +486,7 @@ class MusicPlayer(BasePlugin):
             val = is_positive(val)
         else:
             raise CommandSyntaxError(f"Option {opt} does not exist")
-        self.plugin_config[gid][opt] = val
+        self.config[opt] = val
         await respond(msg, f"**AFFIRMATIVE. Option `{opt}` edited to `{val}` successfully.**")
 
     # Utility functions
@@ -496,7 +495,7 @@ class MusicPlayer(BasePlugin):
         # Cache reaper
         save_required = False
         for file, dl_time in self.storage["downloaded_songs"].copy().items():
-            if time() - dl_time > self.plugin_config["video_cache_clear_age"]:
+            if time() - dl_time > self.global_plugin_config["video_cache_clear_age"]:
                 try:
                     remove_file(file)
                     del self.storage["downloaded_songs"][file]
@@ -543,7 +542,7 @@ class GuildPlayer:
         self.current_song = {}
         self.song_mode = SongMode.NORMAL
         self.prev_volume = None
-        self._volume = self.parent.plugin_config["default_volume"] / 100
+        self._volume = self.parent.config["default_volume"] / 100
         self._song_start_time = None
         self._song_pause_time = None
         self._skip_votes = set()
@@ -627,12 +626,12 @@ class GuildPlayer:
                                                          f"`{e}`")
                             continue
                     # Abort once the queue is full
-                    if len(self.queue) >= get_guild_config(self.parent, self.gid, "max_queue_length"):
+                    if len(self.queue) >= self.parent.config["max_queue_length"]:
                         await self.text_channel.send(f"**WARNING: The queue is full. No more videos will be added.**")
                         break
                     # Skip over videos that are too long
-                    elif vid.get("duration", 0) > get_guild_config(self.parent, self.gid, "max_video_length"):
-                        max_len = pretty_duration(get_guild_config(self.parent, self.gid, "max_video_length"))
+                    elif vid.get("duration", 0) > self.parent.config["max_video_length"]:
+                        max_len = pretty_duration(self.parent.config["max_video_length"])
                         await self.text_channel.send(f"**WARNING: Video {vid['title']} exceeds the maximum video"
                                                      f" length ({max_len}). It will not be added.**")
                         continue
@@ -646,7 +645,7 @@ class GuildPlayer:
                         except discord.ClientException:
                             pass
         await self.text_channel.send(f"**ANALYSIS: Queued {len(self.queue) - orig_len} videos.**")
-        if get_guild_config(self.parent, self.gid, "print_queue_on_edit") and self.queue:
+        if self.parent.config["print_queue_on_edit"] and self.queue:
             final_msg = f"**ANALYSIS: Current queue:**{self.print_queue()}"
             for msg in split_message(final_msg):
                 await self.text_channel.send(msg)
@@ -654,7 +653,7 @@ class GuildPlayer:
     async def _process_video(self, vid: dict):
         if not vid:
             raise TypeError
-        if self.parent.plugin_config["save_audio"] and not vid.get("is_live", False):
+        if self.parent.global_plugin_config["save_audio"] and not vid.get("is_live", False):
             with YoutubeDL(self.parent.ydl_options) as ydl:
                 try:
                     await asyncio.get_running_loop().run_in_executor(None, partial(ydl.process_info, vid))
@@ -715,7 +714,7 @@ class GuildPlayer:
                 pass
             return
         before_args = ""
-        if self.parent.plugin_config["save_audio"] and not next_song["is_live"]:
+        if self.parent.global_plugin_config["save_audio"] and not next_song["is_live"]:
             file = next_song["filename"]
         else:
             file = next_song["url"]
@@ -782,7 +781,7 @@ class GuildPlayer:
             await self.text_channel.send("**NEGATIVE. Skip vote already recorded.**")
             return
         total_users = len(self.voice_client.channel.members) - 1  # Don't want to count the bot itself
-        threshold = get_guild_config(self.parent, self.gid, "vote_skip_threshold")
+        threshold = self.parent.config["print_queue_on_edit"]
         vote_count = len(self._skip_votes)
         if vote_count / total_users >= threshold:
             await self.text_channel.send("**AFFIRMATIVE. Skipping current song.**")
@@ -836,7 +835,7 @@ class GuildPlayer:
             self._alone_time = 0
             return
         self._alone_time += dt
-        if self._alone_time > get_guild_config(self.parent, self.gid, "idle_disconnect_time"):
+        if self._alone_time > self.parent.config["idle_disconnect_time"]:
             self.stop()
             await self.voice_client.disconnect()
             del self.parent.players[int(self.gid)]

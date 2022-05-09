@@ -11,7 +11,6 @@ class ChannelManagerCommands(BasePlugin):
     version = "1.0.3"
     author = "medeor413"
     description = "A plugin that provides commands for interfacing with Red Star's channel_manager."
-    default_config = {}
 
     @Command("GetChannel",
              doc="Gets information on the specified channel type (or all channel types if none specified) in this "
@@ -24,7 +23,7 @@ class ChannelManagerCommands(BasePlugin):
         try:
             chantype = msg.clean_content.split(None, 1)[1].lower()
             try:
-                chan = self.channel_manager.get_channel(msg.guild, chantype)
+                chan = self.channel_manager.get_channel(chantype)
                 await respond(msg, f"**ANALYSIS: The {chantype} channel for this server is {chan.mention}.**")
             except ChannelNotFoundError:
                 await respond(msg, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
@@ -71,7 +70,7 @@ class ChannelManagerCommands(BasePlugin):
         else:
             channel = None
 
-        self.channel_manager.set_channel(msg.guild, chantype, channel)
+        self.channel_manager.set_channel(chantype, channel)
 
         if channel:
             await respond(msg, f"**ANALYSIS: The {chantype} channel for this server has been set to "
@@ -129,12 +128,12 @@ class ChannelManagerCommands(BasePlugin):
                     channel = discord.utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
                     if not channel:
                         raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found.")
-                    if self.channel_manager.add_channel_to_category(msg.guild, category, channel):
+                    if self.channel_manager.add_channel_to_category(category, channel):
                         res = f"{res}{str(channel)}\n"
             else:
                 if msg.channel_mentions:
                     for channel in msg.channel_mentions:
-                        if self.channel_manager.add_channel_to_category(msg.guild, category, channel):
+                        if self.channel_manager.add_channel_to_category(category, channel):
                             res = f"{res}{str(channel)}\n"
                 else:
                     raise CommandSyntaxError("No channel provided")
@@ -168,14 +167,14 @@ class ChannelManagerCommands(BasePlugin):
                     channel = discord.utils.find(lambda x: x.name.lower() == channel, msg.guild.voice_channels)
                     if not channel:
                         raise CommandSyntaxError(f"Voice channel {args[2].lower()} not found")
-                    if self.channel_manager.remove_channel_from_category(msg.guild, category, channel):
+                    if self.channel_manager.remove_channel_from_category(category, channel):
                         res += f"✓ - {str(channel)}\n"
                     else:
                         res += f"✗ - {str(channel)}\n"
             else:
                 if msg.channel_mentions:
                     for channel in msg.channel_mentions:
-                        if self.channel_manager.remove_channel_from_category(msg.guild, category, channel):
+                        if self.channel_manager.remove_channel_from_category(category, channel):
                             res += f"✓ - {str(channel)}\n"
                         else:
                             res += f"✗ - {str(channel)}\n"

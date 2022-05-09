@@ -2,7 +2,6 @@ from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, split_message, find_role
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
-from copy import deepcopy
 import discord
 import shlex
 
@@ -13,15 +12,9 @@ class RoleRequest(BasePlugin):
     author = "GTG3000"
 
     default_config = {
-        "default": {
-            "roles": [],
-            "default_roles": []
-        }
+        "roles": [],
+        "default_roles": []
     }
-
-    def _initialize(self, gid: str):
-        if gid not in self.plugin_config:
-            self.plugin_config[gid] = deepcopy(self.plugin_config['default'])
 
     async def activate(self):
         self.reacts = self.config_manager.get_plugin_config_file("role_request_reaction_messages.json")
@@ -30,7 +23,7 @@ class RoleRequest(BasePlugin):
         """
         Handles the call of on_member_join to apply the default roles, if any.
         """
-        roles = self.plugin_config.get(str(member.guild.id), self.plugin_config['default'])['default_roles']
+        roles = self.config['default_roles']
         if roles:
             roles = map(lambda rid: find_role(member.guild, str(rid)), roles)
             await member.add_roles(*roles, reason="Adding default roles.")
@@ -43,9 +36,6 @@ class RoleRequest(BasePlugin):
              perms={"manage_roles"},
              category="role_request")
     async def _manage(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-
         parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("-a", "--add", default=[], nargs='+')
@@ -54,7 +44,7 @@ class RoleRequest(BasePlugin):
         args = parser.parse_args(shlex.split(msg.content))
 
         if not (args['add'] or args['remove']):
-            role_str = "\n".join(x.name for x in msg.guild.roles if x.id in self.plugin_config[gid]["roles"])
+            role_str = "\n".join(x.name for x in msg.guild.roles if x.id in self.config["roles"])
             for split_msg in split_message(f"**ANALYSIS: Currently approved requestable roles:**```\n{role_str}```"):
                 await respond(msg, split_msg)
         else:
@@ -66,13 +56,13 @@ class RoleRequest(BasePlugin):
             removed_roles = []
 
             for role in args['add']:
-                if role.id not in self.plugin_config[gid]["roles"]:
+                if role.id not in self.config["roles"]:
                     added_roles.append(role.name)
-                    self.plugin_config[gid]["roles"].append(role.id)
+                    self.config["roles"].append(role.id)
             for role in args['remove']:
-                if role.id in self.plugin_config[gid]["roles"]:
+                if role.id in self.config["roles"]:
                     removed_roles.append(role.name)
-                    self.plugin_config[gid]["roles"].remove(role.id)
+                    self.config["roles"].remove(role.id)
 
             if added_roles or removed_roles:
                 output_str = "**AFFIRMATIVE. ANALYSIS:**\n```diff\n"
@@ -91,8 +81,6 @@ class RoleRequest(BasePlugin):
              syntax="(role)",
              category="role_request")
     async def _requestrole(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         try:
             query = msg.content.split(None, 1)[1]
         except IndexError:
@@ -101,7 +89,7 @@ class RoleRequest(BasePlugin):
         roles = find_role(msg.guild, query, return_all=True)
         if not roles:
             raise CommandSyntaxError(f"Unable to find role {query}.")
-        roles = [x for x in roles if x.id in self.plugin_config[gid]['roles']]
+        roles = [x for x in roles if x.id in self.config['roles']]
         if not roles:
             raise UserPermissionError(f"Role {query} is not requestable.")
         role = roles[0]
@@ -122,9 +110,6 @@ class RoleRequest(BasePlugin):
              perms={"manage_roles"},
              category="role_request")
     async def _manage_default(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        self._initialize(gid)
-
         parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("-a", "--add", default=[], nargs='+')
@@ -132,7 +117,7 @@ class RoleRequest(BasePlugin):
 
         args = parser.parse_args(shlex.split(msg.content))
 
-        d_r_list = self.plugin_config[gid].setdefault("default_roles", [])
+        d_r_list = self.config["default_roles"]
 
         if not (args['add'] or args['remove']):
             role_str = "\n".join(x.name for x in msg.guild.roles if x.id in d_r_list)

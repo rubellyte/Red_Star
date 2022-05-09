@@ -70,8 +70,8 @@ def main():
 
     bot = RedStar(storage_dir, args)
     try:
-        bot.run(bot.config["token"])
-    except LoginFailure:
+        bot.run(bot.config["global"]["token"])
+    except (LoginFailure, KeyError):
         base_logger.error("Bot token is invalid! "
                           "Please confirm that the token exists in configuration and is correct.")
         raise SystemExit

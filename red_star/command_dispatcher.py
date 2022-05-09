@@ -11,19 +11,19 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
     import plugin_manager
+    from red_star.client import RedStar
+    from channel_manager import ChannelManager
 
 
 class CommandDispatcher:
-    def __init__(self, client):
+    def __init__(self, client: RedStar, guild: discord.Guild, channel_manager: ChannelManager):
         self.client = client
+        self.guild = guild
+        self.channel_manager = channel_manager
         self.config_manager = client.config_manager
-        self.logger = logging.getLogger("red_star.command_dispatcher")
-        try:
-            self.conf = client.config_manager.config["command_dispatcher"]
-        except KeyError:
-            client.config_manager.config["command_dispatcher"] = {"default": {"command_prefix": "!"}}
-            self.conf = client.config_manager.config["command_dispatcher"]
-        self.default_config = self.conf.get("default", {"command_prefix": "!"})
+        self.logger = logging.getLogger(f"red_star.command_dispatcher.{guild.id}")
+        self.conf = self.config_manager.get_server_config(self.guild, "command_dispatcher",
+                                                          default_config={"command_prefix": "!"})
 
         self.commands = {}
         self.last_error = None
@@ -95,29 +95,29 @@ class CommandDispatcher:
         except KeyError:
             return
         if dm_cmd:
-            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []):
-                return
-            if not fn.dm_command:
-                return
-            try:
-                await fn(msg)
-            except CommandSyntaxError as e:
-                err = e if e else "Invalid syntax."
-                if fn.syntax:
-                    await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {fn.name} {fn.syntax}.**")
-                else:
-                    await respond(msg, f"**WARNING: {err}**")
-            except Exception:
-                self.last_error = exc_info()
-                self.logger.exception("Exception occurred in command. ", exc_info=True)
-                await respond(msg, "**WARNING: Error occurred while running command.**")
+            # if msg.author.id not in self.config_manager.config.get("bot_maintainers", []):
+            #     return
+            # if not fn.dm_command:
+            #     return
+            # try:
+            #     await fn(msg)
+            # except CommandSyntaxError as e:
+            #     err = e if e else "Invalid syntax."
+            #     if fn.syntax:
+            #         await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {fn.name} {fn.syntax}.**")
+            #     else:
+            #         await respond(msg, f"**WARNING: {err}**")
+            # except Exception:
+            #     self.last_error = exc_info()
+            #     self.logger.exception("Exception occurred in command. ", exc_info=True)
+            #     await respond(msg, "**WARNING: Error occurred while running command.**")
+            return  # TODO: DM commands???
 
         else:
-            gid = str(msg.guild.id)
             try:
                 if not fn.run_anywhere:
                     try:
-                        cmd_channel = self.client.channel_manager.get_channel(msg.guild, "commands")
+                        cmd_channel = self.channel_manager.get_channel("commands")
                         if msg.channel != cmd_channel:
                             return
                     except ChannelNotFoundError:
@@ -132,7 +132,7 @@ class CommandDispatcher:
             except CommandSyntaxError as e:
                 err = e if e else "Invalid syntax."
                 if fn.syntax:
-                    deco = self.conf[gid]["command_prefix"]
+                    deco = self.conf["command_prefix"]
                     await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{fn.name} {fn.syntax}.**")
                 else:
                     await respond(msg, f"**WARNING: {err}**")
@@ -153,10 +153,7 @@ class CommandDispatcher:
 
     async def command_check(self, msg):
         try:
-            gid = str(msg.guild.id)
-            if gid not in self.conf:
-                self.conf[gid] = self.default_config.copy()
-            deco = self.conf[gid]["command_prefix"]
+            deco = self.conf["command_prefix"]
             dm_cmd = False
         except AttributeError:  # Oops, it's a DM isn't it
             deco = "!"

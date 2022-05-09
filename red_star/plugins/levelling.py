@@ -11,12 +11,10 @@ class Levelling(BasePlugin):
     author = "GTG3000"
     description = "A plugin for providing an XP system that awards members XP for messages."
     default_config = {
-        "default": {
-            "low_cutoff": 75,
-            "xp_min": 1,
-            "xp_max": 10,
-            "skip_missing": False
-        }
+        "low_cutoff": 75,
+        "xp_min": 1,
+        "xp_max": 10,
+        "skip_missing": False
     }
     channel_categories = {"no_xp"}
 
@@ -26,11 +24,11 @@ class Levelling(BasePlugin):
         self.storage = self.config_manager.get_plugin_config_file("xp.json")
 
     async def on_message(self, msg: discord.Message):
-        if not self.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+        if not self.channel_manager.channel_in_category("no_xp", msg.channel):
             self._give_xp(msg)
 
     async def on_message_delete(self, msg: discord.Message):
-        if not self.channel_manager.channel_in_category(msg.guild, "no_xp", msg.channel):
+        if not self.channel_manager.channel_in_category("no_xp", msg.channel):
             self._take_xp(msg)
 
     # Commands
@@ -43,7 +41,7 @@ class Levelling(BasePlugin):
         gid = str(msg.guild.id)
 
         xp_dict = self.storage.setdefault(gid, dict())
-        skip = self.plugin_config.setdefault(gid, self.plugin_config['default'].copy())['skip_missing']
+        skip = self.config['skip_missing']
 
         args = msg.content.split()
         if len(args) > 1:
@@ -128,7 +126,7 @@ class Levelling(BasePlugin):
         display = await respond(msg, "**AFFIRMATIVE. Processing messages.**")
         async with msg.channel.typing():
             for channel in msg.guild.text_channels:
-                if not self.channel_manager.channel_in_category(msg.guild, "no_xp", channel):
+                if not self.channel_manager.channel_in_category("no_xp", channel):
                     await display.edit(content=f"**AFFIRMATIVE. Processing messages in channel {channel}.**")
                     try:
                         async for message in channel.history(limit=depth):
@@ -173,9 +171,8 @@ class Levelling(BasePlugin):
              perms={"manage_guild"},
              category="levelling")
     async def _setxp(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         args = msg.content.split(" ", 2)
-        cfg = self.plugin_config.setdefault(gid, self.plugin_config['default'].copy())
+        cfg = self.config
         if len(args) == 1:
             missing_member_str = ("skipping" if cfg["skip_missing"] else "displaying") + " missing members"
             await respond(msg, "**ANALYSIS: Current XP settings:**```\n"
@@ -209,23 +206,23 @@ class Levelling(BasePlugin):
         gid = str(msg.guild.id)
         uid = str(msg.author.id)
         if uid in self.storage.setdefault(gid, dict()):
-            self.storage[gid][uid] += self._calc_xp(msg.clean_content, gid)
+            self.storage[gid][uid] += self._calc_xp(msg.clean_content)
         else:
-            self.storage[gid][uid] = self._calc_xp(msg.clean_content, gid)
+            self.storage[gid][uid] = self._calc_xp(msg.clean_content)
 
     def _take_xp(self, msg: discord.Message):
         gid = str(msg.guild.id)
         uid = str(msg.author.id)
         if uid in self.storage.setdefault(gid, dict()):
-            self.storage[gid][uid] -= self._calc_xp(msg.clean_content, gid)
+            self.storage[gid][uid] -= self._calc_xp(msg.clean_content)
 
-    def _calc_xp(self, txt: str, gid: str):
+    def _calc_xp(self, txt: str):
         """
         :type txt:str
         :param txt:message to calculate the xp for
         :return:
         """
-        spc = self.plugin_config.setdefault(gid, self.plugin_config['default'].copy())
+        spc = self.config
 
         if len(txt) < spc["low_cutoff"]:
             return 0

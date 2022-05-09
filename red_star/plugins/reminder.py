@@ -164,6 +164,7 @@ class ReminderPlugin(BasePlugin):
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
             try:
                 _recur = (args['recurring'][0].lower(), int(args['recurring'][1:]))
+                # TODO: format this
                 _recurstr = f" Recurring every {RECUR_DECODE[_recur[0]][0] if _recur[1] == 1 else str(_recur[1]) + ' ' + RECUR_DECODE[_recur[0]][1]}."
                 if _recur[1] <= 0:
                     raise ValueError
@@ -260,7 +261,7 @@ class ReminderPlugin(BasePlugin):
             for reminder in filter(lambda x: x.time <= now, self.storage[gid]):
                 save_flag = True
                 try:
-                    channel = None if reminder.dm else self.channel_manager.get_channel(guild, "reminders")
+                    channel = None if reminder.dm else self.channel_manager.get_channel("reminders")
                 except ChannelNotFoundError:
                     channel = guild.get_channel(reminder.cid)
 
