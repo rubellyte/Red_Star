@@ -25,7 +25,7 @@ setuptools.setup(
     package_data={'red_star': ['_default_files/*.json']},
     license='MIT',
     platforms='any',
-    python_requires="~=3.8",
+    python_requires="~=3.10",
     install_requires=get_requirements(),
     entry_points={
         'console_scripts': ['red_star = red_star.__main__:main']
@@ -40,7 +40,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Operating System :: OS Independent",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Communications :: Chat"
     ]
 )
