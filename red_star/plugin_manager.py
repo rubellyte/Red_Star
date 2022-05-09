@@ -239,7 +239,7 @@ class PluginManager:
         :param args: Everything that gets passed to the calling function
         should be passed through to this function.
         """
-        for name, plugin in self.plugins.get(guild, {}).items():
+        for name, plugin in self.plugins.get(guild, {}).copy().items():
             hook = getattr(plugin, event, None)
             if hook:
                 # noinspection PyBroadException
