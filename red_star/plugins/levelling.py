@@ -1,8 +1,13 @@
+from __future__ import annotations
 from red_star.plugin_manager import BasePlugin
-from red_star.rs_utils import respond, find_user, is_positive, JsonFileDict, group_items
+from red_star.rs_utils import respond, find_user, is_positive, group_items
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError
 import discord
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from red_star.config_manager import JsonFileDict
 
 
 class Levelling(BasePlugin):

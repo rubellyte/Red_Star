@@ -1,7 +1,8 @@
+from __future__ import annotations
 from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError
-from red_star.rs_utils import respond, JsonFileDict, decode_json, split_message, verify_embed
+from red_star.rs_utils import respond, decode_json, split_message, verify_embed
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.error import URLError
@@ -10,6 +11,10 @@ import re
 import json
 import discord
 from io import BytesIO
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from red_star.config_manager import JsonFileDict
 
 
 def verify_document(doc: list):

@@ -5,11 +5,13 @@ import shutil
 import sys
 from pathlib import Path
 from shutil import copyfile
-from red_star.rs_utils import JsonFileDict
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
+
+
+JsonValues = None | bool | str | int | float | list | dict
 
 
 class ConfigManager:
@@ -94,13 +96,16 @@ class ConfigManager:
         self.logger.debug("Saved config files.")
 
     def get_global_config(self, plugin: str, default_config=None):
-        return self.config["global"].setdefault(plugin, default_config)
+        if default_config is None:
+            default_config = {}
+        return ConfigDict(self.config["global"].setdefault(plugin, default_config), default_config)
 
     def get_server_config(self, guild: discord.Guild, plugin: str, default_config=None):
         if default_config is None:
             default_config = {}
         default_config = self.config["default"].setdefault(plugin, default_config)
-        return self.config.setdefault(str(guild.id), {}).setdefault(plugin, default_config)
+        return ConfigDict(self.config.setdefault(str(guild.id), {}).setdefault(plugin, default_config),
+                          default_config)
 
     def get_plugin_config_file(self, filename: str, json_save_args: dict = None,
                                json_load_args: dict = None) -> JsonFileDict:
@@ -123,3 +128,49 @@ class ConfigManager:
 
     def is_maintainer(self, user: discord.abc.User):
         return user.id in self.config.get('bot_maintainers', [])
+
+# Utility classes
+
+
+class ConfigDict(dict):
+
+    def __init__(self, config: dict[str, JsonValues], default_config: dict[str, JsonValues]):
+        super().__init__()
+        new_dict = default_config | config
+        for k, v in new_dict.items():
+            if isinstance(v, dict):
+                self[k] = ConfigDict(v, default_config.get(k, {}))
+            else:
+                self[k] = v
+
+
+class JsonFileDict(dict):
+    """
+    Dictionary subclass that handles saving the file on edits automatically.
+    Try not to instantiate this class directly; instead, use the config_manager's factory method,
+    ConfigManager.get_plugin_config_file.
+    :param Path path: The path that should be saved to.
+    """
+
+    def __init__(self, path: Path, json_save_args: dict = None, json_load_args: dict = None, **kwargs):
+        super().__init__(**kwargs)
+        self.path = path
+        self.json_save_args = {} if json_save_args is None else json_save_args
+        self.json_load_args = {} if json_load_args is None else json_load_args
+        self.reload()
+
+    def __setitem__(self, key: str, value: JsonValues):
+        super().__setitem__(key, value)
+        self.save()
+
+    def __delitem__(self, key: str):
+        super().__delitem__(key)
+        self.save()
+
+    def save(self):
+        with self.path.open("w", encoding="utf-8") as fd:
+            json.dump(self, fd, **self.json_save_args)
+
+    def reload(self):
+        with self.path.open(encoding="utf-8") as fd:
+            self.update(json.load(fd, **self.json_load_args))

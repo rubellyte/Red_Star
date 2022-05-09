@@ -9,41 +9,7 @@ from urllib.parse import urlparse
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
-    from pathlib import Path
-
-JsonValues = None | bool | str | int | float | list | dict
-
-
-class JsonFileDict(dict):
-    """
-    Dictionary subclass that handles saving the file on edits automatically.
-    Try not to instantiate this class directly; instead, use the config_manager's factory method,
-    ConfigManager.get_plugin_config_file.
-    :param Path path: The path that should be saved to.
-    """
-
-    def __init__(self, path: Path, json_save_args: dict = None, json_load_args: dict = None, **kwargs):
-        super().__init__(**kwargs)
-        self.path = path
-        self.json_save_args = {} if json_save_args is None else json_save_args
-        self.json_load_args = {} if json_load_args is None else json_load_args
-        self.reload()
-
-    def __setitem__(self, key: str, value: JsonValues):
-        super().__setitem__(key, value)
-        self.save()
-
-    def __delitem__(self, key: str):
-        super().__delitem__(key)
-        self.save()
-
-    def save(self):
-        with self.path.open("w", encoding="utf-8") as fd:
-            json.dump(self, fd, **self.json_save_args)
-
-    def reload(self):
-        with self.path.open(encoding="utf-8") as fd:
-            self.update(json.load(fd, **self.json_load_args))
+    from red_star.config_manager import JsonValues
 
 
 class RSNamespace(argparse.Namespace):

@@ -28,6 +28,9 @@ class CommandDispatcher:
         self.commands = {}
         self.last_error = None
 
+    async def on_message(self, msg: discord.Message):
+        await self.command_check(msg)
+
     def register_plugin(self, plugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
@@ -86,7 +89,7 @@ class CommandDispatcher:
 
         if hasattr(fn, "aliases") and not is_alias:
             for alias in fn.aliases:
-                self.deregister(fn, alias, is_alias=True)
+                self.deregister(fn, alias.lower(), is_alias=True)
 
     # noinspection PyBroadException
     async def run_command(self, command, msg, dm_cmd=False):
@@ -213,7 +216,7 @@ class Command:
             if msg.guild.voice_client:
                 user_perms |= {x for x, y in msg.guild.voice_client.channel.permissions_for(msg.author) if y}
             if (not user_perms >= self.perms or self.bot_maintainers_only) \
-                    and msg.author.id not in s.config_manager.config.get("bot_maintainers", []):
+                    and msg.author.id not in s.config_manager.config["global"].get("bot_maintainers", []):
                 raise UserPermissionError
             return await f(s, msg)
         wrapped._command = True

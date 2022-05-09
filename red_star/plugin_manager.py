@@ -106,7 +106,8 @@ class PluginManager:
         for name, obj in inspect.getmembers(plugin_module, predicate=predicate):
             obj.client = self.client
             obj.config_manager = self.config_manager
-            self.config_manager.get_global_config(name, default_config=obj.default_global_config)
+            obj.global_plugin_config = self.config_manager.get_global_config(obj.name,
+                                                                             default_config=obj.default_global_config)
             obj.plugin_manager = self
             ChannelManager.channel_types.update(obj.channel_types)
             ChannelManager.channel_categories.update(obj.channel_categories)
@@ -177,17 +178,17 @@ class PluginManager:
         :return:
         """
         self.logger.info("Deactivating plugins.")
-        for guild in self.client.guilds:
+        for guild in self.plugins.keys():
             await self.deactivate_server_plugins(guild)
 
     async def deactivate_server_plugins(self, guild):
         guild_plugins = self.plugins[guild]
-        for name, plugin in guild_plugins.items():
+        for name, plugin in guild_plugins.copy().items():
             if name in ("command_dispatcher", "channel_manager"):
                 continue
             await self.deactivate(guild, name)
-            del guild_plugins["command_dispatcher"]
-            del guild_plugins["channel_manager"]
+        del guild_plugins["command_dispatcher"]
+        del guild_plugins["channel_manager"]
 
     async def deactivate(self, guild: discord.Guild, name: str):
         guild_plugins = self.plugins[guild]
@@ -238,7 +239,7 @@ class PluginManager:
         :param args: Everything that gets passed to the calling function
         should be passed through to this function.
         """
-        for name, plugin in self.plugins[guild].items():
+        for name, plugin in self.plugins.get(guild, {}).items():
             hook = getattr(plugin, event, None)
             if hook:
                 # noinspection PyBroadException
