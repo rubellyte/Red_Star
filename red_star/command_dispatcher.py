@@ -23,13 +23,26 @@ class CommandDispatcher:
         self.config_manager = client.config_manager
         self.logger = logging.getLogger(f"red_star.command_dispatcher.{guild.id}")
         self.conf = self.config_manager.get_server_config(self.guild, "command_dispatcher",
-                                                          default_config={"command_prefix": "!"})
+                                                          default_config={"command_prefix": "!",
+                                                                          "permission_overrides": {}})
 
         self.commands = {}
         self.last_error = None
 
     async def on_message(self, msg: discord.Message):
         await self.command_check(msg)
+
+    def initialize_command_permissions(self, command: Command):
+        overrides = self.conf["permission_overrides"]
+
+        if command.name in overrides:
+            if "permissions_all" in overrides:
+                command.perms.permissions_all = set(overrides["permissions_all"])
+            command.perms.permissions_any = set(overrides.get("permissions_any", []))
+            command.perms.user_overrides = set(overrides.get("user_overrides", []))
+            command.perms.role_overrides = set(overrides.get("role_overrides", []))
+
+        command.perms.bot_maintainers = self.config_manager.config["global"].get("bot_maintainers", [])
 
     def register_plugin(self, plugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
@@ -52,6 +65,9 @@ class CommandDispatcher:
         :return: None.
         """
         self.logger.debug(f"Registering command {name} from {fn.__self__.name}.")
+
+        if not is_alias:
+            self.initialize_command_permissions(fn)
 
         if name in self.commands:
             oldfn = self.commands[name]
@@ -176,20 +192,23 @@ class Command:
     and aliases.
     """
 
-    def __init__(self, name, *aliases, perms=None, doc=None, syntax=None, priority=0, delcall=False,
-                 run_anywhere=False, bot_maintainers_only=False, dm_command=False, category="other"):
+    def __init__(self, name, *aliases, perms=None, optional_perms=None, doc=None, syntax=None, priority=0,
+                 delcall=False, run_anywhere=False, bot_maintainers_only=False, dm_command=False, category="other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
             syntax = (syntax,)
         if doc is None:
             doc = ""
-        self.name = name
+
         if not perms:
             perms = set()
         if isinstance(perms, str):
             perms = {perms}
-        self.perms = perms
+        self.perms = CommandPermissions(perms, bot_maintainers_only=bot_maintainers_only,
+                                        optional_permissions=optional_perms)
+
+        self.name = name
         self.syntax = syntax
         self.human_syntax = " ".join(syntax)
         self.doc = doc
@@ -198,7 +217,6 @@ class Command:
         self.delcall = delcall
         self.run_anywhere = run_anywhere
         self.category = category
-        self.bot_maintainers_only = bot_maintainers_only
         self.dm_command = dm_command
 
     def __call__(self, f):
@@ -212,13 +230,16 @@ class Command:
         async def wrapped(s: plugin_manager.BasePlugin, msg: discord.Message):
             if msg.guild is None and self.dm_command:  # The permission check was handled pre-call.
                 return await f(s, msg)
-            user_perms = {x for x, y in msg.channel.permissions_for(msg.author) if y}
-            if msg.guild.voice_client:
-                user_perms |= {x for x, y in msg.guild.voice_client.channel.permissions_for(msg.author) if y}
-            if (not user_perms >= self.perms or self.bot_maintainers_only) \
-                    and msg.author.id not in s.config_manager.config["global"].get("bot_maintainers", []):
+            # user_perms = {x for x, y in msg.channel.permissions_for(msg.author) if y}
+            # if msg.guild.voice_client:
+            #     user_perms |= {x for x, y in msg.guild.voice_client.channel.permissions_for(msg.author) if y}
+            # if (not user_perms >= self.perms or self.bot_maintainers_only) \
+            #         and msg.author.id not in s.config_manager.config["global"].get("bot_maintainers", []):
+            #     raise UserPermissionError
+            if self.perms.check_permissions(msg.author, msg.channel):
+                return await f(s, msg)
+            else:
                 raise UserPermissionError
-            return await f(s, msg)
         wrapped._command = True
         wrapped.aliases = self.aliases
         wrapped.__doc__ = self.doc
@@ -231,3 +252,65 @@ class Command:
         wrapped.dm_command = self.dm_command
         wrapped.category = self.category
         return wrapped
+
+
+class CommandPermissions:
+    def __init__(self, permissions_all, permissions_any=None, role_overrides=None, user_overrides=None,
+                 bot_maintainers_only=False, optional_permissions=None):
+        if permissions_any is None:
+            permissions_any = set()
+        if role_overrides is None:
+            role_overrides = set()
+        if user_overrides is None:
+            user_overrides = set()
+        if optional_permissions is None:
+            optional_permissions = {}
+        self.permissions_all = permissions_all
+        self.permissions_any = permissions_any
+        self.role_overrides = role_overrides
+        self.user_overrides = user_overrides
+        self.optional_permissions = optional_permissions
+        self.bot_maintainers = []
+        self.bot_maintainers_only = bot_maintainers_only
+
+    def check_permissions(self, member: discord.Member, channel: discord.abc.GuildChannel) -> bool:
+        if member.id in self.bot_maintainers:
+            return True
+        elif self.bot_maintainers_only:
+            return False
+
+        if member.id in self.user_overrides:
+            return True
+        if not {x.id for x in member.roles}.isdisjoint(self.role_overrides):
+            return True
+
+        member_permissions_set = {x for x, y in channel.permissions_for(member) if y}
+        if member.guild.voice_client:
+            member_permissions_set |= {x for x, y in member.guild.voice_client.channel.permissions_for(member) if y}
+
+        if self.permissions_all and not (member_permissions_set > self.permissions_all):
+            return False
+        if self.permissions_any and member_permissions_set.isdisjoint(self.permissions_any):
+            return False
+        return True
+
+    def check_optional_permissions(self, optional_permission_set: str, member: discord.Member,
+                                   channel: discord.abc.GuildChannel) -> bool:
+        if optional_permission_set not in self.optional_permissions:
+            raise SyntaxError(f"No such permission set {optional_permission_set}")
+
+        if member.id in self.bot_maintainers:
+            return True
+
+        if member.id in self.user_overrides:
+            return True
+        if not {x.id for x in member.roles}.isdisjoint(self.role_overrides):
+            return True
+
+        member_permissions_set = {x for x, y in channel.permissions_for(member) if y}
+        if member.guild.voice_client:
+            member_permissions_set |= {x for x, y in member.guild.voice_client.channel.permissions_for(member) if y}
+
+        if member_permissions_set > self.optional_permissions[optional_permission_set]:
+            return True
+        return False

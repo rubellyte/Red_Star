@@ -80,7 +80,6 @@ class Info(BasePlugin):
             categories = "\n".join(sorted([capwords(x, "_") for x in self.categories.keys()]))
             await respond(msg, f"**ANALYSIS: Command categories:**```\n{categories}\n```")
             return
-        user_perms = {x for x, y in msg.author.guild_permissions if y}
         if search in [x.lower() for x in self.commands.keys()]:
             cmd = self.commands[search]
             name = cmd.name
@@ -91,7 +90,7 @@ class Info(BasePlugin):
             perms = cmd.perms
             category = capwords(cmd.category, "_")
             aliases = f"(Aliases: {', '.join(cmd.aliases)})" if cmd.aliases else ""
-            if not (user_perms >= perms or self.config_manager.is_maintainer(msg.author)):
+            if not perms.check_permissions(msg.author, msg.channel):
                 raise UserPermissionError
             text = f"**ANALYSIS: Command {name}:**```\n{name} (Category {category}) {aliases}\n\n{doc}\n\n" \
                    f"Syntax: {syntax}\n```"
@@ -99,7 +98,7 @@ class Info(BasePlugin):
         elif search in self.categories.keys():
             name = capwords(search, "_")
             cmds = {x.name for x in self.categories[search].values()
-                    if user_perms >= x.perms or self.config_manager.is_maintainer(msg.author)}
+                    if x.perms.check_permissions(msg.author, msg.channel)}
             cmds = sorted(list(cmds))
             if cmds:
                 text = "\n".join(cmds)
