@@ -66,7 +66,7 @@ class CustomCommands(BasePlugin):
     async def on_message(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
-        deco = self.config["cc_prefix"]
+        deco = self.config["cc_prefix"].lower()
         if msg.author != self.client.user:
             cnt = msg.content
             if cnt.startswith(deco):

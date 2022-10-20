@@ -1,7 +1,7 @@
 # Red Star Bot
 ![Python](https://img.shields.io/badge/Python-3.7-blue.svg) [![PyPI](https://img.shields.io/pypi/v/red-star.svg)](https://pypi.org/project/red-star/)
 
-<img src="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png" width="150">
+<img src="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png" width="150" alt="Red Star Logo">
 
 A configurable, extensible Discord bot with administration and entertainment plugins included. Now with added shouting.
 

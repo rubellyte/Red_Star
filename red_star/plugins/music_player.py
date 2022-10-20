@@ -114,7 +114,7 @@ class MusicPlayer(BasePlugin):
              doc="Tells the bot to queue video links for playing. User must be in the same channel as the bot. "
                  "Supports an arbitrary number of links in a single command.\n"
                  "Supports playlists. Additionally, subsets of playlists can be played using slice notation.\n"
-                 "Subset syntax: http://example.url{1,3-5,-2,6-}. {1} selects the first video, {3-5} selects the "
+                 "Subset syntax: https://example.url{1,3-5,-2,6-}. {1} selects the first video, {3-5} selects the "
                  "third through fifth videos, {-2} selects all videos up to the second, {6-} selects the sixth video "
                  "and all after it. Multiple slices can be used on one playlist by separating them with ,.",
              syntax="(url) [url_2] [url_3]...",

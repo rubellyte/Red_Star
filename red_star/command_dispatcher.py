@@ -135,7 +135,7 @@ class CommandDispatcher:
             except CommandSyntaxError as e:
                 err = e if e else "Invalid syntax."
                 if fn.syntax:
-                    deco = self.conf["command_prefix"]
+                    deco = self.conf["command_prefix"].lower()
                     await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{fn.name} {fn.syntax}.**")
                 else:
                     await respond(msg, f"**WARNING: {err}**")
