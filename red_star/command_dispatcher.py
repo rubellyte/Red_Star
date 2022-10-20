@@ -3,8 +3,9 @@ import inspect
 import logging
 from asyncio import sleep
 from sys import exc_info
-from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
+from functools import wraps
 from discord import Forbidden
+from red_star.rs_errors import ChannelNotFoundError, CommandSyntaxError, UserPermissionError
 from red_star.rs_utils import respond, sub_user_data
 
 from typing import TYPE_CHECKING
@@ -38,6 +39,8 @@ class CommandDispatcher:
         if command.name in overrides:
             if "permissions_all" in overrides:
                 command.perms.permissions_all = set(overrides["permissions_all"])
+            if "optional_permissions" in overrides:
+                command.perms.optional_permissions = {k: set(v) for k, v in overrides["optional_permissions"].items()}
             command.perms.permissions_any = set(overrides.get("permissions_any", []))
             command.perms.user_overrides = set(overrides.get("user_overrides", []))
             command.perms.role_overrides = set(overrides.get("role_overrides", []))
@@ -226,6 +229,7 @@ class Command:
         :param f: The function the Command decorator is wrapping.
         :return: The now-wrapped command, with all the trappings.
         """
+        @wraps(f)
         async def wrapped(s: plugin_manager.BasePlugin, msg: discord.Message):
             if msg.guild is None and self.dm_command:  # The permission check was handled pre-call.
                 return await f(s, msg)
@@ -239,6 +243,7 @@ class Command:
                 return await f(s, msg)
             else:
                 raise UserPermissionError
+
         wrapped._command = True
         wrapped.aliases = self.aliases
         wrapped.__doc__ = self.doc
@@ -255,7 +260,7 @@ class Command:
 
 class CommandPermissions:
     def __init__(self, permissions_all, permissions_any=None, role_overrides=None, user_overrides=None,
-                 bot_maintainers_only=False, optional_permissions=None):
+                 optional_permissions=None, bot_maintainers_only=False):
         if permissions_any is None:
             permissions_any = set()
         if role_overrides is None:
@@ -271,6 +276,29 @@ class CommandPermissions:
         self.optional_permissions = optional_permissions
         self.bot_maintainers = []
         self.bot_maintainers_only = bot_maintainers_only
+
+    @classmethod
+    def from_existing(cls, existing_obj: CommandPermissions, permissions_all=None, permissions_any=None,
+                      role_overrides=None, user_overrides=None, optional_permissions=None):
+        if permissions_all is None:
+            permissions_all = existing_obj.permissions_all
+        if permissions_any is None:
+            permissions_any = existing_obj.permissions_any
+        if role_overrides is None:
+            role_overrides = existing_obj.role_overrides
+        if user_overrides is None:
+            user_overrides = existing_obj.user_overrides
+        if optional_permissions is None:
+            optional_permissions = existing_obj.optional_permissions
+        return cls(permissions_all, permissions_any, role_overrides, user_overrides, optional_permissions,
+                   bot_maintainers_only=existing_obj.bot_maintainers_only)
+
+    def update(self, new_perms: CommandPermissions):
+        self.permissions_all = new_perms.permissions_all
+        self.permissions_any = new_perms.permissions_any
+        self.role_overrides = new_perms.role_overrides
+        self.user_overrides = new_perms.user_overrides
+        self.optional_permissions = new_perms.optional_permissions
 
     def check_permissions(self, member: discord.Member, channel: discord.abc.GuildChannel) -> bool:
         if member.id in self.bot_maintainers:
