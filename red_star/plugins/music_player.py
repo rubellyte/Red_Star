@@ -87,7 +87,8 @@ class MusicPlayer(BasePlugin):
 
     @Command("LeaveVoice", "LeaveVC",
              doc="Tells the bot to leave the voice channel it's currently in.",
-             category="music_player")
+             category="music_player",
+             optional_perms={"force_leave": {"mute_members"}})
     async def _leave_voice(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         if not player:
@@ -100,7 +101,7 @@ class MusicPlayer(BasePlugin):
                 await respond(msg, "**ANALYSIS: Bot is not currently in voice channel.**")
                 return
         if player.is_playing \
-                and not player.voice_client.channel.permissions_for(msg.author).mute_members\
+                and not self._leave_voice.perms.check_optional_permissions("force_leave", msg.author, msg.channel) \
                 and not self.config_manager.is_maintainer(msg.author):
             raise UserPermissionError
         player.queue.clear()
@@ -382,15 +383,15 @@ class MusicPlayer(BasePlugin):
 
     @Command("SkipSong", "Skip",
              doc="Tells the bot to skip the currently playing song.",
-             category="music_player")
+             category="music_player",
+             optional_perms={"force_skip": {"mute_members"}})
     async def _skip_song(self, msg: discord.Message):
         player = self.get_guild_player(msg)
         self.check_user_permission(msg.author, player)
         if not player or not player.is_playing:
             await respond(msg, "**ANALYSIS: No music currently playing.**")
             return
-        elif player.voice_client.channel.permissions_for(msg.author).mute_members\
-                or self.config_manager.is_maintainer(msg.author):
+        elif self._skip_song.perms.check_optional_permissions("force_skip", msg.author, msg.channel):
             await respond(msg, "**ANALYSIS: Skipping to next song in queue...**")
             player.stop()
         else:

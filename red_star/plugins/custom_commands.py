@@ -118,7 +118,8 @@ class CustomCommands(BasePlugin):
              doc="Creates a custom command.\n"
                  "RSLisp Documentation: https://github.com/medeor413/Red_Star/wiki/Custom-Commands",
              syntax="(name) (content, in plain text or in an attached file)",
-             category="custom_commands")
+             category="custom_commands",
+             optional_perms={"bypass_cc_limit": {"manage_messages"}, "bypass_cc_lock": {"manage_messages"}})
     async def _createcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -148,8 +149,8 @@ class CustomCommands(BasePlugin):
             user_cc_count = len([True for cc in self.ccs[gid].values() if cc["author"] == msg.author.id])
             cc_limit = self.config.get("cc_limit", 100)
 
-            if msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and not \
-                    msg.channel.permissions_for(msg.author).manage_messages and user_cc_count >= cc_limit:
+            if (not self._createcc.perms.check_optional_permissions("bypass_cc_limit", msg.author, msg.channel)) \
+                    and user_cc_count >= cc_limit:
                 raise UserPermissionError(f"Exceeded per-user custom command limit of {cc_limit}.")
             try:
                 # check to see if there's something inside parenthesis floating in all the whitespace
@@ -198,7 +199,8 @@ class CustomCommands(BasePlugin):
     @Command("EditCC",
              doc="Edits a custom command you created.",
              syntax="(name) (content, in plain text or in an attached file)",
-             category="custom_commands")
+             category="custom_commands",
+             optional_perms={"edit_others": {"manage_messages"}})
     async def _editcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -221,7 +223,8 @@ class CustomCommands(BasePlugin):
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
             cc_data = self.ccs[gid][name]
-            if cc_data["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
+            if cc_data["author"] == msg.author.id or \
+                    self._editcc.perms.check_optional_permissions("edit_others", msg.author, msg.channel):
                 try:
                     parse(content)
                 except Exception as err:
@@ -241,7 +244,8 @@ class CustomCommands(BasePlugin):
     @Command("DeleteCC", "DelCC", "RMCC",
              doc="Deletes a custom command.",
              syntax="(name)",
-             category="custom_commands")
+             category="custom_commands",
+             optional_perms={"delete_others": {"manage_messages"}})
     async def _delcc(self, msg: discord.Message):
         gid = str(msg.guild.id)
         self._initialize(gid)
@@ -254,7 +258,8 @@ class CustomCommands(BasePlugin):
         if gid not in self.ccs:
             self.ccs[gid] = {}
         if name in self.ccs[gid]:
-            if self.ccs[gid][name]["author"] == msg.author.id or msg.author.guild_permissions.manage_messages:
+            if self.ccs[gid][name]["author"] == msg.author.id or \
+                    self._editcc.perms.check_optional_permissions("delete_others", msg.author, msg.channel):
                 del self.ccs[gid][name]
                 self.ccs.save()
                 await respond(msg, f"**ANALYSIS: Custom command {name} deleted successfully.**")
@@ -637,7 +642,8 @@ class CustomCommands(BasePlugin):
 
     async def run_cc(self, cmd: str, msg: discord.Message):
         gid = str(msg.guild.id)
-        if self.ccs[gid][cmd]["locked"] and not msg.author.guild_permissions.manage_messages:
+        if self.ccs[gid][cmd]["locked"] and not \
+                self._createcc.perms.check_optional_permissions("bypass_cc_lock", msg.author, msg.channel):
             await respond(msg, f"**WARNING: Custom command {cmd} is locked.**")
         else:
             env = self._env(msg)

@@ -111,7 +111,8 @@ class ReminderPlugin(BasePlugin):
                  "time needs two colons, with some non-whitespace symbol separating the two.\n"
                  "Valid input includes '23//', ':30:' and '1/1/@12::'",
              category="reminder",
-             run_anywhere=True)
+             run_anywhere=True,
+             optional_perms={"mention_everyone": {"mention_everyone"}})
     async def _remind(self, msg: discord.Message):
         parser = RSArgumentParser()
         parser.add_argument("command")
@@ -158,7 +159,8 @@ class ReminderPlugin(BasePlugin):
                 pass
 
         # just because the bot can mention everyone, doesn't mean that anyone with command access should be able to.
-        if msg.channel.permissions_for(msg.author).mention_everyone and (args['everyone'] or args['here']):
+        if self._remind.perms.check_optional_permissions("mention_everyone", msg.author, msg.channel) and \
+                (args['everyone'] or args['here']):
             args['reminder'].insert(0, "@everyone:" if args['everyone'] else "@here:")
 
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':

@@ -154,7 +154,8 @@ class Voting(BasePlugin):
              syntax="(HID)",
              doc="Ends the given vote. You must be the creator of the vote to end it.\n"
                  "Alternatively, you must have manage_messages permission or be a bot maintainer.",
-             category="voting")
+             category="voting",
+             optional_perms={"end_others": {"manage_messages"}})
     async def _endvote(self, msg: discord.Message):
         args = msg.clean_content.split(maxsplit=1)
         gid = str(msg.guild.id)
@@ -168,8 +169,7 @@ class Voting(BasePlugin):
             results = []
             for k, c in candidates:
                 if c.author != msg.author.id and \
-                        msg.author.id not in self.config_manager.config.get("bot_maintainers", []) and \
-                        not msg.channel.permissions_for(msg.author).manage_messages:
+                        self._endvote.perms.check_optional_permissions("end_others", msg.author, msg.channel):
                     continue
                 max_votes = sorted(c.vote_count.items(), key=lambda x: x[1]).pop()[1]
                 winners = '\n'.join(c.options[k] for k, v in c.vote_count.items() if v == max_votes)

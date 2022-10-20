@@ -257,7 +257,8 @@ class Roleplay(BasePlugin):
                  "Be aware that the total length of the bio must not exceed 6000 characters.",
              syntax="(name) [-s/--set (field) [value]] [-c/--create] [-d/--dump] [-r/--rename (new name)] [--delete]",
              category="role_play",
-             run_anywhere=True)
+             run_anywhere=True,
+             optional_perms={"edit_others": {"manage_messages"}})
     async def _bio(self, msg: discord.Message):
         gid = str(msg.guild.id)
 
@@ -298,8 +299,7 @@ class Roleplay(BasePlugin):
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: Created character {args['name']}.**")
 
             if not (self.bios[gid][char].author == msg.author.id or args['dump'] or
-                    msg.channel.permissions_for(msg.author).manage_messages or
-                    self.config_manager.is_maintainer(msg.author)):
+                    self._bio.perms.check_optional_permissions("edit_others", msg.author, msg.channel)):
                 raise UserPermissionError("Character belongs to another user.")
 
             # setting one field of the bio to a given value
