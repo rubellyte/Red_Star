@@ -64,8 +64,8 @@ class ConfigManager:
         # Function to reorganize from plugin-first heirarchy to server-first heirarchy. Plugins that use their own
         # config files will have to manage this themselves.
         self.logger.warning("Porting configuration to newer format. Backup will be created.")
-        backup_path = self.config_file_path.stem + "_old_v1" + self.config_file_path.suffix
-        shutil.copyfile(str(self.config_file_path), backup_path)
+        backup_path = self.config_file_path.with_stem(self.config_file_path.stem + "_old_v1")
+        shutil.copyfile(str(self.config_file_path), str(backup_path))
         new_config = {
             "global": {
                 "__config_version": 2,
