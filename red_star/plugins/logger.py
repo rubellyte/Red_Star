@@ -50,7 +50,7 @@ class DiscordLogger(BasePlugin):
                 self.log_message_queue.clear()
                 return
             log_message = "\n".join(self.log_message_queue)
-            for msg in split_message(logs):
+            for msg in split_message(log_message):
                 if msg and not msg.isspace():
                     await log_channel.send(discord.utils.escape_mentions(msg))
             self.log_message_queue.clear()

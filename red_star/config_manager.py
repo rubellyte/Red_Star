@@ -98,14 +98,20 @@ class ConfigManager:
     def get_global_config(self, plugin: str, default_config=None):
         if default_config is None:
             default_config = {}
-        return ConfigDict(self.config["global"].setdefault(plugin, default_config), default_config)
+        default_config |= self.config["global"].setdefault(plugin, {})
+        global_config = ConfigDict(self.config["global"].setdefault(plugin, default_config), default_config)
+        self.config["global"][plugin] = global_config
+        return global_config
 
     def get_server_config(self, guild: discord.Guild, plugin: str, default_config=None):
         if default_config is None:
             default_config = {}
-        default_config = self.config["default"].setdefault(plugin, default_config)
-        return ConfigDict(self.config.setdefault(str(guild.id), {}).setdefault(plugin, default_config),
+        default_config |= self.config["default"].setdefault(plugin, default_config)
+        server_config = ConfigDict(self.config.setdefault(str(guild.id), {}).setdefault(plugin, default_config),
                           default_config)
+        self.config[str(guild.id)][plugin] = server_config
+        self.config["default"][plugin] = default_config
+        return server_config
 
     def get_plugin_config_file(self, filename: str, json_save_args: dict = None,
                                json_load_args: dict = None) -> JsonFileDict:

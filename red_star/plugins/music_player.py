@@ -1,4 +1,3 @@
-import datetime
 import discord
 import discord.utils
 import enum
@@ -174,7 +173,7 @@ class MusicPlayer(BasePlugin):
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
         if self.player.current_song:
-            await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.print_now_playing()}```")
+            await respond(msg, f"**ANALYSIS: Now playing:**\n```{self.player.print_now_playing()}```")
         if self.player.queue:
             queue_duration = pretty_duration(self.player.queue_duration)
             for split_msg in split_message(f"**ANALYSIS: Current queue: ({queue_duration})**"
@@ -308,7 +307,7 @@ class MusicPlayer(BasePlugin):
             self.player.already_played.clear()
         else:
             raise CommandSyntaxError(f"Argument {arg} is not a valid mode")
-        await respond(msg, f"**AFFIRMATIVE. Song mode changed to {player.song_mode}.**")
+        await respond(msg, f"**AFFIRMATIVE. Song mode changed to {self.player.song_mode}.**")
 
     @Command("Shuffle",
              doc="Enables or disables shuffling of song order.",

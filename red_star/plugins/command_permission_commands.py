@@ -330,7 +330,7 @@ class CommandPermissionCommands(BasePlugin):
         else:
             optionals_printable = ""
 
-        response = f"```Permissions for command {command_to_edit.name}:\n" \
+        response = f"```Permissions for command {command_to_read.name}:\n" \
                    f"{permissions_all_printable}{permissions_any_printable}{users_printable}{roles_printable}" \
                    f"{optionals_printable}```"
 
