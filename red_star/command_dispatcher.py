@@ -339,6 +339,5 @@ class CommandPermissions:
             member_permissions_set |= {x for x, y in member.guild.voice_client.channel.permissions_for(member) if y}
 
         if member_permissions_set > self.optional_permissions[optional_permission_set]:
-            print("optional check passed")
             return True
         return False
