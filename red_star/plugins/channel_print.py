@@ -152,7 +152,7 @@ class ChannelPrint(BasePlugin):
                         _file = discord.File(_file, filename="wallfile" + ext)
                     except (URLError, TypeError, ValueError) as e:
                         self.logger.info(f"Attachment file error in {msg.guild}:\n{e}")
-                        await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                        await self.plugin_manager.hook_event("on_log_event",
                                                              f"**WARNING: Error occured during printout:**\n{e}",
                                                              log_type="print_event")
                         _file = None  # Just fail silently if the request doesn't work out

@@ -78,7 +78,7 @@ class CustomCommands(BasePlugin):
                         pass
                     return
                 elif self.channel_manager.channel_in_category("no_cc", msg.channel):
-                    await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                    await self.plugin_manager.hook_event("on_log_event",
                                                          f"**WARNING: Attempted CC use in restricted channel"
                                                          f" {msg.channel.mention} by: {msg.author.display_name}**",
                                                          log_type="cc_event")
@@ -96,7 +96,7 @@ class CustomCommands(BasePlugin):
                             if self.channel_manager.channel_in_category(t_cat, msg.channel):
                                 break
                         else:
-                            await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                            await self.plugin_manager.hook_event("on_log_event",
                                                                  f"**WARNING: Attempted CC use outside of it's "
                                                                  f"categories in {msg.channel.mention} by: "
                                                                  f"{msg.author}.**",
