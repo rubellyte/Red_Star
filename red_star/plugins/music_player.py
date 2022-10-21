@@ -1,10 +1,13 @@
 import datetime
 import discord
+import discord.utils
 import enum
 import logging
 import re
 import shlex
 import asyncio
+from datetime import timedelta
+from discord.ext import tasks
 from math import floor, ceil
 from functools import partial
 from os import remove as remove_file
@@ -16,6 +19,10 @@ from red_star.command_dispatcher import Command
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError, CommandSyntaxError
 from red_star.rs_utils import respond, split_message, find_user, is_positive
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Optional
 
 
 class MusicPlayer(BasePlugin):
@@ -32,7 +39,8 @@ class MusicPlayer(BasePlugin):
     }
     default_global_config = {
         "save_audio": True,
-        "video_cache_clear_age": 259200,
+        "video_cache_clear_age": 60 * 60 * 24 * 3,
+        "cache_clear_interval": 60 * 60,
         "default_volume": 15,
         "youtube_dl_config": {
             "quiet": True,
@@ -49,20 +57,41 @@ class MusicPlayer(BasePlugin):
         },
     }
 
+    cache_reaper = None
+
     async def activate(self):
         self.storage = self.config_manager.get_plugin_config_file("music_player.json")
 
-        self.players: dict[int, GuildPlayer] = dict()
+        self.player: Optional[GuildPlayer] = None
 
         self.ydl_options = self.global_plugin_config["youtube_dl_config"].copy()
-        self.ydl_options["logger"] = logging.getLogger("red_star.plugin.music_player.youtube-dl")
+        self.ydl_options["logger"] = self.logger.getChild("youtube-dl")
         self.ydl_options["extract_flat"] = "in_playlist"
         self.ydl_options["outtmpl"] = str(self.client.storage_dir / "music_cache" /
                                           self.ydl_options.get("outtmpl", "%(id)s-%(extractor)s.%(ext)s"))
 
+        if not self.cache_reaper:
+            self.cache_reaper = self.reap_cache
+            self.cache_reaper.change_interval(seconds=self.global_plugin_config["cache_clear_interval"])
+            self.cache_reaper.start()
+
     async def deactivate(self):
-        for player in self.players.values():
-            await player.voice_client.disconnect()
+        if self.player:
+            self.player.stop()
+            await self.player.voice_client.disconnect()
+
+    async def on_voice_state_update(self, *_):
+        # We don't care about the contents of the update, just that it happened. Check if the contents of our voice
+        # channel have changed.
+        if self.player:
+            if len(self.player.voice_client.channel.members) <= 1:  # The bot is now alone.
+                disconnect_time = (discord.utils.utcnow() + timedelta(
+                        seconds=self.config["idle_disconnect_time"])).time()
+                # If an interval is provided instead of an explicit time, the function will run immediately.
+                self.player.idle_disconnect.change_interval(time=disconnect_time)
+                self.player.idle_disconnect.start()
+            elif self.player.idle_disconnect.is_running():  # The bot isn't alone - cancel the disconnect task.
+                self.player.idle_disconnect.cancel()
 
     # Command functions
 
@@ -75,23 +104,21 @@ class MusicPlayer(BasePlugin):
         except AttributeError:
             raise UserPermissionError("**ANALYSIS: User is not connected to voice channel.**")
         try:
-            if msg.guild.id in self.players:
-                player = self.players[msg.guild.id]
-                await player.voice_client.move_to(voice_channel)
+            if self.player:
+                await self.player.voice_client.move_to(voice_channel)
             else:
-                player = await self.create_player(voice_channel, msg.channel)
+                self.player = await self.create_player(voice_channel, msg.channel)
         except asyncio.TimeoutError:
             raise CommandSyntaxError("Bot failed to join channel. Make sure bot can access the channel.")
         await respond(msg, f"**AFFIRMATIVE. Connected to channel {voice_channel.name}.**")
-        return player
+        return self.player
 
     @Command("LeaveVoice", "LeaveVC",
              doc="Tells the bot to leave the voice channel it's currently in.",
              category="music_player",
              optional_perms={"force_leave": {"mute_members"}})
     async def _leave_voice(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player:
+        if not self.player:
             try:
                 msg.guild.voice_client.stop()
                 await msg.guild.voice_client.disconnect(force=True)
@@ -100,15 +127,14 @@ class MusicPlayer(BasePlugin):
             except AttributeError:
                 await respond(msg, "**ANALYSIS: Bot is not currently in voice channel.**")
                 return
-        if player.is_playing \
-                and not self._leave_voice.perms.check_optional_permissions("force_leave", msg.author, msg.channel) \
-                and not self.config_manager.is_maintainer(msg.author):
+        if self.player.is_playing \
+                and not self._leave_voice.perms.check_optional_permissions("force_leave", msg.author, msg.channel):
             raise UserPermissionError
-        player.queue.clear()
-        player.already_played.clear()
-        player.stop()
-        await player.voice_client.disconnect()
-        del self.players[msg.guild.id]
+        self.player.queue.clear()
+        self.player.already_played.clear()
+        self.player.stop()
+        await self.player.voice_client.disconnect()
+        self.player = None
         await respond(msg, "**ANALYSIS: Disconnected from voice channel.**")
 
     @Command("PlaySong", "Play",
@@ -121,53 +147,48 @@ class MusicPlayer(BasePlugin):
              syntax="(url) [url_2] [url_3]...",
              category="music_player")
     async def _play_song(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player:
-            player = await self._join_voice(msg)
-        self.check_user_permission(msg.author, player)
+        if not self.player:
+            self.player = await self._join_voice(msg)
+        self.check_user_permission(msg.author, self.player)
         try:
             urls = shlex.split(msg.clean_content)[1:]
-            print(urls)
             # Is it supposed to be a search query, or a bunch of URLs?
             if len(urls) > 1:
                 url_validator = re.compile(r"https?://(www\.)?[-a-zA-Z\d@:%._+~#=]{1,256}\.[a-zA-Z\d()]{1,6}"
                                            r"\b([-a-zA-Z\d()@:%_+.~#?&/=]*)")
-                print("validating")
                 if any((not url_validator.fullmatch(url) and " " not in url) for url in urls):
                     # If it's just a plain search query (no URLs, no quoted spaces), join it back together for QoL
                     urls = [" ".join(urls)]
         except ValueError as e:
             raise CommandSyntaxError(e)
-        print(urls)
-        await player.prepare_playlist(urls)
+        await self.player.prepare_playlist(urls)
 
     @Command("SongQueue", "Queue",
              doc="Tells the bot to list the current song queue.",
              category="music_player")
     async def _list_queue(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player:
+        if not self.player:
             await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
             return
-        elif player.queue and not player.current_song:
+        elif self.player.queue and not self.player.current_song:
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
-        if player.current_song:
+        if self.player.current_song:
             await respond(msg, f"**ANALYSIS: Now playing:**\n```{player.print_now_playing()}```")
-        if player.queue:
-            queue_duration = pretty_duration(player.queue_duration)
-            for split_msg in split_message(f"**ANALYSIS: Current queue: ({queue_duration})**{player.print_queue()}"):
+        if self.player.queue:
+            queue_duration = pretty_duration(self.player.queue_duration)
+            for split_msg in split_message(f"**ANALYSIS: Current queue: ({queue_duration})**"
+                                           f"{self.player.print_queue()}"):
                 await respond(msg, split_msg)
 
     @Command("NowPlaying", "SongInfo",
              doc="Displays detailed information about the currently playing song.",
              category="music_player")
     async def _song_info(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player or not player.current_song:
+        if not self.player or not self.player.current_song:
             await respond(msg, "**ANALYSIS: There is no song currently playing.**")
             return
-        vid = player.current_song
+        vid = self.player.current_song
         desc = vid.get("description", "*No description.*")
         if len(desc) > 2048:
             desc = desc[:2045] + "..."
@@ -178,7 +199,7 @@ class MusicPlayer(BasePlugin):
             embed.set_author(name=vid["uploader"])
         if vid.get("tags") is not None:
             embed.set_footer(text=f"Tags: {', '.join(vid['tags'])}")
-        play_time, duration, _ = player.progress
+        play_time, duration, _ = self.player.progress
         rating_field = f"Views: {vid.get('view_count', 'Unknown'):,}."
         if vid.get("like_count") is not None:
             rating_field += f" {vid['like_count']:,}👍"
@@ -195,11 +216,10 @@ class MusicPlayer(BasePlugin):
              perms="mute_members",
              category="music_player")
     async def _delete_song(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player:
+        if not self.player:
             await respond(msg, "**ANALYSIS: Bot is not in a voice channel.**")
             return
-        elif not player.queue:
+        elif not self.player.queue:
             await respond(msg, "**ANALYSIS: The queue is empty.**")
             return
         try:
@@ -214,20 +234,20 @@ class MusicPlayer(BasePlugin):
             raise CommandSyntaxError("Provided integer must be positive")
         index -= 1
         try:
-            del_song = player.queue.pop(index)
-            if index in player.already_played:
-                player.already_played.remove(index)
+            del_song = self.player.queue.pop(index)
+            if index in self.player.already_played:
+                self.player.already_played.remove(index)
             new_already_played = set()
-            for i in player.already_played:
+            for i in self.player.already_played:
                 if i > index:
                     i -= 1
                 new_already_played.add(i)
-            player.already_played = new_already_played
+            self.player.already_played = new_already_played
         except IndexError:
             raise CommandSyntaxError("Integer provided is not a valid index")
         await respond(msg, f"**AFFIRMATIVE. Deleted song at position {index + 1} ({del_song['title']}).**")
-        if self.config["print_queue_on_edit"] and player.queue:
-            for split_msg in split_message(f"**ANALYSIS: Current queue:**{player.print_queue()}"):
+        if self.config["print_queue_on_edit"] and self.player.queue:
+            for split_msg in split_message(f"**ANALYSIS: Current queue:**{self.player.print_queue()}"):
                 await respond(msg, split_msg)
 
     @Command("SongVolume", "Volume",
@@ -236,8 +256,7 @@ class MusicPlayer(BasePlugin):
              syntax="[-t/--temporary] (0-100)",
              category="music_player")
     async def _set_volume(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        self.check_user_permission(msg.author, player)
+        self.check_user_permission(msg.author, self.player)
         new_volume = 0
         try:
             temp_flag = False
@@ -255,13 +274,13 @@ class MusicPlayer(BasePlugin):
             elif not 0 < new_volume <= 100:
                 raise CommandSyntaxError("Expected value between 0 and 100")
         except IndexError:
-            await respond(msg, f"**ANALYSIS: Current volume is {int(player.volume * 100)}%.**")
+            await respond(msg, f"**ANALYSIS: Current volume is {int(self.player.volume * 100)}%.**")
             return
         except ValueError:
             raise CommandSyntaxError(f"Value {new_volume} is not a valid integer")
         if temp_flag:
-            player.prev_volume = player.volume
-        player.volume = new_volume / 100
+            self.player.prev_volume = self.player.volume
+        self.player.volume = new_volume / 100
         await respond(msg, f"**AFFIRMATIVE. Set volume to {new_volume}%.**")
 
     @Command("SongMode",
@@ -270,24 +289,23 @@ class MusicPlayer(BasePlugin):
              syntax="[n/normal|rs/repeat_song|rq/repeat_queue|s/shuffle|sr/shuffle_repeat]",
              category="music_player")
     async def _song_mode(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        self.check_user_permission(msg.author, player)
+        self.check_user_permission(msg.author, self.player)
         try:
             arg = msg.clean_content.split(None, 1)[1].lower()
         except IndexError:
-            await respond(msg, f"**ANALYSIS: Current song mode is {player.song_mode}.**")
+            await respond(msg, f"**ANALYSIS: Current song mode is {self.player.song_mode}.**")
             return
         if arg in ("n", "normal", "reset"):
-            player.song_mode = SongMode.NORMAL
+            self.player.song_mode = SongMode.NORMAL
         elif arg in ("rs", "repeat_song", "loop"):
-            player.song_mode = SongMode.REPEAT_SONG
+            self.player.song_mode = SongMode.REPEAT_SONG
         elif arg in ("rq", "repeat", "repeat_queue", "cycle"):
-            player.song_mode = SongMode.REPEAT_QUEUE
+            self.player.song_mode = SongMode.REPEAT_QUEUE
         elif arg in ("s", "shuffle", "random"):
-            player.song_mode = SongMode.SHUFFLE
+            self.player.song_mode = SongMode.SHUFFLE
         elif arg in ("sr", "shuffle_repeat", "random_repeat"):
-            player.song_mode = SongMode.SHUFFLE_REPEAT
-            player.already_played.clear()
+            self.player.song_mode = SongMode.SHUFFLE_REPEAT
+            self.player.already_played.clear()
         else:
             raise CommandSyntaxError(f"Argument {arg} is not a valid mode")
         await respond(msg, f"**AFFIRMATIVE. Song mode changed to {player.song_mode}.**")
@@ -297,9 +315,8 @@ class MusicPlayer(BasePlugin):
              syntax="[true/yes/on/false/no/off",
              category="music_player")
     async def _shuffle_toggle(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        self.check_user_permission(msg.author, player)
-        shuffle_on = player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT)
+        self.check_user_permission(msg.author, self.player)
+        shuffle_on = self.player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT)
         try:
             arg = is_positive(msg.clean_content.split(None, 1)[1])
         except IndexError:
@@ -309,22 +326,22 @@ class MusicPlayer(BasePlugin):
             if shuffle_on:
                 await respond(msg, f"**ANALYSIS: Shuffle is already enabled.**")
             else:
-                if player.song_mode is SongMode.NORMAL:
-                    player.song_mode = SongMode.SHUFFLE
+                if self.player.song_mode is SongMode.NORMAL:
+                    self.player.song_mode = SongMode.SHUFFLE
                     await respond(msg, f"**AFFIRMATIVE. Shuffle enabled.**")
-                elif player.song_mode is SongMode.REPEAT_QUEUE:
-                    player.song_mode = SongMode.SHUFFLE_REPEAT
+                elif self.player.song_mode is SongMode.REPEAT_QUEUE:
+                    self.player.song_mode = SongMode.SHUFFLE_REPEAT
                     await respond(msg, f"**AFFIRMATIVE. Shuffle enabled with repeat.**")
-                elif player.song_mode is SongMode.REPEAT_SONG:
+                elif self.player.song_mode is SongMode.REPEAT_SONG:
                     await respond(msg, "**NEGATIVE. Shuffle cannot be enabled at the same time as song repeat.**")
         else:
             if shuffle_on:
-                if player.song_mode is SongMode.SHUFFLE:
-                    player.song_mode = SongMode.NORMAL
+                if self.player.song_mode is SongMode.SHUFFLE:
+                    self.player.song_mode = SongMode.NORMAL
                     await respond(msg, f"**AFFIRMATIVE. Shuffle disabled.**")
-                elif player.song_mode is SongMode.SHUFFLE_REPEAT:
-                    player.already_played.clear()
-                    player.song_mode = SongMode.REPEAT_QUEUE
+                elif self.player.song_mode is SongMode.SHUFFLE_REPEAT:
+                    self.player.already_played.clear()
+                    self.player.song_mode = SongMode.REPEAT_QUEUE
                     await respond(msg, f"**AFFIRMATIVE. Shuffle disabled. Queue repeat still enabled.**")
             else:
                 await respond(msg, "**ANALYSIS: Shuffle is not enabled.**")
@@ -334,8 +351,7 @@ class MusicPlayer(BasePlugin):
              syntax="[song/one/queue/all/false/no/off]",
              category="music_player")
     async def _repeat_mode(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        self.check_user_permission(msg.author, player)
+        self.check_user_permission(msg.author, self.player)
         try:
             arg = msg.clean_content.split(None, 1)[1].lower()
             if arg not in ("song", "one", "queue", "all"):
@@ -343,42 +359,42 @@ class MusicPlayer(BasePlugin):
                 if arg:
                     raise CommandSyntaxError
         except IndexError:
-            if player.song_mode is SongMode.REPEAT_SONG:
+            if self.player.song_mode is SongMode.REPEAT_SONG:
                 repeat_mode = "set to repeat current song"
-            elif player.song_mode is SongMode.REPEAT_QUEUE:
+            elif self.player.song_mode is SongMode.REPEAT_QUEUE:
                 repeat_mode = "set to repeat the queue"
-            elif player.song_mode is SongMode.SHUFFLE_REPEAT:
+            elif self.player.song_mode is SongMode.SHUFFLE_REPEAT:
                 repeat_mode = "set to repeat the queue. Shuffle is also enabled"
             else:
                 repeat_mode = "disabled"
             await respond(msg, f"**ANALYSIS: Repeat is currently {repeat_mode}.**")
             return
         if arg in ("song", "one"):
-            if player.song_mode is SongMode.REPEAT_SONG:
+            if self.player.song_mode is SongMode.REPEAT_SONG:
                 await respond(msg, "**ANALYSIS: Song repeat is already enabled.**")
-            elif player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT):
+            elif self.player.song_mode in (SongMode.SHUFFLE, SongMode.SHUFFLE_REPEAT):
                 await respond(msg, "**NEGATIVE. Song repeat cannot be enabled at the same time as shuffle.**")
             else:
-                player.song_mode = SongMode.REPEAT_SONG
+                self.player.song_mode = SongMode.REPEAT_SONG
                 await respond(msg, "**AFFIRMATIVE. Repeat mode set to song.**")
         elif arg in ("queue", "all"):
-            if player.song_mode in (SongMode.REPEAT_QUEUE, SongMode.SHUFFLE_REPEAT):
+            if self.player.song_mode in (SongMode.REPEAT_QUEUE, SongMode.SHUFFLE_REPEAT):
                 await respond(msg, "**ANALYSIS: Queue repeat is already enabled.**")
-            elif player.song_mode is SongMode.SHUFFLE:
-                player.song_mode = SongMode.SHUFFLE_REPEAT
+            elif self.player.song_mode is SongMode.SHUFFLE:
+                self.player.song_mode = SongMode.SHUFFLE_REPEAT
                 await respond(msg, "**AFFIRMATIVE. Repeat mode set to queue with shuffle.**")
             else:
-                player.song_mode = SongMode.REPEAT_QUEUE
+                self.player.song_mode = SongMode.REPEAT_QUEUE
                 await respond(msg, "**AFFIRMATIVE. Repeat mode set to queue.**")
         else:
-            if player.song_mode in (SongMode.NORMAL, SongMode.SHUFFLE):
+            if self.player.song_mode in (SongMode.NORMAL, SongMode.SHUFFLE):
                 await respond(msg, "**ANALYSIS: Repeat mode is disabled.**")
-            elif player.song_mode is SongMode.SHUFFLE_REPEAT:
-                player.already_played.clear()
-                player.song_mode = SongMode.SHUFFLE
+            elif self.player.song_mode is SongMode.SHUFFLE_REPEAT:
+                self.player.already_played.clear()
+                self.player.song_mode = SongMode.SHUFFLE
                 await respond(msg, "**AFFIRMATIVE. Repeat mode disabled. Shuffle still enabled.**")
             else:
-                player.song_mode = SongMode.NORMAL
+                self.player.song_mode = SongMode.NORMAL
                 await respond(msg, "**AFFIRMATIVE. Repeat mode disabled.**")
 
     @Command("SkipSong", "Skip",
@@ -386,27 +402,25 @@ class MusicPlayer(BasePlugin):
              category="music_player",
              optional_perms={"force_skip": {"mute_members"}})
     async def _skip_song(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        self.check_user_permission(msg.author, player)
-        if not player or not player.is_playing:
+        self.check_user_permission(msg.author, self.player)
+        if not self.player or not self.player.is_playing:
             await respond(msg, "**ANALYSIS: No music currently playing.**")
             return
         elif self._skip_song.perms.check_optional_permissions("force_skip", msg.author, msg.channel):
             await respond(msg, "**ANALYSIS: Skipping to next song in queue...**")
-            player.stop()
+            self.player.stop()
         else:
-            await player.skip_vote(msg.author.id)
+            await self.player.skip_vote(msg.author.id)
 
     @Command("PauseSong", "Pause", "ResumeSong", "Resume",
              doc="Tells the bot to pause or resume the current song.",
              perms="mute_members",
              category="music_player")
     async def _pause_song(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player or player.is_playing is False:
+        if not self.player or self.player.is_playing is False:
             await respond(msg, "**WARNING: No music currently playing.**")
             return
-        if player.toggle_pause():
+        if self.player.toggle_pause():
             await respond(msg, "**ANALYSIS: Song paused.**")
         else:
             await respond(msg, "**ANALYSIS: Song resumed.**")
@@ -416,13 +430,12 @@ class MusicPlayer(BasePlugin):
              perms="mute_members",
              category="music_player")
     async def _stop_music(self, msg: discord.Message):
-        player = self.get_guild_player(msg)
-        if not player or not player.is_playing:
+        if not self.player or not self.player.is_playing:
             await respond(msg, "**ANALYSIS: No music currently playing.")
             return
-        player.queue.clear()
-        player.already_played.clear()
-        player.stop()
+        self.player.queue.clear()
+        self.player.already_played.clear()
+        self.player.stop()
         await respond(msg, "**ANALYSIS: The music has been stopped and the queue has been cleared.**")
 
     @Command("MusicBan",
@@ -492,8 +505,8 @@ class MusicPlayer(BasePlugin):
 
     # Utility functions
 
-    async def on_global_tick(self, _, dt: datetime.datetime):
-        # Cache reaper
+    @tasks.loop(hours=1)
+    async def reap_cache(self):
         save_required = False
         for file, dl_time in self.storage["downloaded_songs"].copy().items():
             if time() - dl_time > self.global_plugin_config["video_cache_clear_age"]:
@@ -506,15 +519,12 @@ class MusicPlayer(BasePlugin):
                     continue
         if save_required:
             self.storage.save()
-        # Auto-disconnect
-        for player in tuple(self.players.values()):
-            await player.idle_check(dt)
 
     async def create_player(self, voice_channel: discord.VoiceChannel, text_channel: discord.TextChannel):
         async with text_channel.typing():
             voice_client = await voice_channel.connect()
             player = GuildPlayer(self, voice_client, text_channel)
-            self.players[voice_channel.guild.id] = player
+            self.players = player
         return player
 
     def check_user_permission(self, user: discord.Member, player: "GuildPlayer"):
@@ -527,28 +537,23 @@ class MusicPlayer(BasePlugin):
             raise UserPermissionError("The bot is not currently in a voice channel.")
         return True
 
-    def get_guild_player(self, msg: discord.Message):
-        return self.players.get(msg.guild.id, None)
-
 
 class GuildPlayer:
     def __init__(self, parent: MusicPlayer, voice_client: discord.VoiceClient, channel: discord.TextChannel):
         self.parent = parent
         self.text_channel = channel
         self.voice_client = voice_client
-        self.logger = logging.getLogger(f"red_star.plugin.music_player.player_{self.voice_client.guild.id}")
+        self.logger = logging.getLogger(f"red_star.plugin.music_player.{self.voice_client.guild.id}.player")
         self.queue = []
         self.already_played = set()
         self.is_playing = False
         self.current_song = {}
         self.song_mode = SongMode.NORMAL
         self.prev_volume = None
-        self._volume = self.parent.config["default_volume"] / 100
+        self._volume = self.parent.global_plugin_config["default_volume"] / 100
         self._song_start_time = None
         self._song_pause_time = None
         self._skip_votes = set()
-        self.gid = str(voice_client.guild.id)
-        self._alone_time = 0
 
     async def prepare_playlist(self, urls: [str]):
         async with self.text_channel.typing():
@@ -830,16 +835,11 @@ class GuildPlayer:
             title = title[:54] + "..."
         return f"[{title:-<57}][{dur_str}]\n[{progbar}]"
 
-    async def idle_check(self, dt: datetime.datetime):
-        alone = len(self.voice_client.channel.members) <= 1
-        if not alone:
-            self._alone_time = 0
-            return
-        self._alone_time += dt
-        if self._alone_time > self.parent.config["idle_disconnect_time"]:
-            self.stop()
-            await self.voice_client.disconnect()
-            del self.parent.players[int(self.gid)]
+    @tasks.loop(minutes=5, count=1)
+    async def idle_disconnect(self):
+        self.stop()
+        await self.voice_client.disconnect()
+        self.parent.player = None
 
 
 def seconds_to_minutes(secs: float, hours: bool = False) -> tuple[int, int] | tuple[int, int, int]:
