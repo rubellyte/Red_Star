@@ -61,7 +61,7 @@ class ConfigManager:
             self._port_config_to_v2()
 
     def _port_config_to_v2(self):
-        # Function to reorganize from plugin-first heirarchy to server-first heirarchy. Plugins that use their own
+        # Function to reorganize from plugin-first hierarchy to server-first hierarchy. Plugins that use their own
         # config files will have to manage this themselves.
         self.logger.warning("Porting configuration to newer format. Backup will be created.")
         backup_path = self.config_file_path.with_stem(self.config_file_path.stem + "_old_v1")
@@ -81,7 +81,7 @@ class ConfigManager:
                 elif k == "default":
                     new_config["default"][plugin] = v
                 else:
-                    new_config["global"][plugin] = {k: v}
+                    new_config["global"].setdefault(plugin, {})[k] = v
         self.config = new_config
         self.save_config()
 
