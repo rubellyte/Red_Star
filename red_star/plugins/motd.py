@@ -2,6 +2,7 @@ from __future__ import annotations
 import datetime
 import json
 import discord.utils
+from discord.ext import tasks
 from random import choice
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError, DataCarrier
@@ -25,9 +26,6 @@ class MOTD(BasePlugin):
     }
     channel_types = {"motd"}
 
-    motds: dict
-    last_run: int
-
     valid_months = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
     valid_weekdays = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
     valid_days = {str(i) for i in range(1, 32)}
@@ -38,35 +36,25 @@ class MOTD(BasePlugin):
         self.motds = {}
         self.motds_folder = self.client.storage_dir / "motds"
         self.motds_folder.mkdir(parents=True, exist_ok=True)
-        self.last_run = discord.utils.utcnow().day
-        for guild in self.client.guilds:
-            motd_file = self.config["motd_file"]
-            if motd_file not in self.motds:
-                try:
-                    file_path = self.motds_folder / motd_file
-                    with file_path.open() as fp:
-                        self.motds[motd_file] = json.load(fp)
-                except FileNotFoundError:
-                    self.logger.error(f"MotD file {motd_file} for guild {guild.name} not found! Skipping...")
-                    continue
-                except json.decoder.JSONDecodeError:
-                    self.logger.error(f"MotD file {motd_file} for guild {guild.name} couldn't be decoded! Skipping...")
-                    continue
+        try:
+            file_path = self.motds_folder / self.config["motd_file"]
+            with file_path.open() as fp:
+                self.motds = json.load(fp)
+        except FileNotFoundError:
+            self.logger.error(f"MotD file {self.config['motd_file']} not found! MotDs will not be printed.")
+        except json.decoder.JSONDecodeError:
+            self.logger.error(f"MotD file {self.config['motd_file']} couldn't be decoded! MotDs will not be printed.")
+        else:
+            self._display_motd.start()
 
-    async def on_global_tick(self, time: datetime.datetime, _):
-        if time.day != self.last_run:
-            self.last_run = time.day
-            await self._display_motd(time.date())
-
+    @tasks.loop(time=discord.utils.utcnow().replace(hour=0, minute=0, second=0).timetz())
     async def _display_motd(self, date: datetime.date):
         try:
             chan = self.channel_manager.get_channel("motd")
-            motd_path = self.config["motd_file"]
-            motds = self.motds[motd_path]
         except ChannelNotFoundError:
             return
         try:
-            lines = self._get_motds(motds, date)
+            lines = self._get_motds(self.motds, date)
         except DataCarrier as dc:
             lines = dc.data
         try:
@@ -111,15 +99,13 @@ class MOTD(BasePlugin):
                 path, new_motd = new_motd.split(None, 1)
         except ValueError:
             raise CommandSyntaxError("Not enough arguments.")
-        motd_file = self.config["motd_file"]
-        motds = self.motds[motd_file]
-        motd_file = self.motds_folder / motd_file
+        motd_file = self.motds_folder / self.config["motd_file"]
 
         path = [x for x in path.lower().split("/") if x]
         if not all(x in self.valid_dates for x in path):
             invalid = ", ".join(x for x in path if x not in self.valid_dates)
             raise CommandSyntaxError(f"The following path identifiers are invalid: `{invalid}`")
-        motd_path = motds
+        motd_path = self.motds
         for k in path:
             motd_path = motd_path.setdefault(k, {})
         motd_path.setdefault("options", []).append(new_motd)
@@ -127,7 +113,7 @@ class MOTD(BasePlugin):
             motd_path["holiday"] = True
 
         with motd_file.open("w", encoding="utf8") as fd:
-            json.dump(motds, fd, indent=2, ensure_ascii=False)
+            json.dump(self.motds, fd, indent=2, ensure_ascii=False)
         await respond(msg, f"**ANALYSIS: MotD for {'/'.join(path)} added successfully"
                            f"{' and set as holiday' if holiday else ''}.**")
 
@@ -138,7 +124,7 @@ class MOTD(BasePlugin):
              syntax="[-d/--day number] [-wd/--weekday weekday] [-mw/--monthweek week-x] [-m/--month month]"
                     "OR [-dt/--dt ISO-format date]")
     async def _testmotd(self, msg: discord.Message):
-        today = datetime.datetime.now()
+        today = discord.utils.utcnow()
         parser = RSArgumentParser()
         parser.add_argument("-d",  "--day", default=str(today.day))
         parser.add_argument("-wd", "--weekday", default=today.strftime("%a").lower())
@@ -146,18 +132,16 @@ class MOTD(BasePlugin):
         parser.add_argument("-m",  "--month", default=today.strftime("%b").lower())
         parser.add_argument("-dt", "--date", default=None, type=datetime.datetime.fromisoformat)
         args = parser.parse_args(msg.clean_content.split()[1:])
-        motd_path = self.config["motd_file"]
-        motds = self.motds[motd_path]
         try:
             if args.date:
-                lines = self._get_motds(motds, args.date)
+                lines = self._get_motds(self.motds, args.date)
             else:
                 if args.month not in self.valid_months \
                         or args.day not in self.valid_days \
                         or args.weekday not in self.valid_weekdays \
                         or args.monthweek not in self.valid_monthweeks:
                     raise CommandSyntaxError("One of the arguments is not valid.")
-                lines = self._get_motds(motds, None, valid={args.month, args.day, args.weekday, args.monthweek})
+                lines = self._get_motds(self.motds, None, valid={args.month, args.day, args.weekday, args.monthweek})
         except DataCarrier as dc:
             lines = dc.data
         lines = "\n".join(lines)
