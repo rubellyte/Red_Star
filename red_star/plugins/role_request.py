@@ -17,7 +17,7 @@ class RoleRequest(BasePlugin):
     }
 
     async def activate(self):
-        self.reacts = self.config_manager.get_plugin_config_file("role_request_reaction_messages.json")
+        self.reacts = self.config_manager.get_plugin_config_file("role_request_reaction_messages.json", self.guild)
 
     async def on_member_join(self, member: discord.Member):
         """
@@ -175,7 +175,6 @@ class RoleRequest(BasePlugin):
                     await message.delete()
                     raise CommandSyntaxError('Do not use emoji unavailable to the bot.')
             self.reacts[str(message.id)] = parsed_found
-            self.reacts.save()
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """
@@ -226,4 +225,3 @@ class RoleRequest(BasePlugin):
         mid = str(msg.id)
         if mid in self.reacts:
             del self.reacts[mid]
-            self.reacts.save()

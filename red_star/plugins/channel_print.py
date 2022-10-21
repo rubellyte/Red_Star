@@ -85,10 +85,8 @@ class ChannelPrint(BasePlugin):
     }
     log_events = {"print_event"}
 
-    walls: JsonFileDict
-
     async def activate(self):
-        self.walls = self.config_manager.get_plugin_config_file("walls.json",
+        self.walls = self.config_manager.get_plugin_config_file("walls.json", self.guild,
                                                                 json_save_args={'indent': 2, 'ensure_ascii': False})
 
     @Command("Print", "PrintForce",
@@ -118,18 +116,14 @@ class ChannelPrint(BasePlugin):
                 self.logger.exception("Could not decode uploaded document file!", exc_info=True)
                 raise CommandSyntaxError(e)
         else:
-            if gid not in self.walls:
-                self.walls[gid] = dict()
-                return
-
             try:
                 wall = args[0]
             except IndexError:
                 raise CommandSyntaxError
 
-            if wall not in self.walls[gid]:
+            if wall not in self.walls:
                 raise CommandSyntaxError("No such document.")
-            wall = self.walls[gid][wall]
+            wall = self.walls[wall]
 
         try:
             wall = verify_document(wall)
@@ -172,14 +166,11 @@ class ChannelPrint(BasePlugin):
 
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
-            del self.walls[gid][name]
-            self.walls.save()
+            del self.walls[name]
             await respond(msg, "**AFFIRMATIVE. Document deleted.**")
         except IndexError:
             raise CommandSyntaxError("Document name required.")
         except KeyError:
-            if gid not in self.walls:
-                self.walls[gid] = dict()
             raise CommandSyntaxError("No document found.")
 
     @Command("ListPrint", "PrintList",
@@ -187,11 +178,7 @@ class ChannelPrint(BasePlugin):
              perms={"manage_messages"},
              category="channel_print")
     async def _listprint(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
-        if gid not in self.walls:
-            self.walls[gid] = dict()
-        walls = "\n".join(self.walls[gid])
+        walls = "\n".join(self.walls.keys())
         final_msg = f"**ANALYSIS: Following documents are available:**```\n{walls}```"
         for split_msg in split_message(final_msg):
             await respond(msg, split_msg)
@@ -206,14 +193,12 @@ class ChannelPrint(BasePlugin):
 
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
-            dump_data = bytes(json.dumps(self.walls[gid][name], indent=2, ensure_ascii=False), encoding="utf8")
+            dump_data = bytes(json.dumps(self.walls[name], indent=2, ensure_ascii=False), encoding="utf8")
             await respond(msg, "**AFFIRMATIVE. Uploading file.**",
                           file=discord.File(BytesIO(dump_data), filename=name+'.json'))
         except IndexError:
             raise CommandSyntaxError("Document name required.")
         except KeyError:
-            if gid not in self.walls:
-                self.walls[gid] = dict()
             raise CommandSyntaxError("No document found.")
 
     @Command("UploadPrint", "PrintUpload",
@@ -222,10 +207,6 @@ class ChannelPrint(BasePlugin):
              perms={"manage_messages"},
              category="channel_print")
     async def _uploadprint(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-        if gid not in self.walls:
-            self.walls[gid] = dict()
-
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
         except IndexError:
@@ -258,8 +239,7 @@ class ChannelPrint(BasePlugin):
         except ValueError as e:
             raise CommandSyntaxError(e)
 
-        self.walls[gid][name] = data
-        self.walls.save()
+        self.walls[name] = data
 
         await respond(msg, f"**AFFIRMATIVE. Document {name} available for printout.**")
 
@@ -268,5 +248,6 @@ class ChannelPrint(BasePlugin):
              bot_maintainers_only=True,
              category="channel_print")
     async def _printreload(self, msg: discord.Message):
-        self.walls.reload()
+        self.config_manager.plugin_config_files["walls.json"].reload()
+        self.walls = self.config_manager.get_plugin_config_file("walls.json", self.guild)
         await respond(msg, "**AFFIRMATIVE. Printout documents reloaded.**")

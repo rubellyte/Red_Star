@@ -23,10 +23,8 @@ class Levelling(BasePlugin):
     }
     channel_categories = {"no_xp"}
 
-    storage: JsonFileDict
-
     async def activate(self):
-        self.storage = self.config_manager.get_plugin_config_file("xp.json")
+        self.storage = self.config_manager.get_plugin_config_file("xp.json", self.guild)
 
     async def on_message(self, msg: discord.Message):
         if not self.channel_manager.channel_in_category("no_xp", msg.channel):
@@ -43,9 +41,6 @@ class Levelling(BasePlugin):
              syntax="[number]",
              category="levelling")
     async def _listxp(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
-        xp_dict = self.storage.setdefault(gid, dict())
         skip = self.config['skip_missing']
 
         args = msg.content.split()
@@ -63,7 +58,7 @@ class Levelling(BasePlugin):
 
         pos = 1
         xp_list = []
-        for uid in sorted(xp_dict, key=xp_dict.get, reverse=True):
+        for uid in sorted(self.storage, key=self.storage.get, reverse=True):
             user = msg.guild.get_member(int(uid))
 
             if user:
@@ -73,7 +68,7 @@ class Levelling(BasePlugin):
             else:
                 user = uid
 
-            xp_list.append(f"{pos:03d}|{user:<32}|{xp_dict[uid]:>6}")
+            xp_list.append(f"{pos:03d}|{user:<32}|{self.storage[uid]:>6}")
             pos += 1
 
             if pos > limit:
@@ -88,26 +83,22 @@ class Levelling(BasePlugin):
              syntax="[user]",
              category="levelling")
     async def _xp(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         args = msg.content.split(None, 1)
-
-        xp_dict = self.storage.setdefault(gid, dict())
 
         if len(args) > 1:
             user = find_user(msg.guild, args[1])
             if user:
-                if str(user.id) in xp_dict:
+                if str(user.id) in self.storage:
                     await respond(msg, f"**ANALYSIS: User {user.display_name} has "
-                                       f"{xp_dict[str(user.id)]} XP.**")
+                                       f"{self.storage[str(user.id)]} XP.**")
                 else:
                     await respond(msg, f"**WARNING: User {user.display_name} has no XP record.**")
             else:
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
             uid = str(msg.author.id)
-            if uid in xp_dict:
-                await respond(msg, f"**ANALYSIS: You have {xp_dict[uid]} XP.**")
+            if uid in self.storage:
+                await respond(msg, f"**ANALYSIS: You have {self.storage[uid]} XP.**")
             else:
                 await respond(msg, "**ANALYSIS: You have no XP record.**")  # I don't think this is possible
 
@@ -130,7 +121,7 @@ class Levelling(BasePlugin):
 
         display = await respond(msg, "**AFFIRMATIVE. Processing messages.**")
         async with msg.channel.typing():
-            for channel in msg.guild.text_channels:
+            for channel in self.guild.text_channels:
                 if not self.channel_manager.channel_in_category("no_xp", channel):
                     await display.edit(content=f"**AFFIRMATIVE. Processing messages in channel {channel}.**")
                     try:
@@ -139,7 +130,7 @@ class Levelling(BasePlugin):
                     except discord.Forbidden:
                         continue
 
-        self.storage.save()
+        self.config_manager.save_config()
         await display.delete()
 
     @Command("NukeXP",
@@ -148,25 +139,23 @@ class Levelling(BasePlugin):
              perms={"manage_guild"},
              category="levelling")
     async def _nukexp(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         args = msg.content.split(None, 1)
 
         if len(args) > 1:
             user = find_user(msg.guild, args[1])
-            xp_dict = self.storage.setdefault(gid, dict())
             if user:
-                if str(user.id) in xp_dict:
-                    del xp_dict[str(user.id)]
+                if str(user.id) in self.storage:
+                    del self.storage[str(user.id)]
                     await respond(msg, f"**AFFIRMATIVE. User {user.display_name} was removed from XP table.**")
                 else:
                     await respond(msg, f"**NEGATIVE. User {user.display_name} has no XP record.**")
-            elif args[1] in xp_dict:
-                del xp_dict[args[1]]
+            elif args[1] in self.storage:
+                del self.storage[args[1]]
                 await respond(msg, f"**AFFIRMATIVE. ID {args[1]} was removed from XP table.**")
             else:
                 raise CommandSyntaxError("Not a user or no user found.")
         else:
-            self.storage[gid] = {}
+            self.storage = {}
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
 
     @Command("XPConfig", "XPSettings",
@@ -208,18 +197,16 @@ class Levelling(BasePlugin):
     # Utilities
 
     def _give_xp(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         uid = str(msg.author.id)
-        if uid in self.storage.setdefault(gid, dict()):
-            self.storage[gid][uid] += self._calc_xp(msg.clean_content)
+        if uid in self.storage:
+            self.storage[uid] += self._calc_xp(msg.clean_content)
         else:
-            self.storage[gid][uid] = self._calc_xp(msg.clean_content)
+            self.storage[uid] = self._calc_xp(msg.clean_content)
 
     def _take_xp(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         uid = str(msg.author.id)
-        if uid in self.storage.setdefault(gid, dict()):
-            self.storage[gid][uid] -= self._calc_xp(msg.clean_content)
+        if uid in self.storage:
+            self.storage[uid] -= self._calc_xp(msg.clean_content)
 
     def _calc_xp(self, txt: str):
         """

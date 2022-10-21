@@ -9,6 +9,7 @@ from shutil import copyfile
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
+    from typing import Optional
 
 
 JsonValues = None | bool | str | int | float | list | dict
@@ -113,8 +114,8 @@ class ConfigManager:
         self.config["default"][plugin] = default_config
         return server_config
 
-    def get_plugin_config_file(self, filename: str, json_save_args: dict = None,
-                               json_load_args: dict = None) -> JsonFileDict:
+    def get_plugin_config_file(self, filename: str, guild: Optional[discord.Guild], json_save_args: dict = None,
+                               json_load_args: dict = None) -> dict:
         if filename in self.plugin_config_files:
             file_obj = self.plugin_config_files[filename]
         else:
@@ -130,7 +131,11 @@ class ConfigManager:
                     self.logger.debug(f"Created config file {file_path}.")
             file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
             self.plugin_config_files[filename] = file_obj
-        return file_obj
+        if guild:
+            plugin_config = file_obj.setdefault(str(guild.id), {})
+        else:
+            plugin_config = file_obj.setdefault("global", {})
+        return plugin_config
 
     def is_maintainer(self, user: discord.abc.User):
         return user.id in self.config.get('bot_maintainers', [])

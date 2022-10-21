@@ -19,24 +19,20 @@ class ChannelManager:
             "channels": {},
             "categories": {}
         }
-        self.conf = self.config_manager.get_plugin_config_file("channel_manager.json")
+        self.conf = self.config_manager.get_plugin_config_file("channel_manager.json", self.guild)
 
-        gid = str(guild.id)
-        if gid not in self.conf:
-            self.conf[gid] = {
+        if not self.conf:
+            self.conf = {
                 "channels": {i: None for i in self.channel_types},
                 "categories": {i: [] for i in self.channel_categories}
             }
-            self.conf.save()
 
-        if not set(self.conf[gid]["channels"].keys()) >= self.channel_types:
-            defaults_added_dict = {x: None for x in self.channel_types}.update(self.conf[gid]["channels"])
-            self.conf[gid]["channels"] = defaults_added_dict
-        if not set(self.conf[gid]["categories"].keys()) >= self.channel_categories:
-            defaults_added_dict = {x: [] for x in self.channel_categories}.update(self.conf[gid]["categories"])
-            self.conf[gid]["categories"] = defaults_added_dict
-
-        self.conf = self.conf[gid]
+        if not set(self.conf["channels"].keys()) >= self.channel_types:
+            defaults_added_dict = {x: None for x in self.channel_types}.update(self.conf["channels"])
+            self.conf["channels"] = defaults_added_dict
+        if not set(self.conf["categories"].keys()) >= self.channel_categories:
+            defaults_added_dict = {x: [] for x in self.channel_categories}.update(self.conf["categories"])
+            self.conf["categories"] = defaults_added_dict
 
     def get_channel(self, chantype: str):
         chantype = chantype.lower()
@@ -51,7 +47,6 @@ class ChannelManager:
             self.conf["channels"][chantype] = channel.id
         else:
             self.conf["channels"][chantype] = None
-        self.conf.save()
 
     def get_category(self, category: str):
         return self.conf["categories"].get(category.lower())
@@ -63,7 +58,6 @@ class ChannelManager:
         category = self.conf["categories"].setdefault(category.lower(), [])
         if channel.id not in category:
             category.append(channel.id)
-            self.conf.save()
             return True
         else:
             return False
@@ -72,7 +66,6 @@ class ChannelManager:
         category = category.lower()
         if self.channel_in_category(category, channel):
             self.conf["categories"][category].remove(channel.id)
-            self.conf.save()
             return True
         else:
             return False

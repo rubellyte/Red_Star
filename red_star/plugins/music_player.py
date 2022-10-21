@@ -59,7 +59,23 @@ class MusicPlayer(BasePlugin):
     cache_reaper = None
 
     async def activate(self):
-        self.storage = self.config_manager.get_plugin_config_file("music_player.json")
+        self.storage = self.config_manager.get_plugin_config_file("music_player.json", self.guild)
+        self.downloaded_songs_storage = self.config_manager.get_plugin_config_file("music_player.json", None)
+        self.downloaded_songs_storage = self.downloaded_songs_storage.setdefault("downloaded_songs", {})
+
+        base_config = self.config_manager.plugin_config_files["music_player.json"]
+        if ("banned_users" in base_config or "downloaded_songs" in base_config) \
+                and base_config.get("__version", 0) < 2:
+            # Convert to new format
+            old_bans = base_config.pop("banned_users")
+            old_songs = base_config.pop("downloaded_songs")
+            for k, v in old_bans.items():
+                base_config[k] = v
+            base_config["global"]["downloaded_songs"] = old_songs
+            base_config["__version"] = 2
+            self.storage = base_config[str(self.guild.id)]
+            self.downloaded_songs_storage = base_config["global"]["downloaded_songs"]
+
 
         self.player: Optional[GuildPlayer] = None
 
@@ -444,9 +460,9 @@ class MusicPlayer(BasePlugin):
              category="music_player")
     async def _music_ban(self, msg: discord.Message):
         try:
-            ban_store = self.storage["banned_users"][str(msg.guild.id)]
+            ban_store = self.storage["banned_users"]
         except KeyError:
-            ban_store = self.storage["banned_users"][str(msg.guild.id)] = []
+            ban_store = self.storage["banned_users"] = []
         try:
             user = find_user(msg.guild, msg.content.split(None, 1)[1])
         except IndexError:
@@ -507,17 +523,17 @@ class MusicPlayer(BasePlugin):
     @tasks.loop(hours=1)
     async def reap_cache(self):
         save_required = False
-        for file, dl_time in self.storage["downloaded_songs"].copy().items():
+        for file, dl_time in self.downloaded_songs_storage.copy().items():
             if time() - dl_time > self.global_plugin_config["video_cache_clear_age"]:
                 try:
                     remove_file(file)
-                    del self.storage["downloaded_songs"][file]
+                    del self.downloaded_songs_storage[file]
                     self.logger.debug(f"Deleted old video cache file {file}.")
                     save_required = True
                 except OSError:
                     continue
         if save_required:
-            self.storage.save()
+            self.config_manager.save_config()
 
     async def create_player(self, voice_channel: discord.VoiceChannel, text_channel: discord.TextChannel):
         async with text_channel.typing():
@@ -528,7 +544,7 @@ class MusicPlayer(BasePlugin):
 
     def check_user_permission(self, user: discord.Member, player: "GuildPlayer"):
         try:
-            if user.id in self.storage["banned_users"].get(str(player.voice_client.guild.id), []):
+            if user.id in self.storage["banned_users"]:
                 raise UserPermissionError("You are banned from using the music player.")
             if user not in player.voice_client.channel.members:
                 raise UserPermissionError("You are not in the voice channel.")

@@ -124,8 +124,8 @@ class Roleplay(BasePlugin):
     async def activate(self):
         save_args = {'default': lambda o: o.as_dict(), 'indent': 2, 'ensure_ascii': False}
         load_args = {'object_hook': self._load_bio}
-        self.bios = self.config_manager.get_plugin_config_file("bios.json", json_save_args=save_args,
-                                                               json_load_args=load_args)
+        self.bios = self.config_manager.get_plugin_config_file("bios.json", self.guild,
+                                                               json_save_args=save_args, json_load_args=load_args)
 
     def _load_bio(self, obj: dict) -> Roleplay.Bio | dict:
         if obj.pop('__classhint__', None) == 'bio':
@@ -225,12 +225,11 @@ class Roleplay(BasePlugin):
              syntax="[user]",
              category="role_play")
     async def _listbio(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         args = msg.content.split(" ", 1)
         if len(args) > 1:
             owner = find_user(msg.guild, args[1])
             if owner:
-                result = "\n".join(f"{k[:16]:<16} : {v.name}" for k, v in self.bios[gid].items()
+                result = "\n".join(f"{k[:16]:<16} : {v.name}" for k, v in self.bios.items()
                                    if v.author == owner.id)
                 for split_msg in split_message(f"**ANALYSIS: User {owner.display_name} has following "
                                                f"characters:**```{result}```"):
@@ -238,7 +237,7 @@ class Roleplay(BasePlugin):
             else:
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
-            bios = "\n".join(f"{k[:16]:<16} : {v.name}" for k, v in self.bios[gid].items())
+            bios = "\n".join(f"{k[:16]:<16} : {v.name}" for k, v in self.bios.items())
             for split_msg in split_message(f"**ANALYSIS: Following character bios found:**```\n{bios}```"):
                 await respond(msg, split_msg)
 
@@ -260,8 +259,6 @@ class Roleplay(BasePlugin):
              run_anywhere=True,
              optional_perms={"edit_others": {"manage_messages"}})
     async def _bio(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         parser = RSArgumentParser()
         parser.add_argument('command')
         parser.add_argument('name', default=[], nargs="*")
@@ -285,20 +282,20 @@ class Roleplay(BasePlugin):
         else:
             raise CommandSyntaxError("No bio id given.")
 
-        if char not in self.bios[gid] and not args['create']:
+        if char not in self.bios and not args['create']:
             raise CommandSyntaxError(f'No such character: {args["name"]}.')
 
         # manipulate the specified bio
         if args['set'] or args['create'] or args['delete'] or args['rename'] or args['dump']:
             # creating a bio with using the given character name
             if args['create']:
-                if char in self.bios[gid]:
+                if char in self.bios:
                     raise CommandSyntaxError(f"Character {args['name']} already exists.")
                 else:
-                    self.bios[gid][char] = self.Bio.blank_bio(msg.author.id, args['name'])
+                    self.bios[char] = self.Bio.blank_bio(msg.author.id, args['name'])
                     await respond(msg, f"**AFFIRMATIVE. ANALYSIS: Created character {args['name']}.**")
 
-            if not (self.bios[gid][char].author == msg.author.id or args['dump'] or
+            if not (self.bios[char].author == msg.author.id or args['dump'] or
                     self._bio.perms.check_optional_permissions("edit_others", msg.author, msg.channel)):
                 raise UserPermissionError("Character belongs to another user.")
 
@@ -306,7 +303,7 @@ class Roleplay(BasePlugin):
             if args['set']:
                 field, value = args['set'][0], ' '.join(args['set'][1:])
                 try:
-                    self.bios[gid][char].set(field, value)
+                    self.bios[char].set(field, value)
                     await self._update_bio_pin(msg.guild, char)
                     await respond(msg, f"**AFFIRMATIVE. {field.capitalize()} {'' if value else 're'}set.**")
                 except ValueError as e:
@@ -316,7 +313,7 @@ class Roleplay(BasePlugin):
 
             # compiling the bio into a json file for storage and editing
             if args['dump']:
-                t_bio = asdict(self.bios[gid][char])
+                t_bio = asdict(self.bios[char])
                 del t_bio['author']
                 t_bio['fullname'] = t_bio['name']
                 t_bio['name'] = char
@@ -328,11 +325,11 @@ class Roleplay(BasePlugin):
             # changing the bio key in the storage dict, effectively renaming it
             if args['rename']:
                 new_name = self.Bio._name(' '.join(args['rename'])).lower()
-                if new_name in self.bios[gid]:
+                if new_name in self.bios:
                     raise UserPermissionError(f"Character {new_name} already exists")
 
-                self.bios[gid][new_name] = self.bios[gid][char]
-                del self.bios[gid][char]
+                self.bios[new_name] = self.bios[char]
+                del self.bios[char]
 
                 if char in self.config['pinned_bios']:
                     self.config['pinned_bios'][new_name] = self.config['pinned_bios'][char]
@@ -343,17 +340,16 @@ class Roleplay(BasePlugin):
 
             # deletes the specified bio.
             if args['delete']:
-                del self.bios[gid][char]
+                del self.bios[char]
                 if char in self.config['pinned_bios']:
                     bio_msg = await msg.guild.get_channel(self.config['pinned_bios_channel'])\
                         .fetch_message(self.config['pinned_bios'][char])
                     await bio_msg.delete()  # deleting the actual record happens in on_message_delete
                 await respond(msg, f"**AFFIRMATIVE. Character {char} has been deleted.**")
 
-            self.bios.save()
         else:
             await respond(msg, None,
-                          embed=self.bios[gid][char].embed(msg.guild, self.config['race_roles']))
+                          embed=self.bios[char].embed(msg.guild, self.config['race_roles']))
 
     @Command("UploadBio",
              doc="Parses a JSON file or a JSON codeblock to update/create character bios.\n"
@@ -361,8 +357,6 @@ class Roleplay(BasePlugin):
              syntax="(attach file to the message, or put JSON contents into a code block following the command)",
              category="role_play")
     async def _uploadbio(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         if msg.attachments:
             # there is a file uploaded with the message, grab and decode it.
             _file = BytesIO()
@@ -405,7 +399,7 @@ class Roleplay(BasePlugin):
         except KeyError:
             pass
 
-        if name in self.bios[gid] and self.bios[gid][name].author != msg.author.id:
+        if name in self.bios and self.bios[name].author != msg.author.id:
             raise UserPermissionError("Character belongs to another user.")
 
         new_char = self.Bio.blank_bio(msg.author.id, data['name'])
@@ -420,10 +414,9 @@ class Roleplay(BasePlugin):
                 continue
 
         # just for nicer output
-        old = name in self.bios[gid]
+        old = name in self.bios
 
-        self.bios[gid][name] = new_char
-        self.bios.save()
+        self.bios[name] = new_char
         await self._update_bio_pin(msg.guild, name)
 
         await respond(msg, f"**AFFIRMATIVE. Character {new_char.name} was {'updated' if old else 'created'}.**")
@@ -433,7 +426,8 @@ class Roleplay(BasePlugin):
              category="role_play",
              bot_maintainers_only=True)
     async def _reloadbio(self, msg: discord.Message):
-        self.bios.reload()
+        self.config_manager.plugin_config_files["bios.json"].reload()
+        self.bios = self.config_manager.get_plugin_config_file("bios.json", self.guild)
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
     @Command("PinBio",
@@ -446,7 +440,6 @@ class Roleplay(BasePlugin):
              run_anywhere=True,
              delcall=True)
     async def _pinbio(self, msg):
-        gid = str(msg.guild.id)
         g_cfg = self.config
 
         if g_cfg.setdefault('pinned_bios_channel', msg.channel.id) != msg.channel.id:
@@ -461,24 +454,23 @@ class Roleplay(BasePlugin):
         except IndexError:
             raise CommandSyntaxError
 
-        if char not in self.bios[gid]:
+        if char not in self.bios:
             raise CommandSyntaxError(f"No bio with id {char}.")
 
         if char in g_cfg.setdefault('pinned_bios', {}):
             raise CommandSyntaxError(f"Bio with id {char} is already pinned.")
 
-        message = await respond(msg, None, embed=self.bios[gid][char].embed(msg.guild, g_cfg['race_roles']))
+        message = await respond(msg, None, embed=self.bios[char].embed(msg.guild, g_cfg['race_roles']))
 
         g_cfg['pinned_bios'][char] = message.id
 
     # util commands
 
     async def _update_bio_pin(self, guild: discord.Guild, char: str):
-        gid = str(guild.id)
         g_cfg = self.config
         if char in g_cfg['pinned_bios']:
             bio_msg = await guild.get_channel(g_cfg['pinned_bios_channel']).fetch_message(g_cfg['pinned_bios'][char])
-            await bio_msg.edit(embed=self.bios[gid][char].embed(guild, g_cfg['race_roles']))
+            await bio_msg.edit(embed=self.bios[char].embed(guild, g_cfg['race_roles']))
 
     async def on_message_delete(self, msg: discord.Message):
         g_cfg = self.config
