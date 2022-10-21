@@ -20,6 +20,7 @@ class ChannelManager:
             "categories": {}
         }
         self.conf = self.config_manager.get_plugin_config_file("channel_manager.json")
+
         gid = str(guild.id)
         if gid not in self.conf:
             self.conf[gid] = {
@@ -27,6 +28,14 @@ class ChannelManager:
                 "categories": {i: [] for i in self.channel_categories}
             }
             self.conf.save()
+
+        if not set(self.conf[gid]["channels"].keys()) >= self.channel_types:
+            defaults_added_dict = {x: None for x in self.channel_types}.update(self.conf[gid]["channels"])
+            self.conf[gid]["channels"] = defaults_added_dict
+        if not set(self.conf[gid]["categories"].keys()) >= self.channel_categories:
+            defaults_added_dict = {x: [] for x in self.channel_categories}.update(self.conf[gid]["categories"])
+            self.conf[gid]["categories"] = defaults_added_dict
+
         self.conf = self.conf[gid]
 
     def get_channel(self, chantype: str):
