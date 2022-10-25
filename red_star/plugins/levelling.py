@@ -1,6 +1,6 @@
 from __future__ import annotations
 from red_star.plugin_manager import BasePlugin
-from red_star.rs_utils import respond, find_user, is_positive, group_items
+from red_star.rs_utils import respond, find_user, is_positive, group_items, prompt_for_confirmation
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError
 import discord
@@ -172,6 +172,10 @@ class Levelling(BasePlugin):
             else:
                 raise CommandSyntaxError("Not a user or no user found.")
         else:
+            prompt_text = f"This will destroy ALL XP records for the entire server. Continue?"
+            confirmed = await prompt_for_confirmation(msg, prompt_text=prompt_text)
+            if not confirmed:
+                return
             self.storage["xp"] = {}
             self.storage_file.save()
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
