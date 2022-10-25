@@ -162,12 +162,13 @@ class RedStar(discord.AutoShardedClient):
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         await self.plugin_manager.hook_event("on_member_update", after.guild, before, after)
 
-    # async def on_guild_join(self, guild: discord.Guild): # TODO: this will activate plugins for server
-    #     self.channel_manager.add_guild(str(guild.id))
-    #     await self.plugin_manager.hook_event("on_guild_join", guild)
+    async def on_guild_join(self, guild: discord.Guild):
+        await self.plugin_manager.activate_server_plugins(guild)
+        await self.plugin_manager.hook_event("on_guild_join", guild)
 
-    # async def on_guild_remove(self, guild: discord.Guild): # TODO: this will deactivate plugins for server
-    #     await self.plugin_manager.hook_event("on_guild_remove", guild) # and trash all the configs, probably
+    async def on_guild_remove(self, guild: discord.Guild):
+        await self.plugin_manager.hook_event("on_guild_remove", guild)
+        await self.plugin_manager.deactivate_server_plugins(guild)
 
     async def on_guild_update(self, before: discord.Guild, after: discord.Guild):
         await self.plugin_manager.hook_event("on_guild_update", after, before, after)
