@@ -48,6 +48,7 @@ class RSArgumentParser(argparse.ArgumentParser):
             namespace = RSNamespace()
         return super().parse_known_args(args=args, namespace=namespace)
 
+
 class ConfirmationPrompt(discord.ui.View):
     def __init__(self, for_user: discord.abc.User, timeout=30):
         self.for_user = for_user
