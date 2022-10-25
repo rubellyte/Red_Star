@@ -12,10 +12,6 @@ import json
 import discord
 from io import BytesIO
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from red_star.config_manager import JsonFileDict
-
 
 def verify_document(doc: list):
     """
@@ -86,8 +82,30 @@ class ChannelPrint(BasePlugin):
     log_events = {"print_event"}
 
     async def activate(self):
-        self.walls = self.config_manager.get_plugin_config_file("walls.json", self.guild,
-                                                                json_save_args={'indent': 2, 'ensure_ascii': False})
+        self._port_old_storage()
+        self.storage.setdefault("documents", {})
+
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "walls.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp)
+            for guild_id, walls in old_storage.items():
+                try:
+                    new_storage = self.config_manager.storage_files[guild_id][self.name]
+                except KeyError:
+                    self.logger.warn(f"Server with ID {guild_id} not found! Is the bot still in this server?\n"
+                                     f"Skipping conversion of this server's channel print document storage...")
+                    continue
+                new_storage.contents["documents"] = walls
+                new_storage.save()
+                new_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old channel print document storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
+
+    def storage_save_args(self):
+        return {'indent': 2, 'ensure_ascii': False}
 
     @Command("Print", "PrintForce",
              doc="Prints out the specified document from the storage, allowing to dump large amounts of information "
@@ -100,8 +118,6 @@ class ChannelPrint(BasePlugin):
              run_anywhere=True,
              delcall=True)
     async def _print(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         cmd, *args = msg.clean_content.split(None, 1)
 
         if msg.attachments:
@@ -121,9 +137,9 @@ class ChannelPrint(BasePlugin):
             except IndexError:
                 raise CommandSyntaxError
 
-            if wall not in self.walls:
+            if wall not in self.storage["documents"]:
                 raise CommandSyntaxError("No such document.")
-            wall = self.walls[wall]
+            wall = self.storage["documents"][wall]
 
         try:
             wall = verify_document(wall)
@@ -162,11 +178,10 @@ class ChannelPrint(BasePlugin):
              perms={"manage_messages"},
              category="channel_print")
     async def _deleteprint(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
-            del self.walls[name]
+            del self.storage["documents"][name]
+            self.storage_file.save()
             await respond(msg, "**AFFIRMATIVE. Document deleted.**")
         except IndexError:
             raise CommandSyntaxError("Document name required.")
@@ -178,7 +193,7 @@ class ChannelPrint(BasePlugin):
              perms={"manage_messages"},
              category="channel_print")
     async def _listprint(self, msg: discord.Message):
-        walls = "\n".join(self.walls.keys())
+        walls = "\n".join(self.storage["documents"].keys())
         final_msg = f"**ANALYSIS: Following documents are available:**```\n{walls}```"
         for split_msg in split_message(final_msg):
             await respond(msg, split_msg)
@@ -189,11 +204,10 @@ class ChannelPrint(BasePlugin):
              perms={"manage_messages"},
              category="channel_print")
     async def _dumpprint(self, msg: discord.Message):
-        gid = str(msg.guild.id)
-
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
-            dump_data = bytes(json.dumps(self.walls[name], indent=2, ensure_ascii=False), encoding="utf8")
+            dump_data = bytes(json.dumps(self.storage["documents"][name], indent=2, ensure_ascii=False),
+                              encoding="utf8")
             await respond(msg, "**AFFIRMATIVE. Uploading file.**",
                           file=discord.File(BytesIO(dump_data), filename=name+'.json'))
         except IndexError:
@@ -239,7 +253,8 @@ class ChannelPrint(BasePlugin):
         except ValueError as e:
             raise CommandSyntaxError(e)
 
-        self.walls[name] = data
+        self.storage["documents"][name] = data
+        self.storage_file.save()
 
         await respond(msg, f"**AFFIRMATIVE. Document {name} available for printout.**")
 
@@ -248,6 +263,5 @@ class ChannelPrint(BasePlugin):
              bot_maintainers_only=True,
              category="channel_print")
     async def _printreload(self, msg: discord.Message):
-        self.config_manager.plugin_config_files["walls.json"].reload()
-        self.walls = self.config_manager.get_plugin_config_file("walls.json", self.guild)
+        self.storage.load()
         await respond(msg, "**AFFIRMATIVE. Printout documents reloaded.**")

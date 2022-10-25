@@ -5,11 +5,11 @@ import logging
 import re
 import shlex
 import asyncio
+import json
 from datetime import timedelta
 from discord.ext import tasks
 from math import floor, ceil
 from functools import partial
-from os import remove as remove_file
 from random import randint
 from time import monotonic as time
 from yt_dlp import YoutubeDL
@@ -59,36 +59,42 @@ class MusicPlayer(BasePlugin):
     cache_reaper = None
 
     async def activate(self):
-        self.storage = self.config_manager.get_plugin_config_file("music_player.json", self.guild)
-        self.downloaded_songs_storage = self.config_manager.get_plugin_config_file("music_player.json", None)
-        self.downloaded_songs_storage = self.downloaded_songs_storage.setdefault("downloaded_songs", {})
-
-        base_config = self.config_manager.plugin_config_files["music_player.json"]
-        if ("banned_users" in base_config or "downloaded_songs" in base_config) \
-                and base_config.get("__version", 0) < 2:
-            # Convert to new format
-            old_bans = base_config.pop("banned_users")
-            old_songs = base_config.pop("downloaded_songs")
-            for k, v in old_bans.items():
-                base_config[k] = v
-            base_config["global"]["downloaded_songs"] = old_songs
-            base_config["__version"] = 2
-            self.storage = base_config[str(self.guild.id)]
-            self.downloaded_songs_storage = base_config["global"]["downloaded_songs"]
-
+        self.downloaded_songs_folder = self.client.storage_dir / "music_cache"
 
         self.player: Optional[GuildPlayer] = None
 
         self.ydl_options = self.global_plugin_config["youtube_dl_config"].copy()
         self.ydl_options["logger"] = self.logger.getChild("youtube-dl")
         self.ydl_options["extract_flat"] = "in_playlist"
-        self.ydl_options["outtmpl"] = str(self.client.storage_dir / "music_cache" /
+        self.ydl_options["outtmpl"] = str(self.downloaded_songs_folder /
                                           self.ydl_options.get("outtmpl", "%(id)s-%(extractor)s.%(ext)s"))
+
+        self._port_old_storage()
 
         if not self.cache_reaper:
             self.cache_reaper = self.reap_cache
             self.cache_reaper.change_interval(seconds=self.global_plugin_config["cache_clear_interval"])
             self.cache_reaper.start()
+
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "music_player.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp)
+            for guild_id, bans in old_storage.get("banned_users", {}).items():
+                try:
+                    new_storage = self.config_manager.storage_files[guild_id][self.name]
+                except KeyError:
+                    self.logger.warn(f"Server with ID {guild_id} not found! Is the bot still in this server?\n"
+                                     f"Skipping conversion of this server's music ban storage...")
+                    continue
+                bans.update(new_storage.contents.get("banned_users", {}))
+                new_storage.contents["banned_users"] = bans
+                new_storage.save()
+                new_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old music ban storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
 
     async def deactivate(self):
         if self.player:
@@ -481,6 +487,7 @@ class MusicPlayer(BasePlugin):
             else:
                 ban_store.append(user.id)
             await respond(msg, f"**AFFIRMATIVE. User {user} has been banned from using the music module.**")
+            self.storage_file.save()
         else:
             raise CommandSyntaxError(f"No such user {msg.clean_content.split(None, 1)[1]}")
 
@@ -522,18 +529,14 @@ class MusicPlayer(BasePlugin):
 
     @tasks.loop(hours=1)
     async def reap_cache(self):
-        save_required = False
-        for file, dl_time in self.downloaded_songs_storage.copy().items():
-            if time() - dl_time > self.global_plugin_config["video_cache_clear_age"]:
+        now = time()
+        for file in self.downloaded_songs_folder.iterdir():
+            if now - file.stat().st_atime > self.global_plugin_config["video_cache_clear_age"]:
                 try:
-                    remove_file(file)
-                    del self.downloaded_songs_storage[file]
+                    file.unlink()
                     self.logger.debug(f"Deleted old video cache file {file}.")
-                    save_required = True
                 except OSError:
                     continue
-        if save_required:
-            self.config_manager.save_config()
 
     async def create_player(self, voice_channel: discord.VoiceChannel, text_channel: discord.TextChannel):
         async with text_channel.typing():
@@ -679,8 +682,6 @@ class GuildPlayer:
                 try:
                     await asyncio.get_running_loop().run_in_executor(None, partial(ydl.process_info, vid))
                     vid["filename"] = ydl.prepare_filename(vid)
-                    self.parent.storage["downloaded_songs"][vid["filename"]] = time()
-                    self.parent.storage.save()
                 except YoutubeDLError as e:
                     await self.text_channel.send(f"**WARNING. An error occurred while downloading video "
                                                  f"{vid['title']}. It will not be queued.\nError details:** `{e}`")

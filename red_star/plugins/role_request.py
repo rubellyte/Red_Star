@@ -4,6 +4,7 @@ from red_star.rs_utils import respond, RSArgumentParser, split_message, find_rol
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 import discord
 import shlex
+import json
 
 
 class RoleRequest(BasePlugin):
@@ -17,7 +18,24 @@ class RoleRequest(BasePlugin):
     }
 
     async def activate(self):
-        self.reacts = self.config_manager.get_plugin_config_file("role_request_reaction_messages.json", self.guild)
+        self._port_old_storage()
+        self.reacts = self.storage.setdefault("role_request_reaction_messages", {})
+
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "role_request_reaction_messages.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp)
+            for msg_id, message_data in old_storage.items():
+                # We have no way to check which guild a message belongs to, so we have no choice but to put all
+                # message IDs in all guilds.
+                for new_storage in self.config_manager.storage_files.values():
+                    new_storage.contents.setdefault("role_request_reaction_messages", {})[msg_id] = message_data
+                    new_storage.save()
+                    new_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old role request reaction message storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
 
     async def on_member_join(self, member: discord.Member):
         """
@@ -175,6 +193,7 @@ class RoleRequest(BasePlugin):
                     await message.delete()
                     raise CommandSyntaxError('Do not use emoji unavailable to the bot.')
             self.reacts[str(message.id)] = parsed_found
+            self.storage_file.save()
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """
@@ -225,3 +244,4 @@ class RoleRequest(BasePlugin):
         mid = str(msg.id)
         if mid in self.reacts:
             del self.reacts[mid]
+            self.storage_file.save()

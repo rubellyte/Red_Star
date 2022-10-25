@@ -3,13 +3,13 @@ from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, group_items
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
 import datetime
+import json
 import shlex
 import re
 import discord
 import discord.utils
 from discord.ext import tasks
 from dataclasses import dataclass
-from asyncio import create_task
 
 RECUR_DECODE = {
     "h": ('hour', 'hours'),
@@ -85,21 +85,39 @@ class ReminderPlugin(BasePlugin):
                 return False
 
     async def activate(self):
-        def _load(cls: ReminderPlugin, obj: dict):
+        self._port_old_storage()
+        self.storage.setdefault("reminders", [])
+
+    def storage_save_args(self):
+        return {'default': lambda obj: obj.as_dict()}
+
+    def storage_load_args(self):
+        def _load(obj: dict):
             if obj.pop('__classhint__', None) == 'reminder':
-                return cls.Reminder(*obj['reminder'])
+                return self.Reminder(*obj['reminder'])
             else:
                 return obj
 
-        self.storage = self.config_manager.get_plugin_config_file(
-                "reminders.json", self.guild, json_load_args={'object_hook': lambda o: _load(self, o)},
-                json_save_args={'default': lambda x: x.as_dict()})
+        return {'object_hook': lambda obj: _load(obj)}
 
-        if isinstance(self.storage, list):
-            # Convert old
-            self.config_manager.plugin_config_files["reminders.json"][str(self.guild.id)] = {"reminders": self.storage}
-
-        self.storage.setdefault("reminders", [])
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "reminders.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp)
+            for guild_id, reminders in old_storage.items():
+                try:
+                    new_storage = self.config_manager.storage_files[guild_id][self.name]
+                except KeyError:
+                    self.logger.warn(f"Server with ID {guild_id} not found! Is the bot still in this server?\n"
+                                     f"Skipping conversion of this server's reminder storage...")
+                    continue
+                new_storage.contents["reminders"] = reminders
+                new_storage.save()
+                new_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old reminder storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
 
     @Command("Remind",
              syntax="(message) [-d/--delay DD//@HH:MM:SS] [-t/--time DD/MM/YYYY@HH:MM:SS] [-p/--private] ["
@@ -204,7 +222,6 @@ class ReminderPlugin(BasePlugin):
              category="reminder")
     async def _remindlist(self, msg: discord.Message):
         uid = msg.author.id
-        gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
         reminder_list = [r for r in self.storage["reminders"] if r.uid == uid]
 
@@ -234,7 +251,6 @@ class ReminderPlugin(BasePlugin):
              category="reminder",
              perms={"manage_messages"})
     async def _remindlistall(self, msg: discord.Message):
-        gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
 
         users = {r.uid: str(msg.guild.get_member(r.uid)) for r in self.storage["reminders"]}

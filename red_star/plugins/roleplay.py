@@ -121,11 +121,11 @@ class Roleplay(BasePlugin):
         def as_dict(self) -> dict:
             return {"__classhint__": "bio", **asdict(self)}
 
-    async def activate(self):
-        save_args = {'default': lambda o: o.as_dict(), 'indent': 2, 'ensure_ascii': False}
-        load_args = {'object_hook': self._load_bio}
-        self.bios = self.config_manager.get_plugin_config_file("bios.json", self.guild,
-                                                               json_save_args=save_args, json_load_args=load_args)
+    def storage_load_args(self):
+        return {"object_hook": self._load_bio}
+
+    def storage_save_args(self):
+        return {"default": lambda obj: obj.as_dict(), "indent": 2, "ensure_ascii": False}
 
     def _load_bio(self, obj: dict) -> Roleplay.Bio | dict:
         if obj.pop('__classhint__', None) == 'bio':
@@ -136,6 +136,31 @@ class Roleplay(BasePlugin):
                 return self.Bio(**{**dict(zip(self.Bio.fields, [''] * 15)), **obj})
             else:
                 return obj
+
+    async def activate(self):
+        self._port_old_storage()
+        self.bios = self.storage.setdefault("bios", {})
+
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "bios.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp, **self.storage_load_args())
+            for guild_id, data in old_storage.items():
+                old_storage_guild = old_storage.get(guild_id, {})
+                try:
+                    guild_current_storage = self.config_manager.storage_files[guild_id][self.name]
+                except KeyError:
+                    self.logger.warn(f"Server with ID {guild_id} not found! Is the bot still in this server?\n"
+                                     f"Skipping conversion of this server's bio storage...")
+                    continue
+                old_storage_guild.update(guild_current_storage.contents)
+                guild_current_storage.contents = old_storage_guild
+                guild_current_storage.save()
+                guild_current_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old bio storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
 
     @Command("RaceRole",
              doc="-a/--add   : Adds specified roles to the list of allowed race roles.\n"
@@ -311,6 +336,8 @@ class Roleplay(BasePlugin):
                 except KeyError as e:
                     raise CommandSyntaxError(e)
 
+            self.storage_file.save()
+
             # compiling the bio into a json file for storage and editing
             if args['dump']:
                 t_bio = asdict(self.bios[char])
@@ -337,6 +364,7 @@ class Roleplay(BasePlugin):
 
                 await respond(msg, f"**AFFIRMATIVE. Character {char} can now be accessed as {new_name}.**")
                 char = new_name
+                self.storage_file.save()
 
             # deletes the specified bio.
             if args['delete']:
@@ -345,6 +373,7 @@ class Roleplay(BasePlugin):
                     bio_msg = await msg.guild.get_channel(self.config['pinned_bios_channel'])\
                         .fetch_message(self.config['pinned_bios'][char])
                     await bio_msg.delete()  # deleting the actual record happens in on_message_delete
+                self.storage_file.save()
                 await respond(msg, f"**AFFIRMATIVE. Character {char} has been deleted.**")
 
         else:
@@ -417,6 +446,7 @@ class Roleplay(BasePlugin):
         old = name in self.bios
 
         self.bios[name] = new_char
+        self.storage_file.save()
         await self._update_bio_pin(msg.guild, name)
 
         await respond(msg, f"**AFFIRMATIVE. Character {new_char.name} was {'updated' if old else 'created'}.**")
@@ -426,8 +456,8 @@ class Roleplay(BasePlugin):
              category="role_play",
              bot_maintainers_only=True)
     async def _reloadbio(self, msg: discord.Message):
-        self.config_manager.plugin_config_files["bios.json"].reload()
-        self.bios = self.config_manager.get_plugin_config_file("bios.json", self.guild)
+        self.storage_file.load()
+        self.bios = self.storage["bios"]
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
 
     @Command("PinBio",

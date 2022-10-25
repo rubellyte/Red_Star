@@ -1,22 +1,20 @@
 from __future__ import annotations
+import discord
 import inspect
 import logging
 import importlib
 import importlib.util
 from sys import exc_info, modules
 from types import ModuleType
-import discord
 from red_star.channel_manager import ChannelManager
 from red_star.command_dispatcher import CommandDispatcher
 
 from typing import TYPE_CHECKING
-
-
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Type
     from red_star.client import RedStar
-    from red_star.config_manager import ConfigManager
+    from red_star.config_manager import ConfigManager, PluginStorageFile
 
 
 class PluginManager:
@@ -27,8 +25,6 @@ class PluginManager:
     def __init__(self, client: RedStar):
         self.client = client
         self.config_manager = client.config_manager
-        # self.channel_manager = client.channel_manager
-        # self.command_dispatcher = client.command_dispatcher
         self.modules = {}
         self.plugins: dict[discord.Guild, dict[str, BasePlugin | ChannelManager | CommandDispatcher]] = {}
         self.plugin_classes: dict[str, Type[BasePlugin]] = {}
@@ -159,6 +155,7 @@ class PluginManager:
                     plugin_inst = plugin(guild,
                                          self.config_manager.get_server_config(guild, name, plugin.default_config),
                                          guild_plugins["channel_manager"], guild_plugins)
+                    plugin_inst.storage_file = self.config_manager.get_plugin_storage(plugin_inst)
                     await plugin_inst.activate()
                     guild_plugins["command_dispatcher"].register_plugin(plugin_inst)
                     guild_plugins[name] = plugin_inst
@@ -278,13 +275,28 @@ class BasePlugin:
     channel_types: set = set()
     channel_categories: set = set()
 
-    def __init__(self, guild: discord.Guild, plugin_config: dict, channel_manager: ChannelManager,
-                 plugins: dict[str, BasePlugin]):
+    def __init__(self, guild: discord.Guild, plugin_config: dict,
+                 channel_manager: ChannelManager, plugins: dict[str, BasePlugin]):
         self.guild = guild
         self.config = plugin_config
         self.channel_manager = channel_manager
         self.plugins = plugins
         self.logger = logging.getLogger(f"red_star.plugin.{self.name}.{guild.id}")
+        self.storage_file: PluginStorageFile = None  # It's coming
+
+    @property
+    def storage(self):
+        return self.storage_file.contents
+
+    @storage.setter
+    def storage(self, value):
+        self.storage.contents = value
+
+    def storage_load_args(self):
+        return {}
+
+    def storage_save_args(self):
+        return {}
 
     async def activate(self):
         """

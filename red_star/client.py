@@ -30,7 +30,7 @@ class RedStar(discord.AutoShardedClient):
         if not argv.portable:
             self.plugin_directories.append(self.storage_dir / "plugins")
 
-        self.config_manager = ConfigManager(storage_dir / "config")
+        self.config_manager = ConfigManager(storage_dir / "config", storage_dir / "storage")
         self.config = self.config_manager.config
 
         self.plugin_manager = PluginManager(self)

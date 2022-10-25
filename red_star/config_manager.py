@@ -9,7 +9,7 @@ from shutil import copyfile
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
-    from typing import Optional
+    from red_star.plugin_manager import BasePlugin
 
 
 JsonValues = None | bool | str | int | float | list | dict
@@ -19,13 +19,14 @@ class ConfigManager:
     """
     Manages the loading and modification of the configuration files.
     """
-    def __init__(self, config_path: Path):
+    def __init__(self, config_path: Path, storage_path: Path):
         self.logger = logging.getLogger("red_star.config_manager")
         self.logger.debug("Initialized config manager.")
         self.config = {}
         self.config_path = config_path
         self.config_file_path = config_path / "config.json"
-        self.plugin_config_files = {}
+        self.storage_path = storage_path
+        self.storage_files = {}
         self.load_config()
 
     def load_config(self):
@@ -92,7 +93,7 @@ class ConfigManager:
             json.dump(self.config, f, sort_keys=True, indent=2)
         self.config_file_path.unlink()
         temp_path.rename(self.config_file_path)
-        for file in self.plugin_config_files.values():
+        for file in self.storage_files.values():
             file.save()
         self.logger.debug("Saved config files.")
 
@@ -109,33 +110,26 @@ class ConfigManager:
             default_config = {}
         default_config |= self.config["default"].setdefault(plugin, default_config)
         server_config = ConfigDict(self.config.setdefault(str(guild.id), {}).setdefault(plugin, default_config),
-                          default_config)
+                                   default_config)
         self.config[str(guild.id)][plugin] = server_config
         self.config["default"][plugin] = default_config
         return server_config
 
-    def get_plugin_config_file(self, filename: str, guild: Optional[discord.Guild], json_save_args: dict = None,
-                               json_load_args: dict = None) -> dict:
-        if filename in self.plugin_config_files:
-            file_obj = self.plugin_config_files[filename]
-        else:
-            file_path = self.config_path / filename
-            if not file_path.exists():
-                default_config = Path.cwd() / "_default_files" / (filename + ".default")
-                if default_config.exists():
-                    copyfile(str(default_config), str(file_path))
-                    self.logger.debug(f"Copied default configuration for {filename} to {file_path}.")
-                else:
-                    with file_path.open("w", encoding="utf-8") as fd:
-                        fd.write("{}")
-                    self.logger.debug(f"Created config file {file_path}.")
-            file_obj = JsonFileDict(file_path, json_save_args, json_load_args)
-            self.plugin_config_files[filename] = file_obj
-        if guild:
-            plugin_config = file_obj.setdefault(str(guild.id), {})
-        else:
-            plugin_config = file_obj.setdefault("global", {})
-        return plugin_config
+    def get_plugin_storage(self, plugin: BasePlugin) -> PluginStorageFile:
+        guild_id = str(plugin.guild.id)
+        guild_storage_path = self.storage_path / guild_id
+        guild_storage_path.mkdir(parents=True, exist_ok=True)
+        filename = guild_storage_path / (plugin.name + ".json")
+
+        storage_file = PluginStorageFile(filename, json_save_args=plugin.storage_save_args(),
+                                         json_load_args=plugin.storage_load_args())
+        self.storage_files.setdefault(guild_id, {})[plugin.name] = storage_file
+        return storage_file
+
+    def save_all_plugin_storage(self):
+        for guild in self.storage_files:
+            for file in guild:
+                file.save()
 
     def is_maintainer(self, user: discord.abc.User):
         return user.id in self.config.get('bot_maintainers', [])
@@ -155,33 +149,20 @@ class ConfigDict(dict):
                 self[k] = v
 
 
-class JsonFileDict(dict):
-    """
-    Dictionary subclass that handles saving the file on edits automatically.
-    Try not to instantiate this class directly; instead, use the config_manager's factory method,
-    ConfigManager.get_plugin_config_file.
-    :param Path path: The path that should be saved to.
-    """
-
-    def __init__(self, path: Path, json_save_args: dict = None, json_load_args: dict = None, **kwargs):
-        super().__init__(**kwargs)
+class PluginStorageFile:
+    def __init__(self, path: Path, json_save_args: dict = None, json_load_args: dict = None):
         self.path = path
         self.json_save_args = {} if json_save_args is None else json_save_args
         self.json_load_args = {} if json_load_args is None else json_load_args
-        self.reload()
+        self.contents = {}
+        self.load()
 
-    def __setitem__(self, key: str, value: JsonValues):
-        super().__setitem__(key, value)
-        self.save()
-
-    def __delitem__(self, key: str):
-        super().__delitem__(key)
-        self.save()
+    def load(self):
+        if self.path.exists():
+            with self.path.open(encoding="utf-8") as fp:
+                self.contents = json.load(fp, **self.json_load_args)
 
     def save(self):
-        with self.path.open("w", encoding="utf-8") as fd:
-            json.dump(self, fd, **self.json_save_args)
-
-    def reload(self):
-        with self.path.open(encoding="utf-8") as fd:
-            self.update(json.load(fd, **self.json_load_args))
+        if self.contents:
+            with self.path.open("w", encoding="utf-8") as fp:
+                json.dump(self.contents, fp, **self.json_save_args)

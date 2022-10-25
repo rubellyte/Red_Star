@@ -18,7 +18,7 @@ class Info(BasePlugin):
     description = "A plugin that provides commands for fetching information about other commands, or the bot itself."
     default_global_config = {
         "message_maintainers_when_update_available": True
-    } # TODO: this cannot be in a plugin any more
+    }  # TODO: this cannot be in a plugin any more
 
     async def activate(self):
         self.commands = {}

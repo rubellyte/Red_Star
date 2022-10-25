@@ -4,10 +4,7 @@ from red_star.rs_utils import respond, find_user, is_positive, group_items
 from red_star.command_dispatcher import Command
 from red_star.rs_errors import CommandSyntaxError
 import discord
-
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from red_star.config_manager import JsonFileDict
+import json
 
 
 class Levelling(BasePlugin):
@@ -24,7 +21,27 @@ class Levelling(BasePlugin):
     channel_categories = {"no_xp"}
 
     async def activate(self):
-        self.storage = self.config_manager.get_plugin_config_file("xp.json", self.guild)
+        self._port_old_storage()
+        self.storage.setdefault("xp", {})
+
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "xp.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp)
+            for guild_id, xp_storage in old_storage.items():
+                try:
+                    new_storage = self.config_manager.storage_files[guild_id][self.name]
+                except KeyError:
+                    self.logger.warn(f"Server with ID {guild_id} not found! Is the bot still in this server?\n"
+                                     f"Skipping conversion of this server's XP storage...")
+                    continue
+                new_storage.contents["xp"] = xp_storage
+                new_storage.save()
+                new_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old XP storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
 
     async def on_message(self, msg: discord.Message):
         if not self.channel_manager.channel_in_category("no_xp", msg.channel):
@@ -58,7 +75,7 @@ class Levelling(BasePlugin):
 
         pos = 1
         xp_list = []
-        for uid in sorted(self.storage, key=self.storage.get, reverse=True):
+        for uid in sorted(self.storage["xp"], key=self.storage["xp"].get, reverse=True):
             user = msg.guild.get_member(int(uid))
 
             if user:
@@ -68,7 +85,7 @@ class Levelling(BasePlugin):
             else:
                 user = uid
 
-            xp_list.append(f"{pos:03d}|{user:<32}|{self.storage[uid]:>6}")
+            xp_list.append(f"{pos:03d}|{user:<32}|{self.storage['xp'][uid]:>6}")
             pos += 1
 
             if pos > limit:
@@ -88,17 +105,17 @@ class Levelling(BasePlugin):
         if len(args) > 1:
             user = find_user(msg.guild, args[1])
             if user:
-                if str(user.id) in self.storage:
+                if str(user.id) in self.storage["xp"]:
                     await respond(msg, f"**ANALYSIS: User {user.display_name} has "
-                                       f"{self.storage[str(user.id)]} XP.**")
+                                       f"{self.storage['xp'][str(user.id)]} XP.**")
                 else:
                     await respond(msg, f"**WARNING: User {user.display_name} has no XP record.**")
             else:
                 raise CommandSyntaxError("Not a user or user not found.")
         else:
             uid = str(msg.author.id)
-            if uid in self.storage:
-                await respond(msg, f"**ANALYSIS: You have {self.storage[uid]} XP.**")
+            if uid in self.storage["xp"]:
+                await respond(msg, f"**ANALYSIS: You have {self.storage['xp'][uid]} XP.**")
             else:
                 await respond(msg, "**ANALYSIS: You have no XP record.**")  # I don't think this is possible
 
@@ -130,7 +147,7 @@ class Levelling(BasePlugin):
                     except discord.Forbidden:
                         continue
 
-        self.config_manager.save_config()
+        self.storage_file.save()
         await display.delete()
 
     @Command("NukeXP",
@@ -144,18 +161,19 @@ class Levelling(BasePlugin):
         if len(args) > 1:
             user = find_user(msg.guild, args[1])
             if user:
-                if str(user.id) in self.storage:
-                    del self.storage[str(user.id)]
+                if str(user.id) in self.storage["xp"]:
+                    del self.storage["xp"][str(user.id)]
                     await respond(msg, f"**AFFIRMATIVE. User {user.display_name} was removed from XP table.**")
                 else:
                     await respond(msg, f"**NEGATIVE. User {user.display_name} has no XP record.**")
-            elif args[1] in self.storage:
-                del self.storage[args[1]]
+            elif args[1] in self.storage["xp"]:
+                del self.storage["xp"][args[1]]
                 await respond(msg, f"**AFFIRMATIVE. ID {args[1]} was removed from XP table.**")
             else:
                 raise CommandSyntaxError("Not a user or no user found.")
         else:
-            self.storage = {}
+            self.storage["xp"] = {}
+            self.storage_file.save()
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
 
     @Command("XPConfig", "XPSettings",
@@ -198,15 +216,15 @@ class Levelling(BasePlugin):
 
     def _give_xp(self, msg: discord.Message):
         uid = str(msg.author.id)
-        if uid in self.storage:
-            self.storage[uid] += self._calc_xp(msg.clean_content)
+        if uid in self.storage["xp"]:
+            self.storage["xp"][uid] += self._calc_xp(msg.clean_content)
         else:
-            self.storage[uid] = self._calc_xp(msg.clean_content)
+            self.storage["xp"][uid] = self._calc_xp(msg.clean_content)
 
     def _take_xp(self, msg: discord.Message):
         uid = str(msg.author.id)
-        if uid in self.storage:
-            self.storage[uid] -= self._calc_xp(msg.clean_content)
+        if uid in self.storage["xp"]:
+            self.storage["xp"][uid] -= self._calc_xp(msg.clean_content)
 
     def _calc_xp(self, txt: str):
         """
