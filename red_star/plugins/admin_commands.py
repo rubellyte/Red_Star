@@ -2,7 +2,7 @@ import re
 import shlex
 import discord
 from red_star.plugin_manager import BasePlugin
-from red_star.rs_utils import respond, find_user, RSArgumentParser
+from red_star.rs_utils import respond, find_user, RSArgumentParser, prompt_for_confirmation
 from red_star.rs_errors import CommandSyntaxError
 from red_star.command_dispatcher import Command
 
@@ -77,15 +77,17 @@ class AdminCommands(BasePlugin):
             else:
                 return self.match_simple(check_msg, args.match)
 
-        if not args['emulate']:
+        deleted = [message async for message in msg.channel.history(limit=args['count'], before=before_msg,
+                                                                    after=after_msg) if check(message)]
+        if not args['emulate'] and len(deleted) > 0:
             # actual purging
+            prompt_text = f"You are about to delete {len(deleted)} messages. Continue?"
+            confirmed = await prompt_for_confirmation(msg, prompt_text=prompt_text)
+            if not confirmed:
+                return
             if not msg.channel.permissions_for(msg.guild.me).manage_messages:
                 raise discord.Forbidden
             deleted = await msg.channel.purge(limit=args['count'], before=before_msg, after=after_msg, check=check)
-        else:
-            # dry run to test your query
-            deleted = [m async for m in msg.channel.history(limit=args['count'], before=before_msg,
-                                                            after=after_msg) if check(m)]
 
         # if you REALLY want those messages
         if args['verbose']:

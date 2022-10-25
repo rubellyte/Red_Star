@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import re
 import json
+import discord.ui
+from discord import ButtonStyle
 from red_star.rs_errors import CommandSyntaxError
 from urllib.parse import urlparse
 
@@ -45,6 +47,32 @@ class RSArgumentParser(argparse.ArgumentParser):
         if namespace is None:
             namespace = RSNamespace()
         return super().parse_known_args(args=args, namespace=namespace)
+
+class ConfirmationPrompt(discord.ui.View):
+    def __init__(self, timeout):
+        self.return_value = None
+        super().__init__(timeout=timeout)
+
+    @discord.ui.button(label="Confirm", style=ButtonStyle.green)
+    async def confirm(self, *_):
+        self.return_value = True
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=ButtonStyle.gray)
+    async def cancel(self, *_):
+        self.return_value = False
+        self.stop()
+
+
+async def prompt_for_confirmation(original_msg: discord.Message,
+                                  prompt_text: str = "Are you sure you want to continue?",
+                                  timeout=30) -> bool:
+    confirmation_prompt = ConfirmationPrompt(timeout=timeout)
+    confirmation_msg = await original_msg.reply(f"**WARNING: {prompt_text}**",
+                                                view=confirmation_prompt)
+    await confirmation_prompt.wait()
+    await confirmation_msg.delete()
+    return bool(confirmation_prompt.return_value)
 
 
 def sub_user_data(user: discord.abc.User, text: str) -> str:
