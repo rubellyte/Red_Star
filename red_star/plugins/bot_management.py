@@ -8,7 +8,7 @@ import urllib.error
 from io import BytesIO
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
-from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_message
+from red_star.rs_utils import respond, is_positive, RSArgumentParser, split_message, prompt_for_confirmation
 from red_star.command_dispatcher import Command
 from traceback import format_exception, format_exc
 
@@ -384,6 +384,52 @@ class BotManagement(BasePlugin):
             await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{excstr}\n```")
         else:
             await respond(msg, f"**ANALYSIS: No error in context {args}.**")
+
+    @Command("PurgeServerConfig",
+             doc="Removes the configuration data for a server that the bot is no longer on.",
+             syntax="(server ID)",
+             category="bot_management",
+             bot_maintainers_only=True)
+    async def _purge_server_config(self, msg: discord.Message):
+        try:
+            target_guild_id = msg.clean_content.split(None, 1)[1]
+            if not target_guild_id.isdigit():
+                raise CommandSyntaxError("Invalid server ID.")
+        except KeyError:
+            raise CommandSyntaxError("Missing server ID.")
+
+        guild_storage_dir = self.config_manager.storage_path / target_guild_id
+        guild_in_config = bool(self.config_manager.config[target_guild_id])
+        guild_in_storage = guild_storage_dir.exists()
+
+        if not guild_in_config and not guild_in_storage:
+            await respond(msg, f"**WARNING: Guild with ID {target_guild_id} not found in config or storage. Confirm "
+                               f"the ID is correct.**")
+            return
+
+        confirmed = await prompt_for_confirmation(msg, f"Really delete ALL data for server {target_guild_id}?")
+        if not confirmed:
+            await msg.delete()
+            return
+
+        if guild_on := self.client.get_guild(int(target_guild_id)):
+            prompt_text = f"The bot is currently active on server {target_guild_id} ({guild_on.name}). Purging the " \
+                          f"configuration of an active server is EXTREMELY DANGEROUS. Continue anyways?"
+            confirmed = await prompt_for_confirmation(msg, prompt_text)
+            if not confirmed:
+                await msg.delete()
+                return
+
+        if guild_in_config:
+            self.config_manager.config.pop(target_guild_id)
+            self.config_manager.save_config()
+        if guild_in_storage:
+            for file in guild_storage_dir.iterdir():
+                file.unlink()
+            guild_storage_dir.rmdir()
+            self.config_manager.storage_files[target_guild_id] = {}
+
+        await respond(msg, f"**ANALYSIS: The configuration for server ID {target_guild_id} has been purged.**")
 
     @Command("Execute", "Exec", "Eval",
              doc="Executes the given Python code. Be careful, you can really break things with this!\n"

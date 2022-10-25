@@ -49,9 +49,13 @@ class RSArgumentParser(argparse.ArgumentParser):
         return super().parse_known_args(args=args, namespace=namespace)
 
 class ConfirmationPrompt(discord.ui.View):
-    def __init__(self, timeout):
+    def __init__(self, for_user: discord.abc.User, timeout=30):
+        self.for_user = for_user
         self.return_value = None
         super().__init__(timeout=timeout)
+
+    async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
+        return interaction.user == self.for_user
 
     @discord.ui.button(label="Confirm", style=ButtonStyle.green)
     async def confirm(self, *_):
@@ -67,7 +71,7 @@ class ConfirmationPrompt(discord.ui.View):
 async def prompt_for_confirmation(original_msg: discord.Message,
                                   prompt_text: str = "Are you sure you want to continue?",
                                   timeout=30) -> bool:
-    confirmation_prompt = ConfirmationPrompt(timeout=timeout)
+    confirmation_prompt = ConfirmationPrompt(original_msg.author, timeout=timeout)
     confirmation_msg = await original_msg.reply(f"**WARNING: {prompt_text}**",
                                                 view=confirmation_prompt)
     await confirmation_prompt.wait()
