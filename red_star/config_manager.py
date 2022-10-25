@@ -93,8 +93,9 @@ class ConfigManager:
             json.dump(self.config, f, sort_keys=True, indent=2)
         self.config_file_path.unlink()
         temp_path.rename(self.config_file_path)
-        for file in self.storage_files.values():
-            file.save()
+        for guild_files in self.storage_files.values():
+            for file in guild_files.values():
+                file.save()
         self.logger.debug("Saved config files.")
 
     def get_global_config(self, plugin: str, default_config=None):
@@ -156,6 +157,9 @@ class PluginStorageFile:
         self.json_load_args = {} if json_load_args is None else json_load_args
         self.contents = {}
         self.load()
+
+    def __repr__(self):
+        return f"<PluginStorageFile ({self.path})>"
 
     def load(self):
         if self.path.exists():
