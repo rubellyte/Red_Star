@@ -24,7 +24,8 @@ class RedStar(discord.AutoShardedClient):
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
-        super().__init__(intents=intents, allowed_mentions=allowed_mentions, enable_debug_events=(argv.verbose >= 2))
+        super().__init__(intents=intents, allowed_mentions=allowed_mentions,
+                         enable_debug_events=(argv.verbose >= 2))
 
         self.storage_dir = storage_dir
         self.plugin_directories = [Path.cwd() / "plugins"]

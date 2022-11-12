@@ -5,6 +5,7 @@ from discord.errors import LoginFailure
 from logging.handlers import RotatingFileHandler
 from os import chdir
 from pathlib import Path
+from sys import stdout
 from red_star.client import RedStar
 
 
@@ -35,7 +36,7 @@ def main():
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s # %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
     base_logger = logging.getLogger()
-    stream_logger = logging.StreamHandler()
+    stream_logger = logging.StreamHandler(stream=stdout)
     stream_logger.setLevel(loglevel)
     stream_logger.setFormatter(formatter)
     base_logger.addHandler(stream_logger)
@@ -70,7 +71,7 @@ def main():
 
     bot = RedStar(storage_dir, args)
     try:
-        bot.run(bot.config["global"]["token"])
+        bot.run(bot.config["global"]["token"], log_handler=None)
     except (LoginFailure, KeyError):
         base_logger.error("Bot token is invalid! "
                           "Please confirm that the token exists in configuration and is correct.")
