@@ -2,10 +2,10 @@ import asyncio
 import logging
 from argparse import ArgumentParser
 from discord.errors import LoginFailure
+from discord.utils import setup_logging
 from logging.handlers import RotatingFileHandler
 from os import chdir
 from pathlib import Path
-from sys import stdout
 from red_star.client import RedStar
 
 
@@ -33,13 +33,8 @@ def main():
     else:
         loglevel = logging.INFO
 
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s # %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
     base_logger = logging.getLogger()
-    stream_logger = logging.StreamHandler(stream=stdout)
-    stream_logger.setLevel(loglevel)
-    stream_logger.setFormatter(formatter)
-    base_logger.addHandler(stream_logger)
+    setup_logging(level=loglevel)
 
     storage_dir = Path.cwd() if args.portable else args.directory
 
@@ -57,9 +52,7 @@ def main():
         logfile.touch()
 
     file_logger = RotatingFileHandler(logfile, maxBytes=1048576, backupCount=5, encoding="utf-8")
-    file_logger.setLevel(loglevel)
-    file_logger.setFormatter(formatter)
-    base_logger.addHandler(file_logger)
+    setup_logging(handler=file_logger, level=loglevel)
 
     loop = asyncio.get_event_loop()
 
