@@ -23,9 +23,9 @@ class CommandDispatcher:
         self.channel_manager = channel_manager
         self.config_manager = client.config_manager
         self.logger = logging.getLogger(f"red_star.command_dispatcher.{guild.id}")
-        self.conf = self.config_manager.get_server_config(self.guild, "command_dispatcher",
-                                                          default_config={"command_prefix": "!",
-                                                                          "permission_overrides": {}})
+        self.config = self.config_manager.get_server_config(self.guild, "command_dispatcher",
+                                                            default_config={"command_prefix": "!",
+                                                                            "permission_overrides": {}})
 
         self.commands = {}
         self.last_error = None
@@ -34,7 +34,7 @@ class CommandDispatcher:
         await self.command_check(msg)
 
     def initialize_command_permissions(self, command: Command):
-        overrides = self.conf["permission_overrides"]
+        overrides = self.config["permission_overrides"]
 
         if command.name in overrides:
             if "permissions_all" in overrides:
@@ -154,7 +154,7 @@ class CommandDispatcher:
             except CommandSyntaxError as e:
                 err = e if e else "Invalid syntax."
                 if fn.syntax:
-                    deco = self.conf["command_prefix"].lower()
+                    deco = self.config["command_prefix"].lower()
                     await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{fn.name} {fn.syntax}.**")
                 else:
                     await respond(msg, f"**WARNING: {err}**")
@@ -175,7 +175,7 @@ class CommandDispatcher:
 
     async def command_check(self, msg):
         try:
-            deco = self.conf["command_prefix"]
+            deco = self.config["command_prefix"]
             dm_cmd = False
         except AttributeError:  # Oops, it's a DM isn't it
             deco = "!"

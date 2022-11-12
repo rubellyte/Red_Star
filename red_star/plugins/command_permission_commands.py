@@ -17,8 +17,8 @@ class CommandPermissionCommands(BasePlugin):
                   "for other commands."
 
     async def activate(self):
-        self.permission_overrides = self.plugins["command_dispatcher"].conf["permission_overrides"]
-        self.commands = self.plugins["command_dispatcher"].commands
+        self.permission_overrides = self.command_dispatcher.config["permission_overrides"]
+        self.commands = self.command_dispatcher.commands
 
     @Command("AddCommandPermission", "AddCmdPerm",
              doc="Adds a required permission(s) to a given command. All of these permissions are required to run a "

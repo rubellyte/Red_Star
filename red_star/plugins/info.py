@@ -38,7 +38,7 @@ class Info(BasePlugin):
         await self.build_help()
 
     async def build_help(self):
-        self.commands = self.plugins["command_dispatcher"].commands
+        self.commands = self.command_dispatcher.commands
         self.categories = {}
         for command in self.commands.values():
             name = command.name
@@ -112,7 +112,7 @@ class Info(BasePlugin):
              doc="Displays information about the bot.",
              category="info")
     async def _about(self, msg: discord.Message):
-        deco = self.plugins["command_dispatcher"].conf["command_prefix"]
+        deco = self.command_dispatcher.config["command_prefix"]
         desc = f"Red Star: General purpose command AI for Discord.\n" \
                f"Use {deco}help for command information."
         em = discord.Embed(title="About Red Star", color=0xFF0000, description=desc)

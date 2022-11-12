@@ -25,20 +25,24 @@ class PluginManager:
     def __init__(self, client: RedStar):
         self.client = client
         self.config_manager = client.config_manager
-        self.modules = {}
-        self.plugins: dict[discord.Guild, dict[str, BasePlugin | ChannelManager | CommandDispatcher]] = {}
-        self.plugin_classes: dict[str, Type[BasePlugin]] = {}
-        self.active_plugins = {}
         self.logger = logging.getLogger("red_star.plugin_manager")
-        self.logger.debug("Initialized plugin manager.")
+        self.default_server_config = {"disabled_plugins": []}
         self.last_error = None
+
+        self.modules: dict[str, ModuleType] = dict()
+        self.plugin_classes: dict[str, Type[BasePlugin]] = dict()
+
+        self.plugins: dict[discord.Guild, dict[str, BasePlugin]] = dict()
+        self.command_dispatchers: dict[discord.Guild, CommandDispatcher] = dict()
+        self.channel_managers: dict[discord.Guild, ChannelManager] = dict()
         self.plugin_package = ModuleType("red_star_plugins")
         self.plugin_package.__path__ = []
-        self.default_server_config = {"disabled_plugins": []}
         modules["red_star_plugins"] = self.plugin_package
 
+        self.logger.debug("Initialized plugin manager.")
+
     def __repr__(self):
-        return f"<PluginManager: Plugins: {self.plugin_classes.keys()}, Active: {self.active_plugins}>"
+        return f"<PluginManager: Plugins: {self.plugin_classes.keys()}>"
 
     def load_all_plugins(self, plugin_paths: list[Path]):
         """
@@ -135,10 +139,13 @@ class PluginManager:
 
     async def activate_server_plugins(self, guild: discord.Guild):
         channel_manager = ChannelManager(self.client, guild)
+        self.channel_managers[guild] = channel_manager
         command_dispatcher = CommandDispatcher(self.client, guild, channel_manager)
-        self.plugins[guild] = {"channel_manager": channel_manager, "command_dispatcher": command_dispatcher}
+        self.command_dispatchers[guild] = command_dispatcher
+        self.plugins[guild] = {}
         disabled_plugins = self.config_manager.get_server_config(guild, "plugin_manager",
                                                                  self.default_server_config)["disabled_plugins"]
+
         for name, plugin in self.plugin_classes.items():
             if name in disabled_plugins:
                 continue
@@ -155,10 +162,10 @@ class PluginManager:
                 try:
                     plugin_inst = plugin(guild,
                                          self.config_manager.get_server_config(guild, name, plugin.default_config),
-                                         guild_plugins["channel_manager"], guild_plugins)
+                                         self.channel_managers[guild], self.command_dispatchers[guild], guild_plugins)
                     plugin_inst.storage_file = self.config_manager.get_plugin_storage(plugin_inst)
                     await plugin_inst.activate()
-                    guild_plugins["command_dispatcher"].register_plugin(plugin_inst)
+                    self.command_dispatchers[guild].register_plugin(plugin_inst)
                     guild_plugins[name] = plugin_inst
                 except Exception:
                     self.logger.exception(
@@ -182,11 +189,9 @@ class PluginManager:
     async def deactivate_server_plugins(self, guild):
         guild_plugins = self.plugins[guild]
         for name, plugin in guild_plugins.copy().items():
-            if name in ("command_dispatcher", "channel_manager"):
-                continue
             await self.deactivate(guild, name)
-        del guild_plugins["command_dispatcher"]
-        del guild_plugins["channel_manager"]
+        del self.command_dispatchers[guild]
+        del self.channel_managers[guild]
 
     async def deactivate(self, guild: discord.Guild, name: str):
         guild_plugins = self.plugins[guild]
@@ -199,7 +204,7 @@ class PluginManager:
                     await plugin.deactivate()
                 except Exception:
                     self.logger.exception(f"Error occurred while deactivating plugin {name}: ", exc_info=True)
-                guild_plugins["command_dispatcher"].deregister_plugin(plugin)
+                self.command_dispatchers[guild].deregister_plugin(plugin)
                 del guild_plugins[name]
                 await self.hook_event("on_plugin_deactivated", name)
             else:
@@ -237,7 +242,11 @@ class PluginManager:
         :param args: Everything that gets passed to the calling function
         should be passed through to this function.
         """
-        for name, plugin in self.plugins.get(guild, {}).copy().items():
+        if event == "on_message" and guild in self.command_dispatchers:
+            await self.command_dispatchers[guild].on_message(*args)
+
+        guild_plugins = set(self.plugins.get(guild, {}).values())
+        for plugin in guild_plugins:
             hook = getattr(plugin, event, None)
             if hook:
                 # noinspection PyBroadException
@@ -245,7 +254,7 @@ class PluginManager:
                     await hook(*args, **kwargs)
                 except Exception:
                     self.last_error = exc_info()
-                    self.logger.exception(f"Exception encountered in plugin {name} on event {event}: ",
+                    self.logger.exception(f"Exception encountered in plugin {plugin.name} on event {event}: ",
                                           exc_info=True)
 
 
@@ -261,26 +270,25 @@ class BasePlugin:
     description: str = "This is a template class for plugins. Name *must* be filled, other meta-fields are optional."
     version: str = "1.0"
     author: str = "Unknown"
+
     # Attributes added by plugin manager
-    # plugins: dict = {}
-    # plugin_config: dict = {}
     client: RedStar
     config_manager: ConfigManager
-    # channel_manager: ChannelManager
     plugin_manager: PluginManager
-    # logger = logging.Logger
-    # User-defined attributes for use internally
+
+    # Developer-defined attributes for use in code
     default_config: dict = {}
     default_global_config: dict = {}
     global_plugin_config: dict = {}
     channel_types: set = set()
     channel_categories: set = set()
 
-    def __init__(self, guild: discord.Guild, plugin_config: dict,
-                 channel_manager: ChannelManager, plugins: dict[str, BasePlugin]):
+    def __init__(self, guild: discord.Guild, plugin_config: dict, channel_manager: ChannelManager,
+                 command_dispatcher: CommandDispatcher, plugins: dict[str, BasePlugin]):
         self.guild = guild
         self.config = plugin_config
         self.channel_manager = channel_manager
+        self.command_dispatcher = command_dispatcher
         self.plugins = plugins
         self.logger = logging.getLogger(f"red_star.plugin.{self.name}.{guild.id}")
         self.storage_file: PluginStorageFile
