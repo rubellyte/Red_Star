@@ -126,7 +126,7 @@ class RedStar(discord.AutoShardedClient):
             if isinstance(channel, discord.abc.GuildChannel):
                 await self.plugin_manager.hook_event("on_raw_reaction_remove", channel.guild, payload)
 
-    async def on_reaction_clear(self, message: discord.Message, reactions: [discord.Reaction]):
+    async def on_reaction_clear(self, message: discord.Message, reactions: list[discord.Reaction]):
         if message.guild is None:
             return
         # if self.channel_manager.channel_in_category(message.guild, "no_read", message.channel):

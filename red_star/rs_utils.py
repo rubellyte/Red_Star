@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
     from red_star.config_manager import JsonValues
+    from typing import Optional
 
 
 class RSNamespace(argparse.Namespace):
@@ -31,19 +32,19 @@ class RSArgumentParser(argparse.ArgumentParser):
         self.ignore_unrecognized_arguments = ignore_unrecognized_arguments
         super().__init__(add_help=add_help, **kwargs)
 
-    def exit(self, status: int = 0, message: str = None):
+    def exit(self, status: int = 0, message: Optional[str] = None):
         raise CommandSyntaxError(message)
 
     def error(self, message: str):
         raise CommandSyntaxError(message)
 
-    def parse_args(self, args: [str] = None, namespace: argparse.Namespace = None):
-        args, argv = self.parse_known_args(args, namespace)
+    def parse_args(self, args: Optional[list[str]] = None, namespace: Optional[argparse.Namespace] = None):
+        parsed_args, argv = self.parse_known_args(args, namespace)
         if argv and not self.ignore_unrecognized_arguments:
             self.error(f"Unrecognized arguments: {' '.join(argv)}")
-        return args
+        return parsed_args
 
-    def parse_known_args(self, args: [str] = None, namespace: argparse.Namespace = None):
+    def parse_known_args(self, args: Optional[list[str]] = None, namespace: Optional[argparse.Namespace] = None):
         if namespace is None:
             namespace = RSNamespace()
         return super().parse_known_args(args=args, namespace=namespace)
@@ -83,9 +84,10 @@ async def prompt_for_confirmation(original_msg: discord.Message,
 def sub_user_data(user: discord.abc.User, text: str) -> str:
     """
     Replaces certain tags in data with user info.
+
     :param user: The User object to get data from.
     :param text: The text string to substitute on.
-    :return str: The substituted text.
+    :return: The substituted text.
     """
     rep = {
         "<username>": user.name,
@@ -100,13 +102,15 @@ def sub_user_data(user: discord.abc.User, text: str) -> str:
     return text
 
 
-def find_user(guild: discord.Guild, search: str, return_all: bool = False) -> discord.Member | [discord.Member]:
+def find_user(guild: discord.Guild, search: str, return_all: bool = False) \
+              -> Optional[discord.Member | list[discord.Member]]:
     """
     Convenience function to find users via several checks.
+
     :param guild: The discord.Guild object in which to search.
     :param search: The search string.
     :param return_all: Whether to return all users that match the criteria or just the first one.
-    :return: discord.Member: The Member that matches the criteria, or none.
+    :return: The Member(s) that matches the criteria, or none.
     """
     funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search, lambda x: str(x).lower() == search.lower(),
              lambda x: x.display_name.lower() == search.lower(), lambda x: x.name.lower() == search.lower())
@@ -122,13 +126,15 @@ def find_user(guild: discord.Guild, search: str, return_all: bool = False) -> di
         return final
 
 
-def find_role(guild: discord.Guild, search: str, return_all: bool = False) -> discord.Role | [discord.Role]:
+def find_role(guild: discord.Guild, search: str, return_all: bool = False) \
+              -> Optional[discord.Role | list[discord.Role]]:
     """
     Convenience function to find users via several checks.
+
     :param guild: The discord.Guild object in which to search.
     :param search: The search string.
     :param return_all: Whether to return all roles that match the criteria or just the first one.
-    :return: discord.Role: The Role that matches the criteria, or none.
+    :return: The Role(s) that matches the criteria, or none.
     """
     funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search,
              lambda x: str(x).lower() == search.lower())
@@ -144,14 +150,16 @@ def find_role(guild: discord.Guild, search: str, return_all: bool = False) -> di
         return final
 
 
-async def respond(msg: discord.Message, response: str = None, allow_mention_everyone: bool = False, **kwargs):
+async def respond(msg: discord.Message, response: Optional[str] = None, allow_mention_everyone: bool = False,
+                  **kwargs) -> discord.Message:
     """
     Convenience function to respond to a given message. Replaces certain
     patterns with data from the message. Extra kwargs will be passed through to send().
+
     :param msg: The message to respond to.
     :param response: The text to respond with.
     :param allow_mention_everyone: If True, disables the automatic @everyone and @here filtering. Defaults to False.
-    :return discord.Message: The Message sent.
+    :return The Message sent.
     """
     text = None
     if response:
@@ -168,10 +176,11 @@ async def respond(msg: discord.Message, response: str = None, allow_mention_ever
     return await msg.channel.send(text, **kwargs)
 
 
-def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
+def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n") -> list[str]:
     """
     A helper function that takes in a text string and breaks it into pieces with a maximum size, making sure all
     markdown is properly closed in the process.
+
     :param input_string: The input string to be split into chunks
     :param max_len: The maximum length of a given chunk
     :param splitter: The token upon which the function should try to split the string
@@ -202,9 +211,10 @@ def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
             return final_strings
 
 
-def close_markdown(input_string: str) -> (str, str):
+def close_markdown(input_string: str) -> tuple[str, str]:
     """
     A helper function that *attempts* to close markdown left open.
+
     :param input_string: The string you want to close markdown on.
     :return: A tuple containing the markdown-closed string, and the extra characters that were added to close it.
     """
@@ -218,11 +228,12 @@ def close_markdown(input_string: str) -> (str, str):
     return output, unclosed_matches
 
 
-def group_items(items: [str], message: str = "", header: str = '```\n', footer: str = '```',
-                joiner: str = '\n') -> [str]:
+def group_items(items: list[str], message: str = "", header: str = '```\n', footer: str = '```',
+                joiner: str = '\n') -> list[str]:
     """
     Utility function to group a number of list items into sub-2000 length strings for posting through discord.
     Assumes every item is a string and is below 2000 symbols itself.
+
     :param items: list of strings to group.
     :param message: Optional message to include before the items.
     :param header: For discord formatting, defaults to putting everything into a code block.
@@ -263,6 +274,7 @@ def ordinal(n: int) -> str:
 def decode_json(data: bytes) -> JsonValues:
     """
     A function that tries to decode JSON files in a few common encodings that might come in from users.
+
     :param data: The raw bytes of the file.
     :return: A valid JSON data type parsed from the file.
     """
@@ -368,12 +380,13 @@ def verify_embed(embed: dict):
         def to_dict(self):
             return self
 
-    def option(res: dict, key: str, target: dict, scheme: (dict, int, None)):
+    def option(res: dict, key: str, target: dict, scheme: dict | int | None):
         """
         Verification function.
         Scheme can be a length for text fields or None for url verification.
         Otherwise, it may be a dict of fields with either lengths or None for urls.
         URLs are limited to 2048 symbols by default.
+
         :param res: "result" dict to put the values into
         :param key: Key to be verified
         :param target: The "embed" dict to pull values from

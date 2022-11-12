@@ -407,6 +407,7 @@ class RoleplayEconomy(BasePlugin):
         """
         Function to find a possible item using sequence matcher.
         Collects possible candidates and returns them too, but don't count on that if it does find a match.
+
         :param gid:
         :param query:
         :return:

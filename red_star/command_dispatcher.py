@@ -62,10 +62,10 @@ class CommandDispatcher:
         Register commands in the command list and handle conflicts. If it's an
         alias, we don't want it to overwrite non-alias commands. Otherwise,
         overwrite based on priority, and failing that, load order.
+
         :param fn: The command function, with its added information.
         :param name: The command's name, for indexing.
         :param is_alias: A boolean that tells the registrar not to overwrite other commands.
-        :return: None.
         """
         self.logger.debug(f"Registering command {name} from {fn.__self__.name}.")
 
@@ -91,10 +91,10 @@ class CommandDispatcher:
     def deregister(self, fn, name, is_alias=False):
         """
         Deregister commands from the command list when their plugin is deactivated.
+
         :param fn: The command function, with its added information.
         :param name: The command's name, for indexing.
         :param is_alias: A boolean that tells the registrar not to overwrite other commands.
-        :return: None.
         """
         self.logger.debug(f"Deregistering command {name} from {fn.__self__.name}.")
 

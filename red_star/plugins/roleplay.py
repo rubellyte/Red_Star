@@ -84,9 +84,10 @@ class Roleplay(BasePlugin):
         def embed(self, guild: discord.Guild, roles: [discord.Role]) -> discord.Embed:
             """
             Generates a pretty discord embed of this role.
+
             :param guild: guild that the bio belongs to, for member and role searching
             :param roles: list of accepted race roles
-            :return:
+            :return: Embed object representing role
             """
             t_embed = discord.Embed(type="rich", colour=16711680)
 

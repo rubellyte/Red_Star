@@ -83,7 +83,7 @@ class Voting(BasePlugin):
             :param option: The option for which the vote is being placed.
             :param user: The user placing the vote.
             :param up: Whether this is a placement or retraction of a vote.
-            :return: bool: Whether the vote or retraction was successful.
+            :return: Whether the vote or retraction was successful.
             """
             if user.id not in self.votes:
                 self.votes[user.id] = set()
@@ -116,9 +116,8 @@ class Voting(BasePlugin):
     async def _startvote(self, msg: discord.Message):
         """
         Generates a vote, posts a vote embed.
-        :type msg: discord.Message
-        :param msg:
-        :return:
+
+        :param msg: The Message containing the command.
         """
         args = shlex.split(msg.clean_content)
         gid = str(msg.guild.id)

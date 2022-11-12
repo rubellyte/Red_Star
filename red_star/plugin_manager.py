@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import Type
     from red_star.client import RedStar
-    from red_star.config_manager import ConfigManager, PluginStorageFile
+    from red_star.config_manager import ConfigManager, PluginStorageFile, JsonValues
 
 
 class PluginManager:
@@ -40,7 +40,7 @@ class PluginManager:
     def __repr__(self):
         return f"<PluginManager: Plugins: {self.plugin_classes.keys()}, Active: {self.active_plugins}>"
 
-    def load_all_plugins(self, plugin_paths: [Path]):
+    def load_all_plugins(self, plugin_paths: list[Path]):
         """
         Loads all plugins from all specified folders and places them into the `red_star_plugins` module for
         cross-plugins access.
@@ -81,6 +81,7 @@ class PluginManager:
     def _load_module(self, module_name: str) -> ModuleType:
         """
         Imports Python modules containing plugins and adds them to the module list.
+
         :param module_name: the name of the module to be imported.
         :return: The module object.
         """
@@ -92,6 +93,7 @@ class PluginManager:
     def _get_plugin_class(self, plugin_module: ModuleType) -> set[Type[BasePlugin]]:
         """
         Extracts the plugin classes from a module and assigns them several class-level properties.
+
         :param plugin_module: The module containing the plugin classes to be extracted.
         :return: The extracted plugin classes, with class properties assigned.
         """
@@ -115,7 +117,6 @@ class PluginManager:
         Extracts the plugin classes from a module and creates instances of them for use,
         placing them in the plugins list.
         :param plugin_module: The module containing the plugin classes to be extracted.
-        :return:
         """
         classes = self._get_plugin_class(plugin_module)
         for cls in classes:
@@ -210,7 +211,6 @@ class PluginManager:
         """
         Reloads a plugin from its source file.
         :param name: The plugin to be reloaded.
-        :return:
         """
         try:
             self.logger.info(f"Reloading plugin module {name}.")
@@ -231,6 +231,7 @@ class PluginManager:
     async def hook_event(self, event: str, guild, *args, **kwargs):
         """
         Dispatches an event, with its data, to all plugins.
+
         :param event: The name of the event. Should match the calling function.
         :param guild: The guild to which the event belongs.
         :param args: Everything that gets passed to the calling function
@@ -282,15 +283,15 @@ class BasePlugin:
         self.channel_manager = channel_manager
         self.plugins = plugins
         self.logger = logging.getLogger(f"red_star.plugin.{self.name}.{guild.id}")
-        self.storage_file: PluginStorageFile = None  # It's coming
+        self.storage_file: PluginStorageFile
 
     @property
-    def storage(self):
+    def storage(self) -> JsonValues:
         return self.storage_file.contents
 
     @storage.setter
-    def storage(self, value):
-        self.storage.contents = value
+    def storage(self, value: JsonValues):
+        self.storage_file.contents = value
 
     def storage_load_args(self):
         return {}

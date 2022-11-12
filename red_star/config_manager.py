@@ -8,6 +8,7 @@ from shutil import copyfile
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
+    from typing import Optional
     import discord
     from red_star.plugin_manager import BasePlugin
 
@@ -151,11 +152,11 @@ class ConfigDict(dict):
 
 
 class PluginStorageFile:
-    def __init__(self, path: Path, json_save_args: dict = None, json_load_args: dict = None):
+    def __init__(self, path: Path, json_save_args: Optional[dict] = None, json_load_args: Optional[dict] = None):
         self.path = path
         self.json_save_args = {} if json_save_args is None else json_save_args
         self.json_load_args = {} if json_load_args is None else json_load_args
-        self.contents = {}
+        self.contents: JsonValues = {}
         self.load()
 
     def __repr__(self):
