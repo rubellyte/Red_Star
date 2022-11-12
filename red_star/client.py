@@ -20,10 +20,11 @@ class RedStar(discord.AutoShardedClient):
             dpy_logger.setLevel(logging.INFO)
         self.logger.info("Initializing...")
 
+        allowed_mentions = discord.AllowedMentions(everyone=False, replied_user=False, users=True, roles=True)
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = True
-        super().__init__(intents=intents, enable_debug_events=(argv.verbose >= 2))
+        super().__init__(intents=intents, allowed_mentions=allowed_mentions, enable_debug_events=(argv.verbose >= 2))
 
         self.storage_dir = storage_dir
         self.plugin_directories = [Path.cwd() / "plugins"]
