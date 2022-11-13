@@ -9,10 +9,10 @@ import json
 
 class RoleRequest(BasePlugin):
     name = "role_request"
-    version = "1.1"
+    version = "1.2"
     author = "GTG3000"
 
-    default_config = {
+    default_plugin_config = {
         "roles": [],
         "default_roles": []
     }
@@ -30,9 +30,10 @@ class RoleRequest(BasePlugin):
                 # We have no way to check which guild a message belongs to, so we have no choice but to put all
                 # message IDs in all guilds.
                 for new_storage in self.config_manager.storage_files.values():
-                    new_storage.contents.setdefault("role_request_reaction_messages", {})[msg_id] = message_data
-                    new_storage.save()
-                    new_storage.load()
+                    plugin_storage = new_storage[self.name]
+                    plugin_storage.contents.setdefault("role_request_reaction_messages", {})[msg_id] = message_data
+                    plugin_storage.save()
+                    plugin_storage.load()
             old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
             self.logger.info(f"Old role request reaction message storage converted to new format. "
                              f"Old data now located at {old_storage_path} - you may delete this file.")
