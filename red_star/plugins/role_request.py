@@ -1,6 +1,6 @@
 from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
-from red_star.rs_utils import respond, RSArgumentParser, split_message, find_role
+from red_star.rs_utils import respond, RSArgumentParser, split_message, find_role, group_items
 from red_star.rs_errors import CommandSyntaxError, UserPermissionError
 import asyncio
 import discord
@@ -24,10 +24,12 @@ class RoleRequest(BasePlugin):
     }
 
     reacts = None
+    passwords = None
 
     async def activate(self):
         self._port_old_storage()
         self.reacts = self.storage.setdefault("role_request_reaction_messages", {})
+        self.passwords = self.storage.setdefault("role_password", {})
         self._port_old_reacts()
 
     def _port_old_reacts(self):
@@ -119,14 +121,12 @@ class RoleRequest(BasePlugin):
              category="role_request",
              run_anywhere=True)
     async def _offer_roles(self, msg: discord.Message):
-        args = msg.content.split()
+        args = shlex.split(msg.content)
         is_exclusive = 'exclusive' in args.pop(0).lower()
 
-        found = []
-        for emote, roleQuery in zip(args[::2], args[1::2]):
-            role = find_role(msg.guild, roleQuery)
-            if role:
-                found.append((emote, role))
+        found = list(filter(lambda x: x[1],  # throw out the entries where role wasn't found
+                            ((emote, find_role(msg.guild, roleQuery))
+                             for emote, roleQuery in zip(args[::2], args[1::2]))))
 
         if found:
             message = await respond(msg, "**Following roles available through reacting to this message:**\n" +
@@ -143,6 +143,74 @@ class RoleRequest(BasePlugin):
                 "reacts": parsed_found
             }
             self.storage_file.save()
+
+    @Command("PasswordRole", "PWDRole",
+             doc="Specifies a role to be granted to people offering a correct password through ClaimRole command.\n"
+                 "Pass phrases with spaces in them can be supplied in quotation marks, e.g. \"some pass phrase\".\n"
+                 "NOTE: whitespace will be reduced to single space to prevent confusion.\n"
+                 "If a given pass phrase already exists on theserver, role will be updated or deleted if no role is "
+                 "supplied.\n"
+                 "If no arguments are given, lists existing password-role bindings.",
+             syntax="[password] [role]",
+             perms={"manage_roles"},
+             category="role_request")
+    async def _password_role(self, msg: discord.Message):
+        args = shlex.split(msg.content)
+        args_len = len(args)
+
+        if args_len == 1:  # no arguments given, return list. There can never be an empty args list, because command.
+            for message in group_items(
+                    [f"{key}: {msg.guild.get_role(role['role']).name}" for key, role in self.passwords.items()],
+                    message="**ANALYSIS: Following pass phrase - role pairs found:**\n",
+            ):
+                await respond(msg, message)
+            return
+
+        role = None
+        if args_len == 3:  # optional role parameter detected. Not joining it up ourselves
+            role_query = args[2]
+            role = find_role(msg.guild, role_query)
+            if not role:
+                raise CommandSyntaxError(f"Role `{role_query}` not found. Try using a mention or a role id.")
+
+        #  clean up password white space, to have mercy on our users.
+        #  if you think that filtering out reading capability with variable spacing in password is a good idea...
+        #  well you are wrong.
+        password = " ".join(args[1].split())
+
+        if password not in self.passwords:  # add new password - role pair
+            self.passwords[password] = {
+                "role": role.id
+            }
+            await respond(msg, f"**AFFIRMATIVE. Added pass phrase `{password}`, granting role `{role.name}`.**")
+        elif role:  # replace role
+            self.passwords[password]["role"] = role.id
+            await respond(msg, f"**AFFIRMATIVE. Pass phrase `{password}` now grants role `{role.name}`.**")
+        else:  # delete password - role pair
+            del self.passwords[password]
+            await respond(msg, f"**AFFIRMATIVE. Pass phrase `{password}` has been removed.**")
+        self.storage_file.save()
+
+    @Command("ClaimRole",
+             syntax="(password)",
+             category="role_request",
+             run_anywhere=True,
+             delcall=True)
+    async def _claim_role(self, msg: discord.Message):
+        _, *password = msg.content.split()
+        if not password:
+            return
+
+        password = " ".join(password)
+
+        if password not in self.passwords:
+            return
+
+        role = msg.guild.get_role(self.passwords[password]['role'])
+        if not role:
+            return
+
+        await msg.author.add_roles(role)
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """
