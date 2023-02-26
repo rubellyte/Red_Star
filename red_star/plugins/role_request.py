@@ -15,7 +15,7 @@ class MESSAGE_TYPE:
 
 class RoleRequest(BasePlugin):
     name = "role_request"
-    version = "1.3"
+    version = "1.4"
     author = "GTG3000"
 
     default_plugin_config = {
@@ -39,6 +39,8 @@ class RoleRequest(BasePlugin):
                     "reacts": config,
                     "type": MESSAGE_TYPE.NORMAL
                 }
+            elif "required" not in config:
+                config["required"] = []
 
     def _port_old_storage(self):
         old_storage_path = self.config_manager.config_path / "role_request_reaction_messages.json"
@@ -115,18 +117,41 @@ class RoleRequest(BasePlugin):
             else:
                 raise CommandSyntaxError
 
-    @Command("OfferRoles", "OfferExclusiveRoles",
-             syntax="(reaction) (role)...",
+    @Command("OfferRoles",
+             doc="Creates a post with reactions that can be used to gain or remove offered roles.\n"
+                 "Use as follows: OfferRoles 🎈 balloonrole 📌 \"pushpin role\"\n"
+                 "Opional flags:\n"
+                 "-x/--exclusive: only one reaction is allowed to be claimed.\n"
+                 "-r/--require  : member must have all of the required roles to claim anything.\n\n"
+                 "example: OfferRoles -x -r Speaking -r Special ✅ @extra_special_role",
+             syntax="[-x/--exclusive] [-r/--require (role)] (reaction) (role)...",
              perms={"manage_roles"},
              category="role_request",
              run_anywhere=True)
     async def _offer_roles(self, msg: discord.Message):
-        args = shlex.split(msg.content)
-        is_exclusive = 'exclusive' in args.pop(0).lower()
+        parser = RSArgumentParser()
+        parser.add_argument("command")
+        parser.add_argument("-x", "--exclusive", action="store_true")
+        parser.add_argument("-r", "--require", action="append", default=[])
+        parser.add_argument("pairs", nargs="+")
+
+        args = parser.parse_args(shlex.split(msg.content))
+
+        if not args["pairs"]:
+            return
+
+        print(args)
 
         found = list(filter(lambda x: x[1],  # throw out the entries where role wasn't found
                             ((emote, find_role(msg.guild, roleQuery))
-                             for emote, roleQuery in zip(args[::2], args[1::2]))))
+                             for emote, roleQuery in zip(args["pairs"][::2], args["pairs"][1::2]))))
+
+        requisite = []
+        for roleQuery in args["require"]:
+            role = find_role(msg.guild, roleQuery)
+            if not role:
+                raise CommandSyntaxError(F"Could not find required role {roleQuery}")
+            requisite.append(role.id)
 
         if found:
             message = await respond(msg, "**Following roles available through reacting to this message:**\n" +
@@ -139,7 +164,8 @@ class RoleRequest(BasePlugin):
                     await message.delete()
                     raise CommandSyntaxError('Do not use emoji unavailable to the bot.')
             self.reacts[str(message.id)] = {
-                "type": MESSAGE_TYPE.CHOICE if is_exclusive else MESSAGE_TYPE.NORMAL,
+                "type": MESSAGE_TYPE.CHOICE if args["exclusive"] else MESSAGE_TYPE.NORMAL,
+                "required": requisite,
                 "reacts": parsed_found
             }
             self.storage_file.save()
@@ -231,6 +257,12 @@ class RoleRequest(BasePlugin):
         msg = await self.client.get_channel(payload.channel_id).fetch_message(payload.message_id)
         user = self.client.get_guild(payload.guild_id).get_member(payload.user_id)
         emoji = str(payload.emoji)
+
+        if offering["required"]:
+            for required_role_id in offering["required"]:
+                if not user.get_role(required_role_id):
+                    await msg.remove_reaction(payload.emoji, user)
+                    return
 
         if offering["type"] == MESSAGE_TYPE.CHOICE:
             to_add = set()
