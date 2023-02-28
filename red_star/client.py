@@ -208,9 +208,3 @@ class RedStar(discord.AutoShardedClient):
     #
     # async def on_group_remove(self, channel: discord.GroupChannel, user: discord.User):
     #     await self.plugin_manager.hook_event("on_group_remove", channel, user)
-
-    # async def global_tick_dispatcher(self):
-    #     timer = self.config.get("global_tick_interval", 15)
-    #     while self.logged_in:
-    #         await sleep(timer)
-    #         create_task(self.plugin_manager.hook_event("on_global_tick", discord.utils.utcnow(), timer))

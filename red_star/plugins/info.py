@@ -16,9 +16,6 @@ class Info(BasePlugin):
     version = "1.1"
     author = "medeor413"
     description = "A plugin that provides commands for fetching information about other commands, or the bot itself."
-    default_global_config = {
-        "message_maintainers_when_update_available": True
-    }  # TODO: this cannot be in a plugin any more
 
     async def activate(self):
         self.commands = {}
@@ -27,7 +24,6 @@ class Info(BasePlugin):
     async def on_all_plugins_loaded(self):
         await sleep(1)
         await self.build_help()
-        await self.check_for_updates()
 
     async def on_plugin_activated(self, _):
         await sleep(1)
@@ -46,26 +42,6 @@ class Info(BasePlugin):
             if cmd_category not in self.categories:
                 self.categories[cmd_category] = {}
             self.categories[cmd_category][name] = command
-
-    async def check_for_updates(self):
-        repo_url = "https://api.github.com/repos/Medeor413/Red_Star/releases/latest"
-        response = urlopen(repo_url)
-        if response.status == 200:
-            response = json.load(response)
-            ver = re.match(r".*(\d+)\.(\d+)\.(\d+)", response["tag_name"])
-            latest_version = VersionInfo(major=int(ver[1]), minor=int(ver[2]), patch=int(ver[3]),
-                                         releaselevel="release")
-            if latest_version > version_tuple:
-                self.logger.warning(f"Red Star is out of date!\n"
-                                    f"Running version: {version}; latest version: {ver[0]}\n"
-                                    f"Please update Red Star as soon as possible.")
-                if self.global_plugin_config["message_maintainers_when_update_available"]:
-                    maintainers = [self.client.get_user(i) for i in
-                                   self.config_manager.config.get("bot_maintainers", [])]
-                    for user in maintainers:
-                        await user.send(f"**WARNING: Red Star is out of date!\n"
-                                        f"Running version: {version}; latest version: {ver[0]}\n"
-                                        f"Please update Red Star as soon as possible.**")
 
     @Command("Help",
              doc="Displays information on commands.",
