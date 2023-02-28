@@ -220,7 +220,7 @@ class ReminderPlugin(BasePlugin):
              doc="Prints out a list of all reminders of the user.\nUse del argument and an index from said list to "
                  "remove reminders.",
              category="reminder")
-    async def _remindlist(self, msg: discord.Message):
+    async def _remind_list(self, msg: discord.Message):
         uid = msg.author.id
         args = msg.clean_content.split(None, 2)
         reminder_list = [r for r in self.storage["reminders"] if r.uid == uid]
@@ -250,7 +250,7 @@ class ReminderPlugin(BasePlugin):
                  "remove reminders.",
              category="reminder",
              perms={"manage_messages"})
-    async def _remindlistall(self, msg: discord.Message):
+    async def _remind_list_all(self, msg: discord.Message):
         args = msg.clean_content.split(None, 2)
 
         users = {r.uid: str(msg.guild.get_member(r.uid)) for r in self.storage["reminders"]}

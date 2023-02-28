@@ -21,7 +21,7 @@ class AdminCommands(BasePlugin):
              syntax="(count) [match] [-u/--user mention/ID/Name] [-r/--regex] [-v/--verbose] [-e/--emulate/--dryrun]"
                     "[-b/--before message_id] [-a/--after message_id]",
              run_anywhere=True,
-             delcall=True,
+             delete_call=True,
              perms={"manage_messages"},
              category="admin")
     async def _purge(self, msg: discord.Message):
@@ -106,9 +106,9 @@ class AdminCommands(BasePlugin):
                       (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
 
     @staticmethod
-    def match_simple(msg: discord.Message, searchstr: str):
-        return not searchstr or searchstr.lower() in msg.content.lower()
+    def match_simple(msg: discord.Message, search_substr: str):
+        return not search_substr or search_substr.lower() in msg.content.lower()
 
     @staticmethod
-    def match_regex(msg: discord.Message, searchstr: str):
-        return not searchstr or re.match(searchstr.lower(), msg.content.lower())
+    def match_regex(msg: discord.Message, search_substr: str):
+        return not search_substr or re.match(search_substr.lower(), msg.content.lower())

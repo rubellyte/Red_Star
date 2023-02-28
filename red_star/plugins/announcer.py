@@ -12,9 +12,8 @@ class Announcer(BasePlugin):
     description = "A plugin for basic automated announcements, triggering messages when the bot starts, " \
                   "a new member joins, or the bot is pinged."
     default_config = {
-        "greeting_message": "Sample message to be broadcasted on bot load.",
-        "new_member_announce_message": "Message for new players. Replaces <username> with their name and "
-                                       "<usermention> with a mention.",
+        "greeting_message": "**RED STAR IS ONLINE.**",
+        "new_member_announce_message": "**Welcome to the server, <@usermention>.**",
         "ping_messages": True,
         "ping_messages_on_everyone": False,
         "ping_message_options": [

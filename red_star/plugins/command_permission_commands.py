@@ -12,7 +12,7 @@ from red_star.rs_utils import respond, find_user, find_role
 class CommandPermissionCommands(BasePlugin):
     name = "command_permission_commands"
     version = "1.0"
-    author = "Medeor"
+    author = "medeor413"
     description = "A somewhat confusingly-named plugin that implements commands to edit the necessary permissions " \
                   "for other commands."
 

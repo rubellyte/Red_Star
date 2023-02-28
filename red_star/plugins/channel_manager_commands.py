@@ -21,22 +21,22 @@ class ChannelManagerCommands(BasePlugin):
     async def _get_channel_cmd(self, msg: discord.Message):
         gid = str(msg.guild.id)
         try:
-            chantype = msg.clean_content.split(None, 1)[1].lower()
+            channel_type = msg.clean_content.split(None, 1)[1].lower()
             try:
-                chan = self.channel_manager.get_channel(chantype)
-                await respond(msg, f"**ANALYSIS: The {chantype} channel for this server is {chan.mention}.**")
+                chan = self.channel_manager.get_channel(channel_type)
+                await respond(msg, f"**ANALYSIS: The {channel_type} channel for this server is {chan.mention}.**")
             except ChannelNotFoundError:
-                await respond(msg, f"**ANALYSIS: No channel of type {chantype} set for this server.**")
+                await respond(msg, f"**ANALYSIS: No channel of type {channel_type} set for this server.**")
         except IndexError:
-            chantypes = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name if y else 'Unset'}"
+            channel_types = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name if y else 'Unset'}"
                                    for x, y in self.channel_manager.conf[gid]['channels'].items()])
-            await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{chantypes}```")
+            await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{channel_types}```")
 
     @Command("SetChannel",
              doc="Sets the specified channel type to the specified channel for this server or disables it.\n"
                  "Use channel mention for text channels or channel name for voice channels.\n"
                  "Voice channel types must be prefixed by \"Voice\".",
-             syntax="(chantype) [channel]",
+             syntax="(channel_type) [channel]",
              category="channel_management",
              perms={"manage_guild"},
              run_anywhere=True)
@@ -44,18 +44,18 @@ class ChannelManagerCommands(BasePlugin):
         args = shlex.split(msg.content)
 
         if len(args) > 1:
-            chantype = args[1].lower()
+            channel_type = args[1].lower()
         else:
             raise CommandSyntaxError("No channel type provided.")
 
-        if chantype not in self.channel_manager.channel_types:
+        if channel_type not in self.channel_manager.channel_types:
             type_list = "\n".join(x.capitalize() for x in self.channel_manager.channel_types)
-            await respond(msg, f"**WARNING: No such channel type {chantype}. Channel types:**\n"
+            await respond(msg, f"**WARNING: No such channel type {channel_type}. Channel types:**\n"
                                f"```\n{type_list}\n```")
             return
 
         if len(args) > 2:
-            if chantype.startswith("voice"):
+            if channel_type.startswith("voice"):
                 channel = args[2].lower()
                 channel = discord.utils.find(
                         lambda x: isinstance(x, discord.VoiceChannel) and x.name.lower() == channel,
@@ -70,13 +70,13 @@ class ChannelManagerCommands(BasePlugin):
         else:
             channel = None
 
-        self.channel_manager.set_channel(chantype, channel)
+        self.channel_manager.set_channel(channel_type, channel)
 
         if channel:
-            await respond(msg, f"**ANALYSIS: The {chantype} channel for this server has been set to "
+            await respond(msg, f"**ANALYSIS: The {channel_type} channel for this server has been set to "
                                f"{channel.mention}.**")
         else:
-            await respond(msg, f"**ANALYSIS: The {chantype} channel for this server has been disabled.**")
+            await respond(msg, f"**ANALYSIS: The {channel_type} channel for this server has been disabled.**")
 
     @Command("GetCategory",
              doc="Gets the members of the specified channel category on this server.",
@@ -88,15 +88,15 @@ class ChannelManagerCommands(BasePlugin):
         try:
             category = msg.clean_content.split(None, 1)[1].lower()
             if category in self.channel_manager.conf[gid]['categories']:
-                catestr = ", ".join([msg.guild.get_channel(x).name for
+                categories_str = ", ".join([msg.guild.get_channel(x).name for
                                      x in self.channel_manager.conf[gid]['categories'][category]])
                 await respond(msg, f"**ANALYSIS: Category {category} contains the following channels:**\n"
-                                   f"```\n{catestr}```")
+                                   f"```\n{categories_str}```")
             else:
                 await respond(msg, f"**ANALYSIS: No such category {category}.**")
         except IndexError:
-            catestr = "\n".join(self.channel_manager.conf[gid]['categories'].keys())
-            await respond(msg, f"**ANALYSIS: Available categories:**\n```\n{catestr}```")
+            categories_str = "\n".join(self.channel_manager.conf[gid]['categories'].keys())
+            await respond(msg, f"**ANALYSIS: Available categories:**\n```\n{categories_str}```")
 
     @Command("AddToCategory",
              doc="Adds the given channel to the specified category for this server.\n"

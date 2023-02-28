@@ -697,11 +697,11 @@ class GuildPlayer:
         try:
             if self.song_mode == SongMode.SHUFFLE_REPEAT:
                 try:
-                    vids = {i for i, _ in enumerate(self.queue)}
-                    eligible_songs = vids - self.already_played
+                    song_indices = {i for i, _ in enumerate(self.queue)}
+                    eligible_songs = song_indices - self.already_played
                     if not eligible_songs:
                         self.already_played.clear()
-                        eligible_songs = vids
+                        eligible_songs = song_indices
                     eligible_songs = tuple(eligible_songs)
                     next_song = eligible_songs[randint(0, len(eligible_songs) - 1)]
                     self.already_played.add(next_song)

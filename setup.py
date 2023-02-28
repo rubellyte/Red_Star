@@ -17,7 +17,7 @@ setuptools.setup(
     version=version,
     description='Red Star - A general-purpose Discord bot with bonus shouting.',
     url='https://github.com/medeor413/Red_Star',
-    author="Medeor",
+    author="medeor413",
     author_email="me@medeor.me",
     long_description=long_description(),
     long_description_content_type="text/markdown",

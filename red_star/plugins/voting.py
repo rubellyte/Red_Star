@@ -45,7 +45,7 @@ class Voting(BasePlugin):
             self.allow_retracting = allow_retracting
             self.options = {}
 
-        def setquery(self, query: str):
+        def set_query(self, query: str):
             """
             :param query: string of the voting question/query
             """
@@ -113,7 +113,7 @@ class Voting(BasePlugin):
                  "HID is used to interact with the poll through other commands, keep it one word.",
              run_anywhere=True,
              category="voting")
-    async def _startvote(self, msg: discord.Message):
+    async def _start_vote(self, msg: discord.Message):
         """
         Generates a vote, posts a vote embed.
 
@@ -141,7 +141,7 @@ class Voting(BasePlugin):
                            author=msg.author.id,
                            vote_limit=args['vote_limit'],
                            allow_retracting=args['no_retracting'])
-        t_poll.setquery(args['query'])
+        t_poll.set_query(args['query'])
         for opt in [*args['questions'], *args['question']]:
             await t_poll.add_option(opt)
 
@@ -155,7 +155,7 @@ class Voting(BasePlugin):
                  "Alternatively, you must have manage_messages permission or be a bot maintainer.",
              category="voting",
              optional_perms={"end_others": {"manage_messages"}})
-    async def _endvote(self, msg: discord.Message):
+    async def _end_vote(self, msg: discord.Message):
         args = msg.clean_content.split(maxsplit=1)
         gid = str(msg.guild.id)
 
@@ -168,7 +168,7 @@ class Voting(BasePlugin):
             results = []
             for k, c in candidates:
                 if c.author != msg.author.id and \
-                        self._endvote.perms.check_optional_permissions("end_others", msg.author, msg.channel):
+                        self._end_vote.perms.check_optional_permissions("end_others", msg.author, msg.channel):
                     continue
                 max_votes = sorted(c.vote_count.items(), key=lambda x: x[1]).pop()[1]
                 winners = '\n'.join(c.options[k] for k, v in c.vote_count.items() if v == max_votes)
@@ -182,7 +182,7 @@ class Voting(BasePlugin):
         else:
             raise CommandSyntaxError("WARNING: Poll HID or ID required")
 
-    @Command("Vote", "UpVote", "DownVote", run_anywhere=True, delcall=True,
+    @Command("Vote", "UpVote", "DownVote", run_anywhere=True, delete_call=True,
              syntax="(hid) (option, single letter from a to t)",
              doc="Allows users to vote without using reactions.\n"
                  "Use \"DownVote\" variant to remove your vote, if possible.",

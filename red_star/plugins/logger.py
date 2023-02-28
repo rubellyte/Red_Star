@@ -59,15 +59,15 @@ class DiscordLogger(BasePlugin):
         blacklist = self.config["log_event_blacklist"]
         if "message_delete" not in blacklist and msg.author != self.client.user:
             contents, _ = close_markdown(msg.clean_content if msg.clean_content else msg.system_content)
-            msgtime = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
+            msg_time = msg.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
             attaches = ""
             if msg.attachments:
                 links = ", ".join([x.proxy_url or x.url for x in msg.attachments])
                 attaches = f"\n**Attachments:** `{links}`"
-            self.emit_log(f"**ANALYSIS: User {msg.author}'s message at `{msgtime}` in {msg.channel.mention}"
+            self.emit_log(f"**ANALYSIS: User {msg.author}'s message at `{msg_time}` in {msg.channel.mention}"
                           f" was deleted. ANALYSIS: Contents:**\n{contents}{attaches}")
 
-            self.logger.info(f"{msg.author}'s message at {msgtime} in {msg.channel} of {msg.guild} was deleted:\n"
+            self.logger.info(f"{msg.author}'s message at {msg_time} in {msg.channel} of {msg.guild} was deleted:\n"
                              f"Contents:\n{contents}{attaches.replace('**','')}")
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -77,13 +77,13 @@ class DiscordLogger(BasePlugin):
             contents, _ = close_markdown(after.clean_content)
             if old_contents == contents:
                 return
-            msgtime = after.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
-            self.emit_log(f"**ANALYSIS: User {after.author} edited their message at `{msgtime}` in "
+            msg_time = after.created_at.strftime("%Y-%m-%d @ %H:%M:%S")
+            self.emit_log(f"**ANALYSIS: User {after.author} edited their message at `{msg_time}` in "
                           f"{after.channel.mention}. ANALYSIS:**\n**Old contents:** {old_contents}\n"
                           f"**New contents:** {contents}")
 
             self.logger.info(f"User {after.author} edited their message "
-                             f"at {msgtime} in {after.channel} of {after.guild}.\n"
+                             f"at {msg_time} in {after.channel} of {after.guild}.\n"
                              f"Old contents:\n{old_contents}\nNew contents:\n{contents}")
 
     async def on_member_update(self, before: discord.Member, after: discord.Member):
@@ -129,7 +129,7 @@ class DiscordLogger(BasePlugin):
         blacklist = self.config["log_event_blacklist"]
         if "member_ban" not in blacklist:
             self.emit_log(f"**ANALYSIS: User {member} was banned.**")
-            self.logger.info(f"User {member} was benned in {guild}.")
+            self.logger.info(f"User {member} was banned in {guild}.")
 
     async def on_member_unban(self, guild: discord.Guild, member: discord.Member):
         blacklist = self.config["log_event_blacklist"]
@@ -236,7 +236,7 @@ class DiscordLogger(BasePlugin):
              syntax="[add|remove type]",
              category="bot_management",
              perms={"manage_guild"})
-    async def _logevent(self, msg: discord.Message):
+    async def _log_event_cmd(self, msg: discord.Message):
         cfg = self.config["log_event_blacklist"]
         try:
             action, event_type = msg.clean_content.lower().split(" ", 2)[1:]

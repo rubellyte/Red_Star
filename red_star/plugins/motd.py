@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     import discord
 
 
-class MOTD(BasePlugin):
+class MOTD(BasePlugin):  # FIXME modern plugin system
     name = "motd"
     version = "1.3"
     author = "medeor413"
@@ -29,8 +29,8 @@ class MOTD(BasePlugin):
     valid_months = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
     valid_weekdays = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
     valid_days = {str(i) for i in range(1, 32)}
-    valid_monthweeks = {"week-1", "week-2", "week-3", "week-4", "week-5", "week-6", "last-week"}
-    valid_dates = valid_months | valid_monthweeks | valid_weekdays | valid_days
+    valid_month_weeks = {"week-1", "week-2", "week-3", "week-4", "week-5", "week-6", "last-week"}
+    valid_dates = valid_months | valid_month_weeks | valid_weekdays | valid_days
 
     async def activate(self):
         self.motds = {}
@@ -89,7 +89,7 @@ class MOTD(BasePlugin):
              perms={"manage_guild"},
              category="bot_management",
              syntax="[-h/--holiday] (/path/of/date) (message)")
-    async def _addmotd(self, msg: discord.Message):
+    async def _add_motd(self, msg: discord.Message):
         holiday = False
         try:
             path, new_motd = msg.clean_content.split(None, 2)[1:]
@@ -123,7 +123,7 @@ class MOTD(BasePlugin):
              category="debug",
              syntax="[-d/--day number] [-wd/--weekday weekday] [-mw/--monthweek week-x] [-m/--month month]"
                     "OR [-dt/--dt ISO-format date]")
-    async def _testmotd(self, msg: discord.Message):
+    async def _test_motd(self, msg: discord.Message):
         today = discord.utils.utcnow()
         parser = RSArgumentParser()
         parser.add_argument("-d",  "--day", default=str(today.day))
@@ -139,7 +139,7 @@ class MOTD(BasePlugin):
                 if args.month not in self.valid_months \
                         or args.day not in self.valid_days \
                         or args.weekday not in self.valid_weekdays \
-                        or args.monthweek not in self.valid_monthweeks:
+                        or args.monthweek not in self.valid_month_weeks:
                     raise CommandSyntaxError("One of the arguments is not valid.")
                 lines = self._get_motds(self.motds, None, valid={args.month, args.day, args.weekday, args.monthweek})
         except DataCarrier as dc:

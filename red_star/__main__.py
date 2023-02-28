@@ -17,7 +17,7 @@ def main():
         description="General-purpose Discord bot with administration and entertainment functions.")
     parser.add_argument("-v", "--verbose", "--debug", action="count", default=0,
                         help="Enables debug output. Calling multiple times increases verbosity; two calls enables "
-                             "discord.py debug output, and three calls enables asyncio's debug mode.")
+                             "discord.py debug output, and three calls enables debug mode in asyncio.")
     conf_path_group = parser.add_mutually_exclusive_group()
     conf_path_group.add_argument("-d", "--directory", type=Path, default=default_user_dir,
                                  help="Sets the directory in which configs, logs, and data will be stored.")

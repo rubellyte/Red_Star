@@ -29,6 +29,7 @@ class CommandDispatcher:
 
         self.commands = {}
         self.last_error = None
+        # FIXME typehints
 
     async def on_message(self, msg: discord.Message):
         await self.command_check(msg)
@@ -57,58 +58,58 @@ class CommandDispatcher:
             if hasattr(mth, "_command"):
                 self.deregister(mth, mth.name.lower())
 
-    def register(self, fn, name, is_alias=False):
+    def register(self, command_func, name, is_alias=False):
         """
         Register commands in the command list and handle conflicts. If it's an
         alias, we don't want it to overwrite non-alias commands. Otherwise,
         overwrite based on priority, and failing that, load order.
 
-        :param fn: The command function, with its added information.
+        :param command_func: The command function, with its added information.
         :param name: The command's name, for indexing.
         :param is_alias: A boolean that tells the registrar not to overwrite other commands.
         """
-        self.logger.debug(f"Registering command {name} from {fn.__self__.name}.")
+        self.logger.debug(f"Registering command {name} from {command_func.__self__.name}.")
 
         if not is_alias:
-            self.initialize_command_permissions(fn)
+            self.initialize_command_permissions(command_func)
 
         if name in self.commands:
-            oldfn = self.commands[name]
-            if fn.priority >= oldfn.priority and not is_alias:
-                self.commands[name] = fn
-                self.logger.warning(f"Command {name} from {fn.__self__.name} overwrites command {oldfn.name} from "
-                                    f"{oldfn.__self__.name}!")
+            existing_func = self.commands[name]
+            if command_func.priority >= existing_func.priority and not is_alias:
+                self.commands[name] = command_func
+                self.logger.warning(f"Command {name} from {command_func.__self__.name} overwrites command"
+                                    f" {existing_func.name} from {existing_func.__self__.name}!")
             else:
-                self.logger.warning(f"Command {oldfn.name} from {oldfn.__self__.name} overwrites command {name} from "
-                                    f"{fn.__self__.name}!")
+                self.logger.warning(f"Command {existing_func.name} from {existing_func.__self__.name} overwrites"
+                                    f" command {name} from {command_func.__self__.name}!")
         else:
-            self.commands[name] = fn
+            self.commands[name] = command_func
 
-        if hasattr(fn, "aliases") and not is_alias:
-            for alias in fn.aliases:
-                self.register(fn, alias.lower(), is_alias=True)
+        if hasattr(command_func, "aliases") and not is_alias:
+            for alias in command_func.aliases:
+                self.register(command_func, alias.lower(), is_alias=True)
 
-    def deregister(self, fn, name, is_alias=False):
+    def deregister(self, command_func, name, is_alias=False):
         """
         Deregister commands from the command list when their plugin is deactivated.
 
-        :param fn: The command function, with its added information.
+        :param command_func: The command function, with its added information.
         :param name: The command's name, for indexing.
         :param is_alias: A boolean that tells the registrar not to overwrite other commands.
         """
-        self.logger.debug(f"Deregistering command {name} from {fn.__self__.name}.")
+        self.logger.debug(f"Deregistering command {name} from {command_func.__self__.name}.")
 
         if name in self.commands:
-            oldfn = self.commands[name]
+            existing_func = self.commands[name]
             # Make sure the command isn't another plugin's
-            if fn == oldfn:
+            if command_func == existing_func:
                 del self.commands[name]
         else:
             self.logger.debug(f"Could not deregister command {name}, no such command!")
 
-        if hasattr(fn, "aliases") and not is_alias:
-            for alias in fn.aliases:
-                self.deregister(fn, alias.lower(), is_alias=True)
+        if hasattr(command_func, "aliases") and not is_alias:
+            for alias in command_func.aliases:
+                self.deregister(command_func, alias.lower(), is_alias=True)
 
     # noinspection PyBroadException
     async def run_command(self, command, msg, dm_cmd=False):
@@ -145,7 +146,7 @@ class CommandDispatcher:
                     except ChannelNotFoundError:
                         pass
                 await fn(msg)
-                if fn.delcall:
+                if fn.delete_call:
                     await sleep(1)
                     try:
                         await msg.delete()
@@ -161,7 +162,7 @@ class CommandDispatcher:
             except UserPermissionError as e:
                 err = f"\nANALYSIS: {e}" if str(e) else ""
                 await respond(msg, sub_user_data(msg.author,
-                                                 f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>.{err}**"))
+                                                 f"**NEGATIVE. INSUFFICIENT PERMISSION: <usernick>. {err}**"))
             except Forbidden:
                 await respond(msg, "**NEGATIVE. This unit does not have permission to perform that action.**")
             except ChannelNotFoundError as e:
@@ -196,7 +197,7 @@ class Command:
     """
 
     def __init__(self, name, *aliases, perms=None, optional_perms=None, doc=None, syntax=None, priority=0,
-                 delcall=False, run_anywhere=False, bot_maintainers_only=False, dm_command=False, category="other"):
+                 delete_call=False, run_anywhere=False, bot_maintainers_only=False, dm_command=False, category="other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
@@ -217,7 +218,7 @@ class Command:
         self.doc = doc
         self.aliases = aliases
         self.priority = priority
-        self.delcall = delcall
+        self.delete_call = delete_call
         self.run_anywhere = run_anywhere
         self.category = category
         self.dm_command = dm_command
@@ -251,7 +252,7 @@ class Command:
         wrapped.perms = self.perms
         wrapped.syntax = self.human_syntax
         wrapped.priority = self.priority
-        wrapped.delcall = self.delcall
+        wrapped.delete_call = self.delete_call
         wrapped.run_anywhere = self.run_anywhere
         wrapped.dm_command = self.dm_command
         wrapped.category = self.category

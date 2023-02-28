@@ -57,7 +57,7 @@ class Levelling(BasePlugin):
              doc="Lists all registered users from highest XP to lowest, up to amount specified or 10.",
              syntax="[number]",
              category="levelling")
-    async def _listxp(self, msg: discord.Message):
+    async def _list_xp(self, msg: discord.Message):
         skip = self.config['skip_missing']
 
         args = msg.content.split()
@@ -126,7 +126,7 @@ class Levelling(BasePlugin):
              syntax="[depth]",
              perms={"manage_guild"},
              category="levelling")
-    async def _evalxp(self, msg: discord.Message):
+    async def _eval_xp(self, msg: discord.Message):
         args = msg.content.split(None, 1)
         if len(args) > 1:
             try:
@@ -155,7 +155,7 @@ class Levelling(BasePlugin):
              syntax="[user]",
              perms={"manage_guild"},
              category="levelling")
-    async def _nukexp(self, msg: discord.Message):
+    async def _nuke_xp(self, msg: discord.Message):
         args = msg.content.split(None, 1)
 
         if len(args) > 1:
@@ -182,11 +182,11 @@ class Levelling(BasePlugin):
 
     @Command("XPConfig", "XPSettings",
              doc="Edit the xp module settings, or see the current settings."
-                 "\nIt is advised to do !nukexp !evalxp after adjusting settings.",
+                 "\nIt is advised to do !nukexp !evalxp after adjusting settings.", # FIXME docs
              syntax="[option] [value]",
              perms={"manage_guild"},
              category="levelling")
-    async def _setxp(self, msg: discord.Message):
+    async def _set_xp(self, msg: discord.Message):
         args = msg.content.split(" ", 2)
         cfg = self.config
         if len(args) == 1:

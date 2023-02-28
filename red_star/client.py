@@ -62,7 +62,7 @@ class RedStar(discord.AutoShardedClient):
         self.config_manager.save_config()
         await super().close()
 
-    async def on_error(self, event_method: str, *pargs, **kwargs):
+    async def on_error(self, event_method: str, *args, **kwargs):
         exc = exc_info()
         self.last_error = exc
         self.logger.exception(f"Unhandled {exc[0].__name__} occurred in {event_method}: ", exc_info=True)

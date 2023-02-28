@@ -116,7 +116,7 @@ class ChannelPrint(BasePlugin):
              perms={"manage_messages"},
              category="channel_print",
              run_anywhere=True,
-             delcall=True)
+             delete_call=True)
     async def _print(self, msg: discord.Message):
         cmd, *args = msg.clean_content.split(None, 1)
 
@@ -163,7 +163,7 @@ class ChannelPrint(BasePlugin):
                     except (URLError, TypeError, ValueError) as e:
                         self.logger.info(f"Attachment file error in {msg.guild}:\n{e}")
                         await self.plugin_manager.hook_event("on_log_event",
-                                                             f"**WARNING: Error occured during printout:**\n{e}",
+                                                             f"**WARNING: Error occurred during printout:**\n{e}",
                                                              log_type="print_event")
                         _file = None  # Just fail silently if the request doesn't work out
                 if _file or 'embed' in post or 'content' in post:
@@ -177,7 +177,7 @@ class ChannelPrint(BasePlugin):
              syntax="(document)",
              perms={"manage_messages"},
              category="channel_print")
-    async def _deleteprint(self, msg: discord.Message):
+    async def _delete_print(self, msg: discord.Message):
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
             del self.storage["documents"][name]
@@ -203,7 +203,7 @@ class ChannelPrint(BasePlugin):
              syntax="(document)",
              perms={"manage_messages"},
              category="channel_print")
-    async def _dumpprint(self, msg: discord.Message):
+    async def _dump_print(self, msg: discord.Message):
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
             dump_data = bytes(json.dumps(self.storage["documents"][name], indent=2, ensure_ascii=False),
@@ -220,7 +220,7 @@ class ChannelPrint(BasePlugin):
              syntax="(document_id) (code block or attached file)",
              perms={"manage_messages"},
              category="channel_print")
-    async def _uploadprint(self, msg: discord.Message):
+    async def _upload_print(self, msg: discord.Message):
         try:
             name = msg.clean_content.split(None, 2)[1].lower()
         except IndexError:
@@ -262,6 +262,6 @@ class ChannelPrint(BasePlugin):
              doc="Reloads all documents from list. You probably shouldn't be using this too often.",
              bot_maintainers_only=True,
              category="channel_print")
-    async def _printreload(self, msg: discord.Message):
+    async def _print_reload(self, msg: discord.Message):
         self.storage.load()
         await respond(msg, "**AFFIRMATIVE. Printout documents reloaded.**")

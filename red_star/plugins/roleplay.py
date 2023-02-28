@@ -165,12 +165,12 @@ class Roleplay(BasePlugin):
 
     @Command("RaceRole",
              doc="-a/--add   : Adds specified roles to the list of allowed race roles.\n"
-                 "-r/--remove: Removes speficied roles from the list.\n"
+                 "-r/--remove: Removes specified roles from the list.\n"
                  "Calling it without any arguments prints the list.",
              syntax="[-a/--add (role mentions/ids/names)] [-r/--remove (role mentions/ids/names)]",
              perms={"manage_messages"},
              category="role_play")
-    async def _racerole(self, msg: discord.Message):
+    async def _race_role(self, msg: discord.Message):
         parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("-a", "--add", default=[], nargs='+')
@@ -214,7 +214,7 @@ class Roleplay(BasePlugin):
              doc="Allows the user to request one of the approved race roles for themselves.",
              syntax="(role)",
              category="role_play")
-    async def _getracerole(self, msg: discord.Message):
+    async def _get_race_role(self, msg: discord.Message):
         if not self.config.get("allow_race_requesting", False):
             return
         args = msg.content.split(" ", 1)
@@ -239,7 +239,7 @@ class Roleplay(BasePlugin):
     @Command("ListRaceRoles",
              doc="Lists all approved race roles.",
              category="role_play")
-    async def _listraceroles(self, msg: discord.Message):
+    async def _list_race_roles(self, msg: discord.Message):
         if not self.config.get("allow_race_requesting", False):
             return
         approved_roles = "\n".join(x.name for x in msg.guild.roles if x.id in self.config["race_roles"])
@@ -250,7 +250,7 @@ class Roleplay(BasePlugin):
              doc="Lists all available bios in the database.",
              syntax="[user]",
              category="role_play")
-    async def _listbio(self, msg: discord.Message):
+    async def _list_bios(self, msg: discord.Message):
         args = msg.content.split(" ", 1)
         if len(args) > 1:
             owner = find_user(msg.guild, args[1])
@@ -386,7 +386,7 @@ class Roleplay(BasePlugin):
                  "See output of ",
              syntax="(attach file to the message, or put JSON contents into a code block following the command)",
              category="role_play")
-    async def _uploadbio(self, msg: discord.Message):
+    async def _upload_bio(self, msg: discord.Message):
         if msg.attachments:
             # there is a file uploaded with the message, grab and decode it.
             _file = BytesIO()
@@ -456,7 +456,7 @@ class Roleplay(BasePlugin):
              doc="Administrative function that reloads the bios from the file.",
              category="role_play",
              bot_maintainers_only=True)
-    async def _reloadbio(self, msg: discord.Message):
+    async def _reload_bio(self, msg: discord.Message):
         self.storage_file.load()
         self.bios = self.storage["bios"]
         await respond(msg, "**AFFIRMATIVE. Bios reloaded from file.**")
@@ -469,13 +469,13 @@ class Roleplay(BasePlugin):
              perms={"manage_messages"},
              category="role_play",
              run_anywhere=True,
-             delcall=True)
-    async def _pinbio(self, msg):
+             delete_call=True)
+    async def _pin_bio(self, msg):
         g_cfg = self.config
 
         if g_cfg.setdefault('pinned_bios_channel', msg.channel.id) != msg.channel.id:
             if g_cfg['pinned_bios']:
-                raise CommandSyntaxError(f"Autopinned bios must all be in channel "
+                raise CommandSyntaxError(f"Auto-pinned bios must all be in channel "
                                          f"<#{self.config['pinned_bios_channel']}>.")
             else:
                 g_cfg['pinned_bios_channel'] = msg.channel.id

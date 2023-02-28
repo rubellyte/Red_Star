@@ -76,19 +76,19 @@ class ChannelManager:
     def storage_load_args(self):
         return {}
 
-    def get_channel(self, chantype: str):
-        chantype = chantype.lower()
-        chan = self.guild.get_channel(self.conf["channels"][chantype])
+    def get_channel(self, channel_type: str):
+        channel_type = channel_type.lower()
+        chan = self.guild.get_channel(self.conf["channels"][channel_type])
         if not chan:
-            raise ChannelNotFoundError(chantype)
+            raise ChannelNotFoundError(channel_type)
         return chan
 
-    def set_channel(self, chantype: str, channel: discord.abc.GuildChannel):
-        chantype = chantype.lower()
+    def set_channel(self, channel_type: str, channel: discord.abc.GuildChannel):
+        channel_type = channel_type.lower()
         if channel:
-            self.conf["channels"][chantype] = channel.id
+            self.conf["channels"][channel_type] = channel.id
         else:
-            self.conf["channels"][chantype] = None
+            self.conf["channels"][channel_type] = None
         self.storage_file.save()
 
     def get_category(self, category: str):

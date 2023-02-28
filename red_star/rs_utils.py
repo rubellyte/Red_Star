@@ -363,7 +363,7 @@ def is_positive(string: str):
     else:
         raise CommandSyntaxError(f"{string} is not valid positive/negative input. "
                                  f"Allowed inputs: off/disable/no/negative/false, "
-                                 "on/enable/yes/affirmatie/true.")
+                                 "on/enable/yes/affirmative/true.")
 
 
 def verify_embed(embed: dict):

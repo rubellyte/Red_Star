@@ -316,7 +316,7 @@ class BasePlugin:
 
     async def deactivate(self):
         """
-        The method called when the plugin is uninitalized. Should be used to perform any necessary cleanup.
+        The method called when the plugin is uninitialized. Should be used to perform any necessary cleanup.
         """
 
     def __str__(self):

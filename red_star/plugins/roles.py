@@ -7,7 +7,7 @@ from red_star.rs_utils import respond, is_positive, find_role, group_items, RSAr
 from red_star.command_dispatcher import Command
 
 
-class RoleCommands(BasePlugin):
+class RoleCommands(BasePlugin): # FIXME doc
     name = "role_commands"
     version = "1.1"
     author = "GTG3000"
@@ -76,7 +76,7 @@ class RoleCommands(BasePlugin):
                     "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Creates a role based on an existing role (for position and permissions), "
              "with parameters similar to editrole")
-    async def _createrole(self, msg: discord.Message):
+    async def _create_role(self, msg: discord.Message):
         """
         a command for creating a role
         takes names for new role and a role that will be copied for position/permissions
@@ -113,18 +113,18 @@ class RoleCommands(BasePlugin):
                 except ValueError:
                     raise CommandSyntaxError("Colour must be in web-colour hexadecimal format.")
 
-                rolepos = max(0, parsed_args['position']) if parsed_args['position'] else role.position
+                role_position = max(0, parsed_args['position']) if parsed_args['position'] else role.position
 
                 t_role = await msg.guild.create_role(**arg_dict)
 
                 try:
                     # since I can't create a role with a preset position :T
-                    await t_role.edit(position=rolepos)
+                    await t_role.edit(position=role_position)
                 except (ValueError, discord.HTTPException):
                     # oh hey, why are we copying this role again?
                     name = args[1].capitalize()
                     await t_role.delete()
-                    raise CommandSyntaxError(f"Failed to move role {name} to position {rolepos}.")
+                    raise CommandSyntaxError(f"Failed to move role {name} to position {role_position}.")
                 t_string = ""
                 for k, v in arg_dict.items():
                     if k != "permissions":
@@ -143,7 +143,7 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role) [position].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Deletes first encounter of the role with the given name and optionally position.")
-    async def _deleterole(self, msg: discord.Message):
+    async def _delete_role(self, msg: discord.Message):
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -172,7 +172,7 @@ class RoleCommands(BasePlugin):
              category="roles",
              syntax="(role).\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
              doc="Returns all the info about the given role.")
-    async def _inforole(self, msg: discord.Message):
+    async def _role_info(self, msg: discord.Message):
         """
         provides an infodump of a role, including permissions and position
         """
@@ -212,7 +212,7 @@ class RoleCommands(BasePlugin):
              category="roles",
              perms={"manage_roles"},
              doc="Lists all roles.")
-    async def _listroles(self, msg: discord.Message):
+    async def _list_roles(self, msg: discord.Message):
         """
         lists all roles along with position and color
         """

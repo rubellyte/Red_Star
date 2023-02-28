@@ -108,26 +108,26 @@ class BotManagement(BasePlugin):
              bot_maintainers_only=True,
              dm_command=True)
     async def _activate(self, msg: discord.Message):
-        plgname = msg.content.split()[1]
+        plugin_name = msg.content.split()[1]
         try:
             permanent = is_positive(msg.content.split()[2])
         except IndexError:
             permanent = False
         all_plugins = self.plugin_manager.plugin_classes
-        if plgname in all_plugins:
-            if plgname not in self.plugins:
+        if plugin_name in all_plugins:
+            if plugin_name not in self.plugins:
                 if permanent:
                     disabled_plugins = self.config_manager.get_server_config(
                             self.guild, "plugin_manager")["disabled_plugins"]
-                    if plgname in disabled_plugins:
-                        disabled_plugins.remove(plgname)
+                    if plugin_name in disabled_plugins:
+                        disabled_plugins.remove(plugin_name)
                         self.config_manager.save_config()
-                await self.plugin_manager.activate(self.guild, plgname)
-                await respond(msg, f"**ANALYSIS: Plugin {plgname} was activated successfully.**")
+                await self.plugin_manager.activate(self.guild, plugin_name)
+                await respond(msg, f"**ANALYSIS: Plugin {plugin_name} was activated successfully.**")
             else:
-                await respond(msg, f"**ANALYSIS: Plugin {plgname} is already activated.**")
+                await respond(msg, f"**ANALYSIS: Plugin {plugin_name} is already activated.**")
         else:
-            await respond(msg, f"**WARNING: Could not find plugin {plgname}.**")
+            await respond(msg, f"**WARNING: Could not find plugin {plugin_name}.**")
 
     @Command("Deactivate",
              doc="Deactivates an active plugin.",
@@ -136,24 +136,24 @@ class BotManagement(BasePlugin):
              bot_maintainers_only=True,
              dm_command=True)
     async def _deactivate(self, msg: discord.Message):
-        plgname = msg.content.split()[1].lower()
+        plugin_name = msg.content.split()[1].lower()
         try:
             permanent = is_positive(msg.content.split()[2])
         except IndexError:
             permanent = False
-        if plgname == self.name:
+        if plugin_name == self.name:
             await respond(msg, f"**WARNING: Cannot deactivate {self.name}.**")
-        elif plgname in self.plugins:
+        elif plugin_name in self.plugins:
             if permanent:
                 disabled_plugins = self.config_manager.get_server_config(
                         self.guild, "plugin_manager")["disabled_plugins"]
-                if plgname not in disabled_plugins:
-                    disabled_plugins.append(plgname)
+                if plugin_name not in disabled_plugins:
+                    disabled_plugins.append(plugin_name)
                     self.config_manager.save_config()
-            await self.plugin_manager.deactivate(self.guild, plgname)
-            await respond(msg, f"**ANALYSIS: Plugin {plgname} was deactivated successfully.**")
+            await self.plugin_manager.deactivate(self.guild, plugin_name)
+            await respond(msg, f"**ANALYSIS: Plugin {plugin_name} was deactivated successfully.**")
         else:
-            await respond(msg, f"**ANALYSIS: Plugin {plgname} is not active.**")
+            await respond(msg, f"**ANALYSIS: Plugin {plugin_name} is not active.**")
 
     @Command("ReloadPlugin",
              doc="Reloads a plugin module, refreshing code changes.",
@@ -176,15 +176,15 @@ class BotManagement(BasePlugin):
              bot_maintainers_only=True,
              dm_command=True)
     async def _list_plugins(self, msg: discord.Message):
-        active_plgs = ", ".join(self.plugins.keys())
-        if not active_plgs:
-            active_plgs = "None."
-        all_plgs = list(self.plugin_manager.plugin_classes)
-        inactive_plgs = ", ".join([x for x in all_plgs if x not in self.plugins])
-        if not inactive_plgs:
-            inactive_plgs = "None."
-        await respond(msg, f"**ANALYSIS: Plugins are as follows:**```\nActive: {active_plgs}\n"
-                           f"Inactive: {inactive_plgs}\n```")
+        active_plugins = ", ".join(self.plugins.keys())
+        if not active_plugins:
+            active_plugins = "None."
+        all_plugins = list(self.plugin_manager.plugin_classes)
+        inactive_plugins = ", ".join([x for x in all_plugins if x not in self.plugins])
+        if not inactive_plugins:
+            inactive_plugins = "None."
+        await respond(msg, f"**ANALYSIS: Plugins are as follows:**```\nActive: {active_plugins}\n"
+                           f"Inactive: {inactive_plugins}\n```")
 
     @Command("GetConfig",
              doc="Gets the config value at the specified path. Use <server> to fill in the server ID.\n"
@@ -222,7 +222,7 @@ class BotManagement(BasePlugin):
             if not k:
                 break
             try:
-                conf_dict = self._list_or_dict_subscript(conf_dict, k)
+                conf_dict = self._list_or_dict_index(conf_dict, k)
             except KeyError:
                 raise CommandSyntaxError(f"Key {k} does not exist.")
             except IndexError:
@@ -304,7 +304,7 @@ class BotManagement(BasePlugin):
             raise CommandSyntaxError("Missing path to config value.")
         for k in path_list:
             try:
-                conf_dict = self._list_or_dict_subscript(conf_dict, k)
+                conf_dict = self._list_or_dict_index(conf_dict, k)
             except KeyError:
                 raise CommandSyntaxError(f"Key {k} does not exist.")
             except IndexError:
@@ -313,7 +313,7 @@ class BotManagement(BasePlugin):
                 raise CommandSyntaxError(f"{args.path} is not a valid path!")
 
         try:
-            orig = self._list_or_dict_subscript(conf_dict, final_key)
+            orig = self._list_or_dict_index(conf_dict, final_key)
         except KeyError:
             raise CommandSyntaxError(f"Key {final_key} does not exist.")
         except IndexError:
@@ -380,8 +380,8 @@ class BotManagement(BasePlugin):
         else:
             raise CommandSyntaxError("Invalid error context.")
         if e:
-            excstr = "\n".join(format_exception(*e))
-            await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{excstr}\n```")
+            traceback_str = "\n".join(format_exception(*e))
+            await respond(msg, f"**ANALYSIS: Last error in context {args}:** ```Python\n{traceback_str}\n```")
         else:
             await respond(msg, f"**ANALYSIS: No error in context {args}.**")
 
@@ -491,13 +491,13 @@ class BotManagement(BasePlugin):
             self.res = self.EmptySentinel()
 
     @staticmethod
-    def _list_or_dict_subscript(obj: dict | list, key: str):
+    def _list_or_dict_index(obj: dict | list, key: str):
         """
         Helper function to use key as a key if obj is a dict, or as an int index if a list.
 
-        :param obj: The object to subscript.
-        :param key: The key to subscript with.
-        :return: The subscripted object.
+        :param obj: The object to retrieve from.
+        :param key: The index to retrieve.
+        :return: The object at the index.
         """
         if isinstance(obj, dict):
             return obj[key]
@@ -508,5 +508,5 @@ class BotManagement(BasePlugin):
 
     class EmptySentinel:
         """
-        Just a simple class to function as a sentinel value for Execute's result variable.
+        An empty sentinel value for the result variable in Execute.
         """

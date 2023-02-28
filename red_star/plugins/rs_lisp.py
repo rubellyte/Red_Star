@@ -33,7 +33,7 @@ _raise = 'raise'
 # temporarily swap a bunch of escaped character into some temporarily values and into un-escaped versions
 escapes = (("\\\\", "\uff00", "\\"), ("\\\"", "\uff01", "\""), ("\\n", "\uff02", "\n"), ("\\;", "\uff03", ";"))
 # search for lisp instances -
-# > comments - ;.*?(?:\n|$) - start with ;, end at line end/end of file, whichever's shorter.
+# > comments - ;.*?(?:\n|$) - start with ;, end at line end/end of file, whichever is shorter.
 # > strings  - \".*?\"      - start and end with quotes, gets the shortest option.
 # > brackets - \(|\)        - get closing and opening bracket symbols as separate tokens.
 # > tokens   - [^()\";\S]   - get everything that isn't a special char or whitespace.
@@ -150,17 +150,17 @@ def atom(token: str):
 
 # A user-defined Scheme procedure.
 class Procedure(object):
-    def __init__(self, parms, body, env):
-        self.parms, self.body, self.env = parms, body, env
+    def __init__(self, params, body, env):
+        self.parms, self.body, self.env = params, body, env
 
     def __call__(self, *args):
         return lisp_eval(self.body, Env(self.parms, args, self.env))
 
 
 class Env(dict):
-    def __init__(self, parms=(), args=(), outer=None, max_runtime=0):
+    def __init__(self, params=(), args=(), outer=None, max_runtime=0):
         super().__init__()
-        self.update(zip(parms, args))
+        self.update(zip(params, args))
         self.outer = outer
         self.timestamp = time()
         self.max_runtime = max_runtime
@@ -226,19 +226,19 @@ def eztime(*args):
         return now.strftime("%Y-%m-%d @ %H:%M:%S")
 
 
-def _assert(var, vartype, *opt):
+def _assert(var, var_type, *opt):
     try:
-        if vartype == 'int':
+        if var_type == 'int':
             return int(var, 0)
-        elif vartype == 'float':
+        elif var_type == 'float':
             return float(var)
-        elif vartype == 'list':
+        elif var_type == 'list':
             return list(*var)
     except (ValueError, TypeError):
         if opt:
             return opt[0]
         else:
-            raise CustomCommandSyntaxError(f'assertion error: {var} is not a valid {vartype}')
+            raise CustomCommandSyntaxError(f'assertion error: {var} is not a valid {var_type}')
 
 
 def _sorted(iterable, *args):  # (sort iterable key reversed)
@@ -483,8 +483,8 @@ def lisp_eval(x, env=None):
             else:
                 env.find(var)[var] = lisp_eval(exp, env)
         elif x[0] == _lambda:  # procedure
-            (_, parms, body) = x
-            return Procedure(parms, body, env)
+            (_, params, body) = x
+            return Procedure(params, body, env)
         elif x[0] == _while:  # while loop
             while lisp_eval(x[1], env):
                 lisp_eval(x[2], env)

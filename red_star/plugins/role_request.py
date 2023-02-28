@@ -70,7 +70,7 @@ class RoleRequest(BasePlugin):
 
     @Command("DefaultRole",
              doc="-a/--add   : Adds specified roles to the list of default roles.\n"
-                 "-r/--remove: Removes speficied roles from the list.\n"
+                 "-r/--remove: Removes specified roles from the list.\n"
                  "Calling it without any arguments prints the list.",
              syntax="[-a/--add (role mentions/ids/names)] [-r/--remove (role mentions/ids/names)]",
              perms={"manage_roles"},
@@ -119,8 +119,8 @@ class RoleRequest(BasePlugin):
 
     @Command("OfferRoles",
              doc="Creates a post with reactions that can be used to gain or remove offered roles.\n"
-                 "Use as follows: OfferRoles 🎈 balloonrole 📌 \"pushpin role\"\n"
-                 "Opional flags:\n"
+                 "Use as follows: OfferRoles 🎈 balloon-role 📌 \"pushpin role\"\n"
+                 "Optional flags:\n"
                  "-x/--exclusive: only one reaction is allowed to be claimed.\n"
                  "-r/--require  : member must have all of the required roles to claim anything.\n\n"
                  "example: OfferRoles -x -r Speaking -r Special ✅ @extra_special_role",
@@ -174,7 +174,7 @@ class RoleRequest(BasePlugin):
              doc="Specifies a role to be granted to people offering a correct password through ClaimRole command.\n"
                  "Pass phrases with spaces in them can be supplied in quotation marks, e.g. \"some pass phrase\".\n"
                  "NOTE: whitespace will be reduced to single space to prevent confusion.\n"
-                 "If a given pass phrase already exists on theserver, role will be updated or deleted if no role is "
+                 "If a given pass phrase already exists on the server, role will be updated or deleted if no role is "
                  "supplied.\n"
                  "If no arguments are given, lists existing password-role bindings.",
              syntax="[password] [role]",
@@ -221,7 +221,7 @@ class RoleRequest(BasePlugin):
              syntax="(password)",
              category="role_request",
              run_anywhere=True,
-             delcall=True)
+             delete_call=True)
     async def _claim_role(self, msg: discord.Message):
         _, *password = msg.content.split()
         if not password:
