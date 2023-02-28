@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import discord
     from red_star.config_manager import JsonValues
-    from typing import Optional
+    from typing import Optional, Iterable
 
 
 class RSNamespace(argparse.Namespace):
@@ -228,7 +228,7 @@ def close_markdown(input_string: str) -> tuple[str, str]:
     return output, unclosed_matches
 
 
-def group_items(items: list[str], message: str = "", header: str = '```\n', footer: str = '```',
+def group_items(items: Iterable[str], message: str = "", header: str = '```\n', footer: str = '```',
                 joiner: str = '\n') -> list[str]:
     """
     Utility function to group a number of list items into sub-2000 length strings for posting through discord.
