@@ -80,7 +80,7 @@ class ConfigManager:
         for plugin, config in self.config["plugins"].items():
             for k, v in config.items():
                 if k.isdigit():
-                    new_config[k] = {plugin: v}
+                    new_config.setdefault(k, {})[plugin] = v
                 elif k == "default":
                     new_config["default"][plugin] = v
                 else:
@@ -102,7 +102,7 @@ class ConfigManager:
     def get_global_config(self, plugin: str, default_config=None):
         if default_config is None:
             default_config = {}
-        default_config |= self.config["global"].setdefault(plugin, {})
+        default_config = default_config | self.config["global"].setdefault(plugin, {})
         global_config = ConfigDict(self.config["global"].setdefault(plugin, default_config), default_config)
         self.config["global"][plugin] = global_config
         return global_config
