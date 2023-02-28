@@ -1,8 +1,8 @@
 import re
 import shlex
-from discord import NotFound, Forbidden
+import discord
 from red_star.plugin_manager import BasePlugin
-from red_star.rs_utils import respond, find_user, RSArgumentParser
+from red_star.rs_utils import respond, find_user, RSArgumentParser, prompt_for_confirmation
 from red_star.rs_errors import CommandSyntaxError
 from red_star.command_dispatcher import Command
 
@@ -21,10 +21,10 @@ class AdminCommands(BasePlugin):
              syntax="(count) [match] [-u/--user mention/ID/Name] [-r/--regex] [-v/--verbose] [-e/--emulate/--dryrun]"
                     "[-b/--before message_id] [-a/--after message_id]",
              run_anywhere=True,
-             delcall=True,
+             delete_call=True,
              perms={"manage_messages"},
              category="admin")
-    async def _purge(self, msg):
+    async def _purge(self, msg: discord.Message):
 
         parser = RSArgumentParser()
         parser.add_argument("command")
@@ -56,7 +56,7 @@ class AdminCommands(BasePlugin):
         if args['before']:
             try:
                 before_msg = await msg.channel.fetch_message(args['before'])
-            except NotFound:
+            except discord.NotFound:
                 raise CommandSyntaxError(f"No message in channel with ID {args['before']}.")
         else:
             before_msg = msg
@@ -64,12 +64,12 @@ class AdminCommands(BasePlugin):
         if args['after']:
             try:
                 after_msg = await msg.channel.fetch_message(args['after'])
-            except NotFound:
+            except discord.NotFound:
                 raise CommandSyntaxError(f"No message in channel with ID {args['before']}.")
         else:
             after_msg = None
 
-        def check(check_msg):
+        def check(check_msg: discord.Message):
             if members and check_msg.author.id not in members:
                 return False
             if args.regex:
@@ -77,26 +77,28 @@ class AdminCommands(BasePlugin):
             else:
                 return self.match_simple(check_msg, args.match)
 
-        if not args['emulate']:
+        deleted = [message async for message in msg.channel.history(limit=args['count'], before=before_msg,
+                                                                    after=after_msg) if check(message)]
+        if not args['emulate'] and len(deleted) > 0:
             # actual purging
+            prompt_text = f"You are about to delete {len(deleted)} messages. Continue?"
+            confirmed = await prompt_for_confirmation(msg, prompt_text=prompt_text)
+            if not confirmed:
+                return
             if not msg.channel.permissions_for(msg.guild.me).manage_messages:
-                raise Forbidden
+                raise discord.Forbidden
             deleted = await msg.channel.purge(limit=args['count'], before=before_msg, after=after_msg, check=check)
-        else:
-            # dry run to test your query
-            deleted = [m async for m in msg.channel.history(limit=args['count'], before=before_msg,
-                                                            after=after_msg).filter(check)]
 
         # if you REALLY want those messages
         if args['verbose']:
-            await self.plugin_manager.hook_event("on_log_event", msg.guild,
+            await self.plugin_manager.hook_event("on_log_event",
                                                  "**WARNING: Beginning verbose purge dump.**",
                                                  log_type="purge_event")
             for d in deleted[::-1]:
-                await self.plugin_manager.hook_event("on_log_event", msg.guild,
+                await self.plugin_manager.hook_event("on_log_event",
                                                      f"`{d.author}({d.author.id}) @ {d.created_at}:`\n{d.content}",
                                                      log_type="purge_event")
-            await self.plugin_manager.hook_event("on_log_event", msg.guild,
+            await self.plugin_manager.hook_event("on_log_event",
                                                  "**Verbose purge dump complete.**",
                                                  log_type="purge_event")
 
@@ -104,9 +106,9 @@ class AdminCommands(BasePlugin):
                       (f"\n**Purge query: **{args['match']}" if args['match'] else ""), delete_after=5)
 
     @staticmethod
-    def match_simple(msg, searchstr):
-        return not searchstr or searchstr.lower() in msg.content.lower()
+    def match_simple(msg: discord.Message, search_substr: str):
+        return not search_substr or search_substr.lower() in msg.content.lower()
 
     @staticmethod
-    def match_regex(msg, searchstr):
-        return not searchstr or re.match(searchstr.lower(), msg.content.lower())
+    def match_regex(msg: discord.Message, search_substr: str):
+        return not search_substr or re.match(search_substr.lower(), msg.content.lower())

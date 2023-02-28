@@ -1,101 +1,93 @@
 # Miscellaneous utility functions and classes found here.
+from __future__ import annotations
 import argparse
 import re
 import json
+import discord.ui
+from discord import ButtonStyle
 from red_star.rs_errors import CommandSyntaxError
 from urllib.parse import urlparse
 
-
-class JsonFileDict(dict):
-    """
-    Dictionary subclass that handles saving the file on edits automatically.
-    Try not to instantiate this class directly; instead, use the config_manager's factory method,
-    ConfigManager.get_plugin_config_file.
-    :param pathlib.Path path: The path that should be saved to.
-    """
-
-    def __init__(self, path, json_save_args=None, json_load_args=None, **kwargs):
-        super().__init__(**kwargs)
-        self.path = path
-        self.json_save_args = {} if json_save_args is None else json_save_args
-        self.json_load_args = {} if json_load_args is None else json_load_args
-        self.reload()
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self.save()
-
-    def __delitem__(self, key):
-        super().__delitem__(key)
-        self.save()
-
-    def save(self):
-        with self.path.open("w", encoding="utf-8") as fd:
-            json.dump(self, fd, **self.json_save_args)
-
-    def reload(self):
-        with self.path.open(encoding="utf-8") as fd:
-            self.update(json.load(fd, **self.json_load_args))
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    import discord
+    from red_star.config_manager import JsonValues
+    from typing import Optional, Iterable
 
 
 class RSNamespace(argparse.Namespace):
-    def __getitem__(self, key):
+    def __getitem__(self, key: str):
         try:
             return self.__getattribute__(key)
         except AttributeError:
             raise KeyError
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value):
         self.__setattr__(key, value)
 
 
 class RSArgumentParser(argparse.ArgumentParser):
 
-    def __init__(self, add_help=False, ignore_unrecognized_arguments=True, **kwargs):
+    def __init__(self, add_help: bool = False, ignore_unrecognized_arguments: bool = True, **kwargs):
         self.ignore_unrecognized_arguments = ignore_unrecognized_arguments
         super().__init__(add_help=add_help, **kwargs)
 
-    def exit(self, status=0, message=None):
+    def exit(self, status: int = 0, message: Optional[str] = None):
         raise CommandSyntaxError(message)
 
-    def error(self, message):
+    def error(self, message: str):
         raise CommandSyntaxError(message)
 
-    def parse_args(self, args=None, namespace=None):
-        args, argv = self.parse_known_args(args, namespace)
+    def parse_args(self, args: Optional[list[str]] = None, namespace: Optional[argparse.Namespace] = None):
+        parsed_args, argv = self.parse_known_args(args, namespace)
         if argv and not self.ignore_unrecognized_arguments:
             self.error(f"Unrecognized arguments: {' '.join(argv)}")
-        return args
+        return parsed_args
 
-    def parse_known_args(self, args=None, namespace=None):
+    def parse_known_args(self, args: Optional[list[str]] = None, namespace: Optional[argparse.Namespace] = None):
         if namespace is None:
             namespace = RSNamespace()
         return super().parse_known_args(args=args, namespace=namespace)
 
 
-def get_guild_config(cls, gid, key):
-    """
-    Gets guild-specific configuration for an option, or fills it in with the default if unspecified.
-    :param BasePlugin cls: The class calling the function, so it can access plugin-specific configs.
-    :param str gid: The guild ID of the guild you're working with, as a str.
-    :param str key: The config option you're trying to fetch.
-    :return: The config option asked for.
-    """
-    if gid not in cls.plugin_config:
-        cls.plugin_config[gid] = cls.plugin_config["default"].copy()
-        cls.config_manager.save_config()
-    elif key not in cls.plugin_config[gid]:
-        cls.plugin_config[gid][key] = cls.plugin_config["default"][key]
-        cls.config_manager.save_config()
-    return cls.plugin_config[gid][key]
+class ConfirmationPrompt(discord.ui.View):
+    def __init__(self, for_user: discord.abc.User, timeout=30):
+        self.for_user = for_user
+        self.return_value = None
+        super().__init__(timeout=timeout)
+
+    async def interaction_check(self, interaction: discord.Interaction, /) -> bool:
+        return interaction.user == self.for_user
+
+    @discord.ui.button(label="Confirm", style=ButtonStyle.green)
+    async def confirm(self, *_):
+        self.return_value = True
+        self.stop()
+
+    @discord.ui.button(label="Cancel", style=ButtonStyle.gray)
+    async def cancel(self, *_):
+        self.return_value = False
+        self.stop()
 
 
-def sub_user_data(user, text):
+async def prompt_for_confirmation(original_msg: discord.Message,
+                                  prompt_text: str = "Are you sure you want to continue?",
+                                  timeout=30) -> bool:
+    confirmation_prompt = ConfirmationPrompt(original_msg.author, timeout=timeout)
+    confirmation_msg = await original_msg.reply(f"**WARNING: {prompt_text}**",
+                                                view=confirmation_prompt)
+    await confirmation_prompt.wait()
+    await confirmation_msg.delete()
+    return bool(confirmation_prompt.return_value)
+
+
+def sub_user_data(user: discord.abc.User, text: str) -> str:
     """
     Replaces certain tags in data with user info.
+
     :param user: The User object to get data from.
     :param text: The text string to substitute on.
-    :return str: The substituted text.
+    :return: The substituted text.
     """
     rep = {
         "<username>": user.name,
@@ -110,13 +102,15 @@ def sub_user_data(user, text):
     return text
 
 
-def find_user(guild, search, return_all=False):
+def find_user(guild: discord.Guild, search: str, return_all: bool = False) \
+              -> Optional[discord.Member | list[discord.Member]]:
     """
     Convenience function to find users via several checks.
+
     :param guild: The discord.Guild object in which to search.
     :param search: The search string.
     :param return_all: Whether to return all users that match the criteria or just the first one.
-    :return: discord.Member: The Member that matches the criteria, or none.
+    :return: The Member(s) that matches the criteria, or none.
     """
     funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search, lambda x: str(x).lower() == search.lower(),
              lambda x: x.display_name.lower() == search.lower(), lambda x: x.name.lower() == search.lower())
@@ -132,13 +126,15 @@ def find_user(guild, search, return_all=False):
         return final
 
 
-def find_role(guild, search, return_all=False):
+def find_role(guild: discord.Guild, search: str, return_all: bool = False) \
+              -> Optional[discord.Role | list[discord.Role]]:
     """
     Convenience function to find users via several checks.
+
     :param guild: The discord.Guild object in which to search.
     :param search: The search string.
     :param return_all: Whether to return all roles that match the criteria or just the first one.
-    :return: discord.Role: The Role that matches the criteria, or none.
+    :return: The Role(s) that matches the criteria, or none.
     """
     funcs = (lambda x: str(x.id) == search, lambda x: x.mention == search,
              lambda x: str(x).lower() == search.lower())
@@ -154,14 +150,16 @@ def find_role(guild, search, return_all=False):
         return final
 
 
-async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
+async def respond(msg: discord.Message, response: Optional[str] = None, allow_mention_everyone: bool = False,
+                  **kwargs) -> discord.Message:
     """
     Convenience function to respond to a given message. Replaces certain
-    patterns with data from the message.
+    patterns with data from the message. Extra kwargs will be passed through to send().
+
     :param msg: The message to respond to.
     :param response: The text to respond with.
     :param allow_mention_everyone: If True, disables the automatic @everyone and @here filtering. Defaults to False.
-    :return discord.Message: The Message sent.
+    :return The Message sent.
     """
     text = None
     if response:
@@ -178,10 +176,11 @@ async def respond(msg, response=None, allow_mention_everyone=False, **kwargs):
     return await msg.channel.send(text, **kwargs)
 
 
-def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
+def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n") -> list[str]:
     """
     A helper function that takes in a text string and breaks it into pieces with a maximum size, making sure all
     markdown is properly closed in the process.
+
     :param input_string: The input string to be split into chunks
     :param max_len: The maximum length of a given chunk
     :param splitter: The token upon which the function should try to split the string
@@ -212,7 +211,13 @@ def split_message(input_string: str, max_len: int = 2000, splitter: str = "\n"):
             return final_strings
 
 
-def close_markdown(input_string):
+def close_markdown(input_string: str) -> tuple[str, str]:
+    """
+    A helper function that *attempts* to close markdown left open.
+
+    :param input_string: The string you want to close markdown on.
+    :return: A tuple containing the markdown-closed string, and the extra characters that were added to close it.
+    """
     code_block_matches = re.findall(r"```\w+\n", input_string)
     in2 = re.sub(r"```\w+\n", "```", input_string)
     md_matches = re.findall(r"(\*\*|\*|~~|__|\|\||```|`)", in2)
@@ -223,10 +228,12 @@ def close_markdown(input_string):
     return output, unclosed_matches
 
 
-def group_items(items, message="", header='```\n', footer='```', joiner='\n'):
+def group_items(items: Iterable[str], message: str = "", header: str = '```\n', footer: str = '```',
+                joiner: str = '\n') -> list[str]:
     """
     Utility function to group a number of list items into sub-2000 length strings for posting through discord.
     Assumes every item is a string and is below 2000 symbols itself.
+
     :param items: list of strings to group.
     :param message: Optional message to include before the items.
     :param header: For discord formatting, defaults to putting everything into a code block.
@@ -255,7 +262,7 @@ def group_items(items, message="", header='```\n', footer='```', joiner='\n'):
     return result
 
 
-def ordinal(n):
+def ordinal(n: int) -> str:
     """
     Black magic that turns numbers into ordinal representation (1 -> 1st)
     :param n: number to be converted
@@ -264,10 +271,16 @@ def ordinal(n):
     return "%d%s" % (n, "tsnrhtdd"[((n // 10) % 10 != 1) * (n % 10 < 4) * n % 10::4])
 
 
-def decode_json(data):
+def decode_json(data: bytes) -> JsonValues:
+    """
+    A function that tries to decode JSON files in a few common encodings that might come in from users.
+
+    :param data: The raw bytes of the file.
+    :return: A valid JSON data type parsed from the file.
+    """
     try:
         try:
-            json_str = data.decode()
+            json_str = data.decode("utf8")
         except UnicodeDecodeError:
             try:
                 json_str = data.decode(encoding="windows-1252")
@@ -285,7 +298,7 @@ def decode_json(data):
     return json_object
 
 
-def pretty_time(seconds):
+def pretty_time(seconds: float) -> str:
     """
     Pretty time display function
     :param seconds: time in seconds
@@ -310,7 +323,7 @@ def pretty_time(seconds):
     if days > 1:
         result_list.append(f"{days} days")
     elif days == 1:
-        result_list.append("1 day_seconds")
+        result_list.append("1 day")
 
     if hours > 0:
         if minutes == seconds == 0:
@@ -336,7 +349,7 @@ def pretty_time(seconds):
     return ", ".join(result_list)
 
 
-def is_positive(string):
+def is_positive(string: str):
     """
     Returns True if the string is a positive word and False if the string is a negative word
     :type string: str
@@ -350,12 +363,12 @@ def is_positive(string):
     else:
         raise CommandSyntaxError(f"{string} is not valid positive/negative input. "
                                  f"Allowed inputs: off/disable/no/negative/false, "
-                                 "on/enable/yes/affirmatie/true.")
+                                 "on/enable/yes/affirmative/true.")
 
 
 def verify_embed(embed: dict):
     """
-    A big ugly function to verify the embed dict as best as we can.
+    A big ugly function to verify the embed dict as best we can.
     Made even uglier by the verbosity I choose to include in the verification.
     :param embed:
     :return:
@@ -367,12 +380,13 @@ def verify_embed(embed: dict):
         def to_dict(self):
             return self
 
-    def option(res: dict, key: str, target: dict, scheme: (dict, int, None)):
+    def option(res: dict, key: str, target: dict, scheme: dict | int | None):
         """
         Verification function.
         Scheme can be a length for text fields or None for url verification.
         Otherwise, it may be a dict of fields with either lengths or None for urls.
         URLs are limited to 2048 symbols by default.
+
         :param res: "result" dict to put the values into
         :param key: Key to be verified
         :param target: The "embed" dict to pull values from

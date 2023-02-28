@@ -3,13 +3,15 @@ from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, group_items
 from red_star.rs_errors import CommandSyntaxError, ChannelNotFoundError
 import datetime
+import json
 import shlex
 import re
-from discord import Message, HTTPException
+import discord
+import discord.utils
+from discord.ext import tasks
 from dataclasses import dataclass
-from asyncio import create_task
 
-recurDecode = {
+RECUR_DECODE = {
     "h": ('hour', 'hours'),
     "d": ('day', 'days'),
     "m": ('month', 'months'),
@@ -44,7 +46,7 @@ class ReminderPlugin(BasePlugin):
         dm: bool
         recurring: list
 
-        # number of days in each months, for checking
+        # number of days in each month, for checking
         _mdays = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 
         def __post_init__(self):
@@ -83,18 +85,39 @@ class ReminderPlugin(BasePlugin):
                 return False
 
     async def activate(self):
-        def _load(cls: ReminderPlugin, obj: dict):
+        self._port_old_storage()
+        self.storage.setdefault("reminders", [])
+
+    def storage_save_args(self):
+        return {'default': lambda obj: obj.as_dict()}
+
+    def storage_load_args(self):
+        def _load(obj: dict):
             if obj.pop('__classhint__', None) == 'reminder':
-                return cls.Reminder(*obj['reminder'])
+                return self.Reminder(*obj['reminder'])
             else:
                 return obj
 
-        self.storage = self.config_manager.get_plugin_config_file(
-                "reminders.json", json_load_args={'object_hook': lambda o: _load(self, o)},
-                json_save_args={'default': lambda x: x.as_dict()})
-        for guild in self.client.guilds:
-            if str(guild.id) not in self.storage:
-                self.storage[str(guild.id)] = []
+        return {'object_hook': lambda obj: _load(obj)}
+
+    def _port_old_storage(self):
+        old_storage_path = self.config_manager.config_path / "reminders.json"
+        if old_storage_path.exists():
+            with old_storage_path.open(encoding="utf-8") as fp:
+                old_storage = json.load(fp)
+            for guild_id, reminders in old_storage.items():
+                try:
+                    new_storage = self.config_manager.storage_files[guild_id][self.name]
+                except KeyError:
+                    self.logger.warn(f"Server with ID {guild_id} not found! Is the bot still in this server?\n"
+                                     f"Skipping conversion of this server's reminder storage...")
+                    continue
+                new_storage.contents["reminders"] = reminders
+                new_storage.save()
+                new_storage.load()
+            old_storage_path = old_storage_path.replace(old_storage_path.with_suffix(".json.old"))
+            self.logger.info(f"Old reminder storage converted to new format. "
+                             f"Old data now located at {old_storage_path} - you may delete this file.")
 
     @Command("Remind",
              syntax="(message) [-d/--delay DD//@HH:MM:SS] [-t/--time DD/MM/YYYY@HH:MM:SS] [-p/--private] ["
@@ -110,8 +133,9 @@ class ReminderPlugin(BasePlugin):
                  "time needs two colons, with some non-whitespace symbol separating the two.\n"
                  "Valid input includes '23//', ':30:' and '1/1/@12::'",
              category="reminder",
-             run_anywhere=True)
-    async def _remind(self, msg: Message):
+             run_anywhere=True,
+             optional_perms={"mention_everyone": {"mention_everyone"}})
+    async def _remind(self, msg: discord.Message):
         parser = RSArgumentParser()
         parser.add_argument("command")
         parser.add_argument("reminder", default=[], nargs="*")
@@ -135,7 +159,7 @@ class ReminderPlugin(BasePlugin):
         else:
             time = args['time'] if args['time'] else args['delay']
 
-        utcnow = datetime.datetime.utcnow()
+        utcnow = discord.utils.utcnow()
 
         # just a way to default skipped values to "today"
         default_time = {
@@ -153,17 +177,20 @@ class ReminderPlugin(BasePlugin):
             args['everyone'] = args['here'] = False
             try:
                 await msg.delete()
-            except HTTPException:
+            except discord.HTTPException:
                 pass
 
         # just because the bot can mention everyone, doesn't mean that anyone with command access should be able to.
-        if msg.author.permissions_in(msg.channel).mention_everyone and (args['everyone'] or args['here']):
+        if self._remind.perms.check_optional_permissions("mention_everyone", msg.author, msg.channel) and \
+                (args['everyone'] or args['here']):
             args['reminder'].insert(0, "@everyone:" if args['everyone'] else "@here:")
 
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
             try:
                 _recur = (args['recurring'][0].lower(), int(args['recurring'][1:]))
-                _recurstr = f" Recurring every {recurDecode[_recur[0]][0] if _recur[1]==1 else str(_recur[1])+' '+recurDecode[_recur[0]][1]}."
+                _recur_format = RECUR_DECODE[_recur[0]][0] if _recur[1] == 1 \
+                    else str(_recur[1]) + ' ' + RECUR_DECODE[_recur[0]][1]
+                _recurstr = f" Recurring every {_recur_format}."
                 if _recur[1] <= 0:
                     raise ValueError
             except ValueError:
@@ -184,10 +211,8 @@ class ReminderPlugin(BasePlugin):
         if time < utcnow:
             raise CommandSyntaxError("Red Star cannot presently alter the past.")
 
-        self.storage[str(msg.guild.id)].append(self.Reminder(msg.author.id, msg.channel.id, time,
-                                                             ' '.join(args['reminder']),
-                                                             args['private'], _recur))
-        self.storage.save()
+        self.storage["reminders"].append(self.Reminder(msg.author.id, msg.channel.id, time,
+                                                       ' '.join(args['reminder']), args['private'], _recur))
 
         await respond(msg, f"**AFFIRMATIVE: reminder set for {time.strftime('%Y-%m-%d @ %H:%M:%S')} UTC.{_recurstr}**")
 
@@ -196,11 +221,10 @@ class ReminderPlugin(BasePlugin):
              doc="Prints out a list of all reminders of the user.\nUse del argument and an index from said list to "
                  "remove reminders.",
              category="reminder")
-    async def _remindlist(self, msg: Message):
+    async def _remind_list(self, msg: discord.Message):
         uid = msg.author.id
-        gid = str(msg.guild.id)
         args = msg.clean_content.split(None, 2)
-        reminder_list = [r for r in self.storage[gid] if r.uid == uid]
+        reminder_list = [r for r in self.storage["reminders"] if r.uid == uid]
 
         if len(args) == 1:
             for split_msg in group_items((f"{i:2}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : {r.text:50} in "
@@ -214,7 +238,7 @@ class ReminderPlugin(BasePlugin):
             except ValueError:
                 raise CommandSyntaxError("Non-integer index provided")
             if 0 <= index < len(reminder_list):
-                self.storage[gid].remove(reminder_list[index])
+                self.storage["reminders"].remove(reminder_list[index])
                 await respond(msg, "**AFFIRMATIVE. Reminder removed.**")
             else:
                 raise CommandSyntaxError("Index out of range")
@@ -227,16 +251,15 @@ class ReminderPlugin(BasePlugin):
                  "remove reminders.",
              category="reminder",
              perms={"manage_messages"})
-    async def _remindlistall(self, msg: Message):
-        gid = str(msg.guild.id)
+    async def _remind_list_all(self, msg: discord.Message):
         args = msg.clean_content.split(None, 2)
 
-        users = {r.uid: str(msg.guild.get_member(r.uid)) for r in self.storage[gid]}
+        users = {r.uid: str(msg.guild.get_member(r.uid)) for r in self.storage["reminders"]}
 
         if len(args) == 1:
             reminders = (f"{i:2}|{users[r.uid]:^32}|{r.time.strftime('%Y-%m-%d @ %H:%M:%S')} : "
                          f"{r.text[:50]:50} in {'Direct Messages' if r.dm else msg.guild.get_channel(r.cid)}"
-                         for i, r in enumerate(self.storage[gid]))
+                         for i, r in enumerate(self.storage["reminders"]))
             for split_msg in group_items(reminders, message="**Following reminders found:**"):
                 await respond(msg, split_msg)
         if len(args) == 3 and args[1].lower() in ("del", "-", "delete"):
@@ -244,36 +267,29 @@ class ReminderPlugin(BasePlugin):
                 index = int(args[2])
             except ValueError:
                 raise CommandSyntaxError("Non-integer syntax provided")
-            if 0 <= index < len(self.storage[gid]):
-                del self.storage[gid][index]
+            if 0 <= index < len(self.storage["reminders"]):
+                del self.storage["reminders"][index]
                 await respond(msg, "**AFFIRMATIVE. Reminder removed.**")
             else:
                 raise CommandSyntaxError("Index out of range")
         else:
             raise CommandSyntaxError
 
-    async def on_global_tick(self, now, _):
-        save_flag = False
-        for guild in filter(lambda x: str(x.id) in self.storage, self.client.guilds):
-            gid = str(guild.id)
-            for reminder in filter(lambda x: x.time <= now, self.storage[gid]):
-                save_flag = True
-                try:
-                    channel = None if reminder.dm else self.channel_manager.get_channel(guild, "reminders")
-                except ChannelNotFoundError:
-                    channel = guild.get_channel(reminder.cid)
-
-                if channel:
-                    create_task(channel.send(f"**<@{reminder.uid}>:**\n{reminder.text}"))
+    @tasks.loop(minutes=1)
+    async def check_reminders(self):
+        now = discord.utils.utcnow()
+        for reminder in [x for x in self.storage["reminders"] if x.time <= now]:
+            try:
+                if reminder.dm:
+                    channel = self.guild.get_member(reminder.uid)
                 else:
-                    usr = guild.get_member(reminder.uid)
-                    if usr:
-                        create_task(usr.send(f"**Reminder from {guild}:**\n{reminder.text}"))
+                    channel = self.channel_manager.get_channel("reminders")
+            except ChannelNotFoundError:
+                channel = self.guild.get_channel(reminder.cid)
 
-                if reminder.recurring:
-                    self.storage[gid].append(self.Reminder(reminder.uid, reminder.cid, reminder.get_recurring(),
-                                                           reminder.text, reminder.dm, reminder.recurring))
-            # it's easier to create a new list where everything fits rather than delete from old
-            self.storage[gid] = [x for x in self.storage[gid] if x.time > now]
-        if save_flag:
-            self.storage.save()
+            await channel.send(f"**<@{reminder.uid}>:**\n{reminder.text}")
+            self.storage["reminders"].remove(reminder)
+
+            if reminder.recurring:
+                self.storage["reminders"].append(self.Reminder(reminder.uid, reminder.cid, reminder.get_recurring(),
+                                                               reminder.text, reminder.dm, reminder.recurring))

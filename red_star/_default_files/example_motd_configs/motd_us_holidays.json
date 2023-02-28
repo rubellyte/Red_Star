@@ -1,0 +1,86 @@
+{
+    "Jan": {
+        "1": {
+            "options": [
+                "It is New Year's Day. Happy New Year!"
+            ]
+        },
+        "Week-3": {
+            "Mon": {
+                "options": [
+                    "It is Martin Luther King Jr. Day."
+                ]
+            }
+        }
+    },
+    "Feb": {
+        "Week-3": {
+            "Mon": {
+                "options": [
+                    "It is Presidents' Day."
+                ]
+            }
+        }
+    },
+    "May": {
+        "Last-Week": {
+            "Mon": {
+                "options": [
+                    "It is Memorial Day."
+                ]
+            }
+        }
+    },
+    "Jul": {
+        "4": {
+            "options": [
+                "It is Independence Day."
+            ]
+        }
+    },
+    "Sep": {
+        "Week-1": {
+            "Mon": {
+                "options": [
+                    "It is Labor Day."
+                ]
+            }
+        }
+    },
+    "Oct": {
+        "Week-1": {
+            "Mon": {
+                "options": [
+                    "It is Columbus Day.",
+                    "It is Indigenous People's Day."
+                ]
+            }
+        },
+        "31": {
+            "options": [
+                "It is Halloween day. Happy Halloween!"
+            ]
+        }
+    },
+    "Nov": {
+        "11": {
+            "options": [
+                "It is Veterans Day."
+            ]
+        },
+        "Week-4": {
+            "Thu": {
+                "options": [
+                    "It is Thanksgiving Day."
+                ]
+            }
+        }
+    },
+    "Dec": {
+        "25": {
+            "options": [
+                "It is Christmas Day. Merry Christmas!"
+            ]
+        }
+    }
+}

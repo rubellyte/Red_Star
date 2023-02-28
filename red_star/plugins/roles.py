@@ -1,6 +1,6 @@
 import shlex
+import discord
 from string import capwords
-from discord import InvalidArgument, HTTPException, Colour
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import CommandSyntaxError
 from red_star.rs_utils import respond, is_positive, find_role, group_items, RSArgumentParser
@@ -17,18 +17,11 @@ class RoleCommands(BasePlugin):
              perms={"manage_roles"},
              category="roles",
              syntax="(role) [-n/--name string][-c/--colour FFFFFF][-h/--hoist bool][-m/--mentionable bool]"
-                    "[-p/--position integer].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
+                    "[-p/--position integer]",
              doc="Edits the specified role name, colour, hoist (show separately from others) "
                  "and mentionable properties.\nOptions must be specified as \"--option value\" or \"-o value\".\n"
                  "Colour can be reset by setting it to 0.")
-    async def _edit_role(self, msg):
-        """
-        a command for editing a role.
-        !editrole (role name) [name=name][colour=colour][hoist=hoist][mentionable=mentionable]
-        name is a string
-        colour is a colour object (value converted from hexadecimal string)
-        hoist and mentionable are boolean
-        """
+    async def _edit_role(self, msg: discord.Message):
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -36,7 +29,7 @@ class RoleCommands(BasePlugin):
             raise CommandSyntaxError(e)
 
         parser = RSArgumentParser()
-        parser.add_argument("command")                      # Well it's gonna be there.
+        parser.add_argument("command")                      # Well it's going to be there.
         parser.add_argument("role")                         # The role name/ID
         parser.add_argument("-n", "--name")                 # New role name
         parser.add_argument("-c", "--colour", "--color")    # New role colour
@@ -51,7 +44,7 @@ class RoleCommands(BasePlugin):
                 try:
                     arg_dict = {
                         "name": args['name'] if args['name'] else None,
-                        "colour": Colour(int(args['colour'], 16)) if args['colour'] else None,
+                        "colour": discord.Colour(int(args['colour'], 16)) if args['colour'] else None,
                         "hoist": is_positive(args['hoist']) if args['hoist'] else None,
                         "mentionable": is_positive(args['mentionable']) if args['mentionable'] else None,
                         "position": max(0, args['position']) if args['position'] else None
@@ -72,11 +65,10 @@ class RoleCommands(BasePlugin):
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) (base role) [-n/--name string][-c/--colour FFFFFF][-h/--hoist bool]"
-                    "[-m/--mentionable bool][-p/--position integer].\n"
-                    "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
-             doc="Creates a role based on an existing role (for position and permissions), "
-             "with parameters similar to editrole")
-    async def _createrole(self, msg):
+                    "[-m/--mentionable bool][-p/--position integer]",
+             doc="Creates a role based on an existing role, inheriting any properties not changed. See documentation "
+                 "for EditRole for more information on options.")
+    async def _create_role(self, msg: discord.Message):
         """
         a command for creating a role
         takes names for new role and a role that will be copied for position/permissions
@@ -88,11 +80,11 @@ class RoleCommands(BasePlugin):
             raise CommandSyntaxError(e)
 
         parser = RSArgumentParser()
-        parser.add_argument("command")                      # Well it's gonna be there.
+        parser.add_argument("command")                      # Well it's going be there.
         parser.add_argument("role")                         # Name of the new role
         parser.add_argument("template")                     # Permission donor name/ID
         parser.add_argument("-n", "--name")                 # New role name
-        parser.add_argument("-c", "--colour", "--color")    # New role colour
+        parser.add_argument("-c", "--color", "--colour")    # New role colour
         parser.add_argument("-h", "--hoist")                # To separate the role or not
         parser.add_argument("-m", "--mentionable")          # To allow role being mentioned
         parser.add_argument("-p", "--position", type=int)   # Changing position (DON'T ACTUALLY USE IT)
@@ -105,7 +97,7 @@ class RoleCommands(BasePlugin):
                     arg_dict = {
                         "name": parsed_args['name'] if parsed_args['name'] else args[1],
                         "permissions": role.permissions,
-                        "colour": Colour(int(parsed_args['colour'], 16)) if parsed_args['colour'] else role.colour,
+                        "colour": discord.Color(int(parsed_args['color'], 16)) if parsed_args['color'] else role.color,
                         "hoist": is_positive(parsed_args['hoist']) if parsed_args['hoist'] else role.hoist,
                         "mentionable": is_positive(parsed_args['mentionable'])
                         if parsed_args['mentionable'] else role.mentionable
@@ -113,18 +105,18 @@ class RoleCommands(BasePlugin):
                 except ValueError:
                     raise CommandSyntaxError("Colour must be in web-colour hexadecimal format.")
 
-                rolepos = max(0, parsed_args['position']) if parsed_args['position'] else role.position
+                role_position = max(0, parsed_args['position']) if parsed_args['position'] else role.position
 
                 t_role = await msg.guild.create_role(**arg_dict)
 
                 try:
                     # since I can't create a role with a preset position :T
-                    await t_role.edit(position=rolepos)
-                except (InvalidArgument, HTTPException):
+                    await t_role.edit(position=role_position)
+                except (ValueError, discord.HTTPException):
                     # oh hey, why are we copying this role again?
                     name = args[1].capitalize()
                     await t_role.delete()
-                    raise CommandSyntaxError(f"Failed to move role {name} to position {rolepos}.")
+                    raise CommandSyntaxError(f"Failed to move role {name} to position {role_position}.")
                 t_string = ""
                 for k, v in arg_dict.items():
                     if k != "permissions":
@@ -141,9 +133,10 @@ class RoleCommands(BasePlugin):
     @Command("DeleteRole",
              perms={"manage_roles"},
              category="roles",
-             syntax="(role) [position].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
-             doc="Deletes first encounter of the role with the given name and optionally position.")
-    async def _deleterole(self, msg):
+             syntax="(role) [position]",
+             doc="Deletes the first role it finds with the given name. Specify a position to delete a specific role "
+                 "if there are multiple roles with the same name.")
+    async def _delete_role(self, msg: discord.Message):
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -170,12 +163,9 @@ class RoleCommands(BasePlugin):
 
     @Command("RoleInfo", "InfoRole",
              category="roles",
-             syntax="(role).\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
-             doc="Returns all the info about the given role.")
-    async def _inforole(self, msg):
-        """
-        provides an infodump of a role, including permissions and position
-        """
+             syntax="(role)",
+             doc="Prints information about the specified role.")
+    async def _role_info(self, msg: discord.Message):
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -211,8 +201,8 @@ class RoleCommands(BasePlugin):
     @Command("ListRoles", "ListRole",
              category="roles",
              perms={"manage_roles"},
-             doc="Lists all roles.")
-    async def _listroles(self, msg):
+             doc="Lists all roles on the server, in order.")
+    async def _list_roles(self, msg: discord.Message):
         """
         lists all roles along with position and color
         """

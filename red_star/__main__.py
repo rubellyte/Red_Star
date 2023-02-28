@@ -2,6 +2,7 @@ import asyncio
 import logging
 from argparse import ArgumentParser
 from discord.errors import LoginFailure
+from discord.utils import setup_logging
 from logging.handlers import RotatingFileHandler
 from os import chdir
 from pathlib import Path
@@ -16,7 +17,7 @@ def main():
         description="General-purpose Discord bot with administration and entertainment functions.")
     parser.add_argument("-v", "--verbose", "--debug", action="count", default=0,
                         help="Enables debug output. Calling multiple times increases verbosity; two calls enables "
-                             "discord.py debug output, and three calls enables asyncio's debug mode.")
+                             "discord.py debug output, and three calls enables debug mode in asyncio.")
     conf_path_group = parser.add_mutually_exclusive_group()
     conf_path_group.add_argument("-d", "--directory", type=Path, default=default_user_dir,
                                  help="Sets the directory in which configs, logs, and data will be stored.")
@@ -32,13 +33,8 @@ def main():
     else:
         loglevel = logging.INFO
 
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s # %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
     base_logger = logging.getLogger()
-    stream_logger = logging.StreamHandler()
-    stream_logger.setLevel(loglevel)
-    stream_logger.setFormatter(formatter)
-    base_logger.addHandler(stream_logger)
+    setup_logging(level=loglevel)
 
     storage_dir = Path.cwd() if args.portable else args.directory
 
@@ -56,9 +52,7 @@ def main():
         logfile.touch()
 
     file_logger = RotatingFileHandler(logfile, maxBytes=1048576, backupCount=5, encoding="utf-8")
-    file_logger.setLevel(loglevel)
-    file_logger.setFormatter(formatter)
-    base_logger.addHandler(file_logger)
+    setup_logging(handler=file_logger, level=loglevel)
 
     loop = asyncio.get_event_loop()
 
@@ -70,9 +64,10 @@ def main():
 
     bot = RedStar(storage_dir, args)
     try:
-        bot.run(bot.config["token"])
-    except LoginFailure:
-        base_logger.error("Bot token is invalid! Please confirm that the token exists in configuration and is correct.")
+        bot.run(bot.config["global"]["token"], log_handler=None)
+    except (LoginFailure, KeyError):
+        base_logger.error("Bot token is invalid! "
+                          "Please confirm that the token exists in configuration and is correct.")
         raise SystemExit
 
 
