@@ -57,6 +57,9 @@ class MusicPlayer(BasePlugin):
     }
 
     cache_reaper = None
+    downloaded_songs_folder = None
+    player = None
+    ydl_options = None
 
     async def activate(self):
         self.downloaded_songs_folder = self.client.storage_dir / "music_cache"
@@ -70,6 +73,7 @@ class MusicPlayer(BasePlugin):
                                           self.ydl_options.get("outtmpl", "%(id)s-%(extractor)s.%(ext)s"))
 
         self._port_old_storage()
+        self.storage.contents.setdefault("banned_users", [])
 
         if not self.cache_reaper:
             self.cache_reaper = self.reap_cache
@@ -465,10 +469,8 @@ class MusicPlayer(BasePlugin):
              perms="mute_members",
              category="music_player")
     async def _music_ban(self, msg: discord.Message):
-        try:
-            ban_store = self.storage["banned_users"]
-        except KeyError:
-            ban_store = self.storage["banned_users"] = []
+        ban_store = self.storage.contentss.setdefault("banned_users", [])
+
         try:
             user = find_user(msg.guild, msg.content.split(None, 1)[1])
         except IndexError:
@@ -547,7 +549,7 @@ class MusicPlayer(BasePlugin):
 
     def check_user_permission(self, user: discord.Member, player: "GuildPlayer"):
         try:
-            if user.id in self.storage["banned_users"]:
+            if user.id in self.storage.contents["banned_users"]:
                 raise UserPermissionError("You are banned from using the music player.")
             if user not in player.voice_client.channel.members:
                 raise UserPermissionError("You are not in the voice channel.")
