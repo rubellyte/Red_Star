@@ -7,7 +7,7 @@ from red_star.rs_utils import respond, is_positive, find_role, group_items, RSAr
 from red_star.command_dispatcher import Command
 
 
-class RoleCommands(BasePlugin):  # FIXME doc
+class RoleCommands(BasePlugin):
     name = "role_commands"
     version = "1.1"
     author = "GTG3000"
@@ -17,18 +17,11 @@ class RoleCommands(BasePlugin):  # FIXME doc
              perms={"manage_roles"},
              category="roles",
              syntax="(role) [-n/--name string][-c/--colour FFFFFF][-h/--hoist bool][-m/--mentionable bool]"
-                    "[-p/--position integer].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
+                    "[-p/--position integer]",
              doc="Edits the specified role name, colour, hoist (show separately from others) "
                  "and mentionable properties.\nOptions must be specified as \"--option value\" or \"-o value\".\n"
                  "Colour can be reset by setting it to 0.")
     async def _edit_role(self, msg: discord.Message):
-        """
-        a command for editing a role.
-        !editrole (role name) [name=name][colour=colour][hoist=hoist][mentionable=mentionable]
-        name is a string
-        colour is a colour object (value converted from hexadecimal string)
-        hoist and mentionable are boolean
-        """
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -72,10 +65,9 @@ class RoleCommands(BasePlugin):  # FIXME doc
              perms={"manage_roles"},
              category="roles",
              syntax="(role name) (base role) [-n/--name string][-c/--colour FFFFFF][-h/--hoist bool]"
-                    "[-m/--mentionable bool][-p/--position integer].\n"
-                    "ANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
-             doc="Creates a role based on an existing role (for position and permissions), "
-             "with parameters similar to editrole")
+                    "[-m/--mentionable bool][-p/--position integer]",
+             doc="Creates a role based on an existing role, inheriting any properties not changed. See documentation "
+                 "for EditRole for more information on options.")
     async def _create_role(self, msg: discord.Message):
         """
         a command for creating a role
@@ -141,8 +133,9 @@ class RoleCommands(BasePlugin):  # FIXME doc
     @Command("DeleteRole",
              perms={"manage_roles"},
              category="roles",
-             syntax="(role) [position].\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
-             doc="Deletes first encounter of the role with the given name and optionally position.")
+             syntax="(role) [position]",
+             doc="Deletes the first role it finds with the given name. Specify a position to delete a specific role "
+                 "if there are multiple roles with the same name.")
     async def _delete_role(self, msg: discord.Message):
         try:
             args = shlex.split(msg.content)
@@ -170,12 +163,9 @@ class RoleCommands(BasePlugin):  # FIXME doc
 
     @Command("RoleInfo", "InfoRole",
              category="roles",
-             syntax="(role).\nANALYSIS: Strings can be encapsulated in \"...\" to allow spaces",
-             doc="Returns all the info about the given role.")
+             syntax="(role)",
+             doc="Prints information about the specified role.")
     async def _role_info(self, msg: discord.Message):
-        """
-        provides an infodump of a role, including permissions and position
-        """
         try:
             args = shlex.split(msg.content)
         except ValueError as e:
@@ -211,7 +201,7 @@ class RoleCommands(BasePlugin):  # FIXME doc
     @Command("ListRoles", "ListRole",
              category="roles",
              perms={"manage_roles"},
-             doc="Lists all roles.")
+             doc="Lists all roles on the server, in order.")
     async def _list_roles(self, msg: discord.Message):
         """
         lists all roles along with position and color

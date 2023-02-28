@@ -188,8 +188,9 @@ class ReminderPlugin(BasePlugin):
         if args['recurring'] and args['recurring'][0].lower() in 'ymdh':
             try:
                 _recur = (args['recurring'][0].lower(), int(args['recurring'][1:]))
-                # TODO: format this
-                _recurstr = f" Recurring every {RECUR_DECODE[_recur[0]][0] if _recur[1] == 1 else str(_recur[1]) + ' ' + RECUR_DECODE[_recur[0]][1]}."
+                _recur_format = RECUR_DECODE[_recur[0]][0] if _recur[1] == 1 \
+                    else str(_recur[1]) + ' ' + RECUR_DECODE[_recur[0]][1]
+                _recurstr = f" Recurring every {_recur_format}."
                 if _recur[1] <= 0:
                     raise ValueError
             except ValueError:

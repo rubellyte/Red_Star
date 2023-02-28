@@ -181,8 +181,9 @@ class Levelling(BasePlugin):
             await respond(msg, "**AFFIRMATIVE. XP table deleted.**")
 
     @Command("XPConfig", "XPSettings",
-             doc="Edit the xp module settings, or see the current settings."
-                 "\nIt is advised to do !nukexp !evalxp after adjusting settings.",  # FIXME docs
+             doc="Edit the xp module settings, or see the current settings.\n"
+                 "After adjusting these settings, it is advisable to recalculate server XP values by running NukeXP "
+                 "and EvalXP.",
              syntax="[option] [value]",
              perms={"manage_guild"},
              category="levelling")
