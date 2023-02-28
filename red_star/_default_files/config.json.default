@@ -1,55 +1,21 @@
 {
-  "token": "INSERT TOKEN HERE!",
-  "bot_maintainers": [
-    "BOT OWNER IDS HERE",
-    "AS NUMBER, NOT STRING"
-  ],
-  "global_tick_interval": 15,
-  "disabled_plugins": [],
-  "command_dispatcher": {},
-  "plugins": {
-    "announcer": {
-      "default": {
-        "greeting_enabled": true,
-        "greeting_message": "Sample message to be broadcasted on bot load.",
-        "new_member_announce_enabled": true,
-        "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention.",
-        "ping_message_options": [
-          "**NEGATIVE**",
-          "**AFFIRMATIVE**",
-          "**WARNING: Does not compute.**",
-          "**ANALYSIS: Maybe.**"
-        ],
-        "ping_messages": true,
-        "ping_messages_on_everyone": false
-      }
+  "__NOTE": "Please read the documentation at https://github.com/medeor413/Red_Star/wiki/Configuring-Red-Star when filling this file in.",
+  "global": {
+    "__config_version": 2,
+    "token": "INSERT TOKEN HERE!",
+    "bot_maintainers": [
+      123456789
+    ],
+    "channel_print": {
+      "max_filesize": 8388608
     },
     "custom_commands": {
-      "default": {
-        "cc_prefix": "!!",
-        "cc_limit": 25
-      },
+      "cc_file_quota": 1048576,
       "rslisp_max_runtime": 5,
       "rslisp_minify": true
     },
-    "logger": {
-      "default": {
-        "log_event_blacklist": []
-      }
-    },
-    "motd": {
-      "default": {
-        "motd_file": "motds.json"
-      }
-    },
     "music_player": {
-      "default": {
-        "idle_disconnect_time": 300,
-        "max_queue_length": 30,
-        "max_video_length": 1800,
-        "print_queue_on_edit": true,
-        "vote_skip_threshold": 0.5
-      },
+      "cache_clear_interval": 3600,
       "default_volume": 15,
       "save_audio": true,
       "video_cache_clear_age": 259200,
@@ -65,12 +31,58 @@
         "restrictfilenames": true,
         "source_address": "0.0.0.0"
       }
+    }
+  },
+  "default": {
+    "announcer": {
+      "greeting_message": "Sample message to be broadcasted on bot load.",
+      "new_member_announce_message": "Message for new players. Replaces <username> with their name and <usermention> with a mention.",
+      "ping_message_options": [
+        "**NEGATIVE**",
+        "**AFFIRMATIVE**",
+        "**WARNING: Does not compute.**",
+        "**ANALYSIS: Maybe.**"
+      ],
+      "ping_messages": true,
+      "ping_messages_on_everyone": false
+    },
+    "command_dispatcher": {
+      "command_prefix": "!",
+      "permission_overrides": {}
+    },
+    "custom_commands": {
+      "cc_limit": 25,
+      "cc_prefix": "!!"
+    },
+    "levelling": {
+      "low_cutoff": 75,
+      "skip_missing": false,
+      "xp_max": 10,
+      "xp_min": 1
+    },
+    "logger": {
+      "log_event_blacklist": [],
+      "log_output_interval": 15
+    },
+    "music_player": {
+      "idle_disconnect_time": 300,
+      "max_queue_length": 30,
+      "max_video_length": 1800,
+      "print_queue_on_edit": true,
+      "vote_skip_threshold": 0.5
+    },
+    "plugin_manager": {
+      "disabled_plugins": []
+    },
+    "role_request": {
+      "default_roles": [],
+      "roles": []
     },
     "roleplay": {
       "allow_race_requesting": false,
-      "default": {
-        "race_roles": []
-      }
+      "pinned_bios": {},
+      "pinned_bios_channel": false,
+      "race_roles": []
     }
   }
 }
