@@ -67,46 +67,29 @@ class RedStar(discord.AutoShardedClient):
         self.last_error = exc
         self.logger.exception(f"Unhandled {exc[0].__name__} occurred in {event_method}: ", exc_info=True)
 
-    # async def on_resumed(self):
-    #     await self.plugin_manager.hook_event("on_resumed")
-
     async def on_typing(self, channel: discord.abc.Messageable, user: discord.abc.User,
                         when: datetime.datetime):
         if not isinstance(channel, discord.abc.GuildChannel):
             return
-        # if self.channel_manager.channel_in_category(channel.guild, "no_read", channel):
-        #     return
         await self.plugin_manager.hook_event("on_typing", channel.guild, channel, user, when)
 
     async def on_message(self, msg: discord.Message):
         if msg.guild is not None:
-            # if self.channel_manager.channel_in_category(msg.guild, "no_read", msg.channel):
-            #     return
-            # await self.command_dispatcher.command_check(msg)
             await self.plugin_manager.hook_event("on_message", msg.guild, msg)
-        # else:
-        #     await self.command_dispatcher.command_check(msg)
-        #     await self.plugin_manager.hook_event("on_dm_message", msg)
 
     async def on_message_delete(self, msg: discord.Message):
         if msg.guild is None:
             return
-        # if self.channel_manager.channel_in_category(msg.guild, "no_read", msg.channel):
-        #     return
         await self.plugin_manager.hook_event("on_message_delete", msg.guild, msg)
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if after.guild is None:
             return
-        # if self.channel_manager.channel_in_category(after.guild, "no_read", after.channel):
-        #     return
         await self.plugin_manager.hook_event("on_message_edit", after.guild, before, after)
 
     async def on_reaction_add(self, reaction: discord.Reaction, user: discord.abc.User):
         if reaction.message.guild is None:
             return
-        # if self.channel_manager.channel_in_category(reaction.message.guild, "no_read", reaction.message.channel):
-        #     return
         await self.plugin_manager.hook_event("on_reaction_add", reaction.message.guild, reaction, user)
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -118,8 +101,6 @@ class RedStar(discord.AutoShardedClient):
     async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.abc.User):
         if reaction.message.guild is None:
             return
-        # if self.channel_manager.channel_in_category(reaction.message.guild, "no_read", reaction.message.channel):
-        #     return
         await self.plugin_manager.hook_event("on_reaction_remove", reaction, user)
 
     async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
@@ -131,15 +112,7 @@ class RedStar(discord.AutoShardedClient):
     async def on_reaction_clear(self, message: discord.Message, reactions: list[discord.Reaction]):
         if message.guild is None:
             return
-        # if self.channel_manager.channel_in_category(message.guild, "no_read", message.channel):
-        #     return
         await self.plugin_manager.hook_event("on_reaction_clear", message.guild, message, reactions)
-
-    # async def on_private_channel_update(self, before: discord.abc.PrivateChannel, after: discord.abc.PrivateChannel):
-    #     await self.plugin_manager.hook_event("on_private_channel_update", before, after)
-    #  TODO: update me
-    # async def on_private_channel_pins_update(self, channel: discord.abc.PrivateChannel, last_pin: datetime.datetime):
-    #     await self.plugin_manager.hook_event("on_private_channel_pins_update", channel, last_pin)
 
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
         await self.plugin_manager.hook_event("on_guild_channel_create", channel.guild, channel)
@@ -151,8 +124,6 @@ class RedStar(discord.AutoShardedClient):
         await self.plugin_manager.hook_event("on_guild_channel_update", after.guild, before, after)
 
     async def on_guild_channel_pins_update(self, channel: discord.abc.GuildChannel, last_pin: datetime.datetime):
-        # if self.channel_manager.channel_in_category(channel.guild, "no_read", channel):
-        #     return
         await self.plugin_manager.hook_event("on_guild_channel_pins_update", channel.guild, channel, last_pin)
 
     async def on_member_join(self, member: discord.Member):
@@ -202,9 +173,3 @@ class RedStar(discord.AutoShardedClient):
 
     async def on_member_unban(self, guild: discord.Guild, member: discord.Member):
         await self.plugin_manager.hook_event("on_member_unban", guild, member)
-
-    # async def on_group_join(self, channel: discord.GroupChannel, user: discord.User):
-    #     await self.plugin_manager.hook_event("on_group_join", channel, user)
-    #
-    # async def on_group_remove(self, channel: discord.GroupChannel, user: discord.User):
-    #     await self.plugin_manager.hook_event("on_group_remove", channel, user)
