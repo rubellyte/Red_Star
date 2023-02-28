@@ -18,18 +18,10 @@ class Announcer(BasePlugin):
         "ping_messages": True,
         "ping_messages_on_everyone": False,
         "ping_message_options": [
-            "**STOP**",
-            "***STOP THIS AT ONCE!***",
-            "**CEASE**",
-            "***CEASE THIS AT ONCE!***",
-            "**DO NOT**",
-            "**HOW** ***DARE*** **YOU!**",
-            "**`soft crying`**",
-            "**DO NOT PING THE ROBOT!**",
-            "**STOP PINGING ME!**",
-            "**`INTERNAL SCREAMING`**",
-            "**`EXTERNAL SCREAMING`**",
-            "**`INTERNAL AND EXTERNAL SCREAMING`**"
+            "**NEGATIVE**",
+            "**AFFIRMATIVE**",
+            "**WARNING: Does not compute.**",
+            "**ANALYSIS: Maybe.**"
         ]
     }
     channel_types = {"startup", "welcome"}
