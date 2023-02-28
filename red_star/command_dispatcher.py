@@ -118,23 +118,7 @@ class CommandDispatcher:
         except KeyError:
             return
         if dm_cmd:
-            # if msg.author.id not in self.config_manager.config.get("bot_maintainers", []):
-            #     return
-            # if not fn.dm_command:
-            #     return
-            # try:
-            #     await fn(msg)
-            # except CommandSyntaxError as e:
-            #     err = e if e else "Invalid syntax."
-            #     if fn.syntax:
-            #         await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {fn.name} {fn.syntax}.**")
-            #     else:
-            #         await respond(msg, f"**WARNING: {err}**")
-            # except Exception:
-            #     self.last_error = exc_info()
-            #     self.logger.exception("Exception occurred in command. ", exc_info=True)
-            #     await respond(msg, "**WARNING: Error occurred while running command.**")
-            return  # TODO: DM commands???
+            return  # TODO: DM commands rework.
 
         else:
             try:
