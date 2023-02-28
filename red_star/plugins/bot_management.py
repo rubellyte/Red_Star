@@ -188,35 +188,42 @@ class BotManagement(BasePlugin):
 
     @Command("GetConfig",
              doc="Gets the config value at the specified path. Use <server> to fill in the server ID.\n"
-                 "Use --file to view a different configuration file, such as music_player.json.",
-             syntax="(path/to/value) [-f/--file file]",
-             category="bot_management",
-             bot_maintainers_only=True,
-             dm_command=True)
+                 "Use --plugin-storage to view a plugin's storage instead of the config.\n"
+                 "Bot maintainers only: Use --default to view default configurations, or --global to view the "
+                 "non-server configuration.",
+             syntax="(path/to/value) [-s/--plugin-storage plugin_name] [-d/--default] [-g/--global]",
+             category="bot_management", perms="administrator")
     async def _get_config(self, msg: discord.Message):
-        args = msg.clean_content.split()[1:]
-        if args[0] in ("-f", "--file"):
-            args.pop(0)
-            filename = args.pop(0)
-            try:  # FIXME doesn't work with new config storage
-                conf_dict = self.config_manager.plugin_config_files[filename]
-            except KeyError:
-                raise CommandSyntaxError(f"Config file {filename} does not exist.")
-        else:
-            conf_dict = self.config_manager.config.copy()
+        parser = RSArgumentParser()
+        parser.add_argument("command")
+        parser.add_argument("path", default="")
+        mutex_group = parser.add_mutually_exclusive_group()
+        mutex_group.add_argument("-s", "--plugin-storage")
+        mutex_group.add_argument("-d", "--default-config", action="store_true")
+        mutex_group.add_argument("-g", "--global-config", action="store_true")
 
-        try:
-            path = args[0]
-        except IndexError:
-            path = ""
-        try:
-            path = path.replace("<server>", str(msg.guild.id))
-        except AttributeError:
-            path = path.replace("<server>", "default")
-        if path.startswith("/"):
-            path = path[1:]
-        path_list = path.split("/")
-        conf_dict.pop("token", None)  # Don't want to leak that by accident!
+        args = parser.parse_args(shlex.split(msg.content))
+
+        if args.plugin_storage:
+            try:
+                conf_dict = self.plugins[args.plugin_storage].storage.copy()
+            except KeyError:
+                raise CommandSyntaxError(f"Plugin with name {args.plugin_storage} does not exist.")
+        elif args.default_config:
+            if not self.config_manager.is_maintainer(msg.author):
+                raise UserPermissionError
+            conf_dict = self.config_manager.config["default"].copy()
+        elif args.global_config:
+            if not self.config_manager.is_maintainer(msg.author):
+                raise UserPermissionError
+            conf_dict = self.config_manager.config["global"].copy()
+            conf_dict.pop("token", None)  # Don't want to leak that by accident!
+        else:
+            conf_dict = self.config_manager.config[str(msg.guild.id)].copy()
+
+        if args.path.startswith("/"):
+            args.path = args.path[1:]
+        path_list = args.path.split("/")
 
         for k in path_list:
             if not k:
@@ -233,7 +240,7 @@ class BotManagement(BasePlugin):
                 raise CommandSyntaxError(f"{args.path} is not a valid path!")
 
         res = json.dumps(conf_dict, indent=2, sort_keys=True)
-        for split_msg in split_message(f"**ANALYSIS: Contents of {path}:**```JSON{res}```"):
+        for split_msg in split_message(f"**ANALYSIS: Contents of /{args.path}:**```JSON\n{res}\n```"):
             await respond(msg, split_msg)
 
     @Command("SetConfig",
@@ -250,17 +257,21 @@ class BotManagement(BasePlugin):
              dm_command=True)
     async def _set_config(self, msg: discord.Message):
         parser = RSArgumentParser()
+        parser.add_argument("command")
         parser.add_argument("path")
         parser.add_argument("value", nargs="*")
-        parser.add_argument("-f", "--file", type=str)
         parser.add_argument("-t", "--type", choices=("null", "bool", "int", "float", "str", "list", "dict", "json"),
                             type=str.lower)
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument("-r", "--remove", action="store_true")
-        group.add_argument("-a", "--append", action="store_true")
-        group.add_argument("-k", "--addkey")
+        operation_group = parser.add_mutually_exclusive_group()
+        operation_group.add_argument("-r", "--remove", action="store_true")
+        operation_group.add_argument("-a", "--append", action="store_true")
+        operation_group.add_argument("-k", "--addkey")
+        source_group = parser.add_mutually_exclusive_group()
+        source_group.add_argument("-s", "--plugin-storage")
+        source_group.add_argument("-d", "--default-config", action="store_true")
+        source_group.add_argument("-g", "--global-config", action="store_true")
 
-        args = parser.parse_args(shlex.split(msg.clean_content)[1:])
+        args = parser.parse_args(shlex.split(msg.content))
 
         type_converters = {
             "null": lambda x: None,
@@ -274,20 +285,24 @@ class BotManagement(BasePlugin):
             "json": json.loads
         }
 
-        if args.file:
+        if args.plugin_storage:
             try:
-                conf_dict = self.config_manager.plugin_config_files[args.file]
+                conf_dict = self.plugins[args.plugin_storage].storage
             except KeyError:
-                raise CommandSyntaxError(f"Config file {args.file} does not exist.")
+                raise CommandSyntaxError(f"Plugin with name {args.plugin_storage} does not exist.")
+        elif args.default_config:
+            if not self.config_manager.is_maintainer(msg.author):
+                raise UserPermissionError
+            conf_dict = self.config_manager.config["default"]
+        elif args.global_config:
+            if not self.config_manager.is_maintainer(msg.author):
+                raise UserPermissionError
+            conf_dict = self.config_manager.config["global"]
         else:
-            conf_dict = self.config_manager.config.copy()
+            conf_dict = self.config_manager.config[str(msg.guild.id)]
 
         try:
             path = args.path
-            try:
-                path = path.replace("<server>", str(msg.guild.id))
-            except AttributeError:
-                path = path.replace("<server>", "default")
             if path.startswith("/"):
                 path = path[1:]
             path_list = path.split("/")
@@ -330,19 +345,19 @@ class BotManagement(BasePlugin):
                 conf_dict.pop(int(final_key))
             else:
                 raise CommandSyntaxError("Path does not lead to a collection!")
-            await respond(msg, f"**ANALYSIS: Config value {args.path} deleted successfully.**")
+            await respond(msg, f"**ANALYSIS: Config value /{path} deleted successfully.**")
 
         elif args.append:
             if isinstance(conf_dict[final_key], list):
                 conf_dict[final_key].append(value)
-                await respond(msg, f"**ANALYSIS: {value} appended to {path} successfully.**")
+                await respond(msg, f"**ANALYSIS: {value} appended to /{path} successfully.**")
             else:
                 raise CommandSyntaxError("Path does not lead to a list!")
 
         elif args.addkey:
             if isinstance(conf_dict[final_key], dict):
                 conf_dict[final_key][args.addkey] = value
-                await respond(msg, f"**ANALYSIS: Key {args.addkey} with value {value} added to {path} "
+                await respond(msg, f"**ANALYSIS: Key {args.addkey} with value {value} added to /{path} "
                                    f"successfully.**")
             else:
                 raise CommandSyntaxError("Path does not lead to a dict!")
