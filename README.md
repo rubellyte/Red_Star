@@ -1,5 +1,5 @@
 # Red Star Bot
-![Python](https://img.shields.io/badge/Python-3.7-blue.svg) [![PyPI](https://img.shields.io/pypi/v/red-star.svg)](https://pypi.org/project/red-star/)
+![Python](https://img.shields.io/pypi/pyversions/red-star) [![PyPI](https://img.shields.io/pypi/v/red-star)](https://pypi.org/project/red-star/)
 
 <img src="https://raw.githubusercontent.com/medeor413/Red_Star/master/default_avatar.png" width="150" alt="Red Star Logo">
 
@@ -15,7 +15,7 @@ A configurable, extensible Discord bot with administration and entertainment plu
 - Reminder plugin with times, delays, and recurring reminders,
 - New member announcer with easily configurable messages,
 - Easy role administration for mobile users via commands,
-- And more, with extra plugins available [here](https://github.com/medeor413/Red_Star_Plugins).
+- And more. See [our wiki](https://github.com/medeor413/Red_Star/wiki) for more features.
 
 # Installation
 ## With pip
