@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     import plugin_manager
     from red_star.client import RedStar
     from channel_manager import ChannelManager
+    from builtins import function
 
 
 class CommandDispatcher:
@@ -29,7 +30,6 @@ class CommandDispatcher:
 
         self.commands = {}
         self.last_error = None
-        # FIXME typehints
 
     async def on_message(self, msg: discord.Message):
         await self.command_check(msg)
@@ -48,17 +48,17 @@ class CommandDispatcher:
 
         command.perms.bot_maintainers = self.config_manager.config["global"].get("bot_maintainers", [])
 
-    def register_plugin(self, plugin):
+    def register_plugin(self, plugin: plugin_manager.BasePlugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
                 self.register(mth, mth.name.lower())
 
-    def deregister_plugin(self, plugin):
+    def deregister_plugin(self, plugin: plugin_manager.BasePlugin):
         for _, mth in inspect.getmembers(plugin, predicate=inspect.ismethod):
             if hasattr(mth, "_command"):
                 self.deregister(mth, mth.name.lower())
 
-    def register(self, command_func, name, is_alias=False):
+    def register(self, command_func: function, name: str, is_alias=False):
         """
         Register commands in the command list and handle conflicts. If it's an
         alias, we don't want it to overwrite non-alias commands. Otherwise,
@@ -89,7 +89,7 @@ class CommandDispatcher:
             for alias in command_func.aliases:
                 self.register(command_func, alias.lower(), is_alias=True)
 
-    def deregister(self, command_func, name, is_alias=False):
+    def deregister(self, command_func: function, name: str, is_alias=False):
         """
         Deregister commands from the command list when their plugin is deactivated.
 
@@ -112,9 +112,9 @@ class CommandDispatcher:
                 self.deregister(command_func, alias.lower(), is_alias=True)
 
     # noinspection PyBroadException
-    async def run_command(self, command, msg, dm_cmd=False):
+    async def run_command(self, command_name: str, msg: discord.Message, dm_cmd=False):
         try:
-            fn = self.commands[command]
+            command_func = self.commands[command_name]
         except KeyError:
             return
         if dm_cmd:
@@ -138,15 +138,15 @@ class CommandDispatcher:
 
         else:
             try:
-                if not fn.run_anywhere:
+                if not command_func.run_anywhere:
                     try:
                         cmd_channel = self.channel_manager.get_channel("commands")
                         if msg.channel != cmd_channel:
                             return
                     except ChannelNotFoundError:
                         pass
-                await fn(msg)
-                if fn.delete_call:
+                await command_func(msg)
+                if command_func.delete_call:
                     await sleep(1)
                     try:
                         await msg.delete()
@@ -154,9 +154,10 @@ class CommandDispatcher:
                         pass
             except CommandSyntaxError as e:
                 err = e if e else "Invalid syntax."
-                if fn.syntax:
+                if command_func.syntax:
                     deco = self.config["command_prefix"].lower()
-                    await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: {deco}{fn.name} {fn.syntax}.**")
+                    await respond(msg, f"**WARNING: {err} ANALYSIS: Proper usage: "
+                                       f"{deco}{command_func.name} {command_func.syntax}.**")
                 else:
                     await respond(msg, f"**WARNING: {err}**")
             except UserPermissionError as e:
@@ -174,7 +175,7 @@ class CommandDispatcher:
 
     # Event hooks
 
-    async def command_check(self, msg):
+    async def command_check(self, msg: discord.Message):
         try:
             deco = self.config["command_prefix"]
             dm_cmd = False
@@ -194,10 +195,33 @@ class Command:
     Defines a decorator that encapsulates a chat command. Provides a common
     interface for all commands, including roles, documentation, usage syntax,
     and aliases.
-    """
 
-    def __init__(self, name, *aliases, perms=None, optional_perms=None, doc=None, syntax=None, priority=0,
-                 delete_call=False, run_anywhere=False, bot_maintainers_only=False, dm_command=False, category="other"):
+    :param name: The string name of the command, used to call it on Discord. If two commands have the same name,
+     the one with a higher priority will override the other. If both have the same priority, the first registered
+     overrides the latter.
+    :param aliases: Additional, alternate names for the command that can also be used to call it. If another command
+     exists with the same name as an alias, the alias is overridden.
+    :param perms: A single permission or set of permissions, provided as string names, that the command will require by
+     default to be used. Check discord.py documentation for valid permission names.
+    :param optional_perms: A dict of optional permissions - the key is the optional permission group name,
+     the value is a set of string permission names required to qualify for the group.
+    :param doc: Documentation text for the usage of the command on Discord. This will be displayed when the Help
+     command is invoked.
+    :param syntax: A string demonstrating the syntax of command usage. Do not include the command name.
+    :param priority: The command's registration priority. When two commands have the same name, the one with higher
+     priority overrides the lower.
+    :param delete_call: If True, the bot will automatically delete the message that invoked the command.
+    :param run_anywhere: If True, this command ignores the typical requirement that commands can only be invoked in
+     a set channel, if that channel is set.
+    :param bot_maintainers_only: If True, only users on the bot maintainer list can use the command. Typically used
+     for commands that can alter bot function on more than one server.
+    :param dm_command: If True, this command can be used in direct messages.
+    :param category: The category name that this command will be filed under in the Help command output.
+    """
+    def __init__(self, name: str, *aliases: str, perms: str | set[str] = None,
+                 optional_perms: dict[str, set[str]] = None, doc: str = None, syntax: str = None, priority: int = 0,
+                 delete_call: bool = False, run_anywhere: bool = False, bot_maintainers_only: bool = False,
+                 dm_command: bool = False, category: str = "other"):
         if syntax is None:
             syntax = ()
         if isinstance(syntax, str):
