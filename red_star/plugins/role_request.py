@@ -1,7 +1,7 @@
 from red_star.plugin_manager import BasePlugin
 from red_star.command_dispatcher import Command
 from red_star.rs_utils import respond, RSArgumentParser, split_message, find_role, group_items
-from red_star.rs_errors import CommandSyntaxError, UserPermissionError
+from red_star.rs_errors import CommandSyntaxError
 import asyncio
 import discord
 import shlex
@@ -274,7 +274,7 @@ class RoleRequest(BasePlugin):
                 else:
                     to_remove.add(roleId)
                     to_remove_emoji.add(reaction)
-            to_remove = to_remove - to_add
+            to_remove -= to_add
             roles = [msg.guild.get_role(role_id) for role_id in to_add]
             if to_remove:
                 await asyncio.gather(*(msg.remove_reaction(emoji, user) for emoji in to_remove_emoji))

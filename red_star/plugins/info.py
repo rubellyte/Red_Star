@@ -1,13 +1,10 @@
-import json
-import re
 import discord
 from asyncio import sleep
 from string import capwords
-from urllib.request import urlopen
 from red_star.plugin_manager import BasePlugin
 from red_star.rs_errors import UserPermissionError
 from red_star.rs_utils import respond
-from red_star.rs_version import version, VersionInfo, version_tuple
+from red_star.rs_version import version
 from red_star.command_dispatcher import Command
 
 

@@ -29,7 +29,7 @@ class ChannelManagerCommands(BasePlugin):
                 await respond(msg, f"**ANALYSIS: No channel of type {channel_type} set for this server.**")
         except IndexError:
             channel_types = "\n".join([f"{x.capitalize()}: {self.client.get_channel(y).name if y else 'Unset'}"
-                                   for x, y in self.channel_manager.conf[gid]['channels'].items()])
+                                       for x, y in self.channel_manager.conf[gid]['channels'].items()])
             await respond(msg, f"**ANALYSIS: Channel types for this server:**```\n{channel_types}```")
 
     @Command("SetChannel",
@@ -89,7 +89,7 @@ class ChannelManagerCommands(BasePlugin):
             category = msg.clean_content.split(None, 1)[1].lower()
             if category in self.channel_manager.conf[gid]['categories']:
                 categories_str = ", ".join([msg.guild.get_channel(x).name for
-                                     x in self.channel_manager.conf[gid]['categories'][category]])
+                                            x in self.channel_manager.conf[gid]['categories'][category]])
                 await respond(msg, f"**ANALYSIS: Category {category} contains the following channels:**\n"
                                    f"```\n{categories_str}```")
             else:

@@ -7,7 +7,7 @@ from red_star.rs_utils import respond, is_positive, find_role, group_items, RSAr
 from red_star.command_dispatcher import Command
 
 
-class RoleCommands(BasePlugin): # FIXME doc
+class RoleCommands(BasePlugin):  # FIXME doc
     name = "role_commands"
     version = "1.1"
     author = "GTG3000"

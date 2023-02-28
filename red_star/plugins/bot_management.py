@@ -198,7 +198,7 @@ class BotManagement(BasePlugin):
         if args[0] in ("-f", "--file"):
             args.pop(0)
             filename = args.pop(0)
-            try:
+            try:  # FIXME doesn't work with new config storage
                 conf_dict = self.config_manager.plugin_config_files[filename]
             except KeyError:
                 raise CommandSyntaxError(f"Config file {filename} does not exist.")
@@ -407,8 +407,8 @@ class BotManagement(BasePlugin):
             guild_in_storage = guild_storage_dir.exists()
 
             if not guild_in_config and not guild_in_storage:
-                await respond(msg, f"**WARNING: Guild with ID {target_guild_id} not found in config or storage. Confirm "
-                                   f"the ID is correct.**")
+                await respond(msg, f"**WARNING: Guild with ID {target_guild_id} not found in config or storage."
+                                   f"Confirm the ID is correct.**")
                 return
 
             confirmed = await prompt_for_confirmation(msg, f"Really delete ALL data for server {target_guild_id}?")
@@ -417,8 +417,8 @@ class BotManagement(BasePlugin):
                 return
 
             if guild_on := self.client.get_guild(int(target_guild_id)):
-                prompt_text = f"The bot is currently active on server {target_guild_id} ({guild_on.name}). Purging the " \
-                              f"configuration of an active server is EXTREMELY DANGEROUS. Continue anyways?"
+                prompt_text = f"The bot is currently active on server {target_guild_id} ({guild_on.name}). Purging " \
+                              f"the configuration of an active server is EXTREMELY DANGEROUS. Continue anyways?"
                 confirmed = await prompt_for_confirmation(msg, prompt_text)
                 if not confirmed:
                     await msg.delete()

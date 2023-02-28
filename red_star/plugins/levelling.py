@@ -182,7 +182,7 @@ class Levelling(BasePlugin):
 
     @Command("XPConfig", "XPSettings",
              doc="Edit the xp module settings, or see the current settings."
-                 "\nIt is advised to do !nukexp !evalxp after adjusting settings.", # FIXME docs
+                 "\nIt is advised to do !nukexp !evalxp after adjusting settings.",  # FIXME docs
              syntax="[option] [value]",
              perms={"manage_guild"},
              category="levelling")
