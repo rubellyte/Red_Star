@@ -57,6 +57,9 @@ class MusicPlayer(BasePlugin):
     }
 
     cache_reaper = None
+    downloaded_songs_folder = None
+    player = None
+    ydl_options = None
 
     async def activate(self):
         self.downloaded_songs_folder = self.client.storage_dir / "music_cache"
@@ -70,6 +73,7 @@ class MusicPlayer(BasePlugin):
                                           self.ydl_options.get("outtmpl", "%(id)s-%(extractor)s.%(ext)s"))
 
         self._port_old_storage()
+        self.storage.setdefault("banned_users", [])
 
         if not self.cache_reaper:
             self.cache_reaper = self.reap_cache
@@ -123,7 +127,7 @@ class MusicPlayer(BasePlugin):
         try:
             voice_channel = msg.author.voice.channel
         except AttributeError:
-            raise UserPermissionError("**ANALYSIS: User is not connected to voice channel.**")
+            raise UserPermissionError("User is not connected to voice channel.")
         try:
             if self.player:
                 await self.player.voice_client.move_to(voice_channel)
@@ -465,14 +469,12 @@ class MusicPlayer(BasePlugin):
              perms="mute_members",
              category="music_player")
     async def _music_ban(self, msg: discord.Message):
-        try:
-            ban_store = self.storage["banned_users"]
-        except KeyError:
-            ban_store = self.storage["banned_users"] = []
+        ban_store = self.storage.setdefault("banned_users", [])
+
         try:
             user = find_user(msg.guild, msg.content.split(None, 1)[1])
         except IndexError:
-            user_li = [find_user(msg.guild, x) for x in ban_store]
+            user_li = [find_user(msg.guild, str(x)) for x in ban_store]
             banned_list = "\n".join(str(x) if x else "Unknown" for x in user_li)
             if not banned_list:
                 banned_list = "None."

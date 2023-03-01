@@ -310,16 +310,20 @@ class CustomCommands(BasePlugin):
             await respond(msg, f"**WARNING: No such custom command {name}.**")
 
     @Command("SearchCCs", "SearchCC", "ListCCs", "ListCC",
-             doc="Searches CCs by name or author.",
-             syntax="(name, author, or */all)",
+             doc="Searches CCs by name or author.\n"
+                 "Call without argument lists all ccs.",
+             syntax="[name / author]",
              category="custom_commands")
     async def _searchccs(self, msg: discord.Message):
-        search = msg.content.split(None, 1)[1].lower()
-        if not search:
-            raise CommandSyntaxError("No search provided.")
+        args = msg.content.split(maxsplit=1)
+        if len(args) == 1:
+            search = None
+        else:
+            search = args[1].lower()
+
         user = find_user(msg.guild, search)
         ccs_list = list(self.ccs.keys())
-        if search in ("*", "all"):
+        if search is None:
             matched_ccs = ccs_list
         elif user:
             matched_ccs = filter(lambda x: self.ccs[x]["author"] == user.id, ccs_list)
