@@ -134,7 +134,7 @@ class ConfigManager:
                 file.save()
 
     def is_maintainer(self, user: discord.abc.User):
-        return user.id in self.config.get('bot_maintainers', [])
+        return user.id in self.config["global"].get('bot_maintainers', [])
 
 # Utility classes
 
