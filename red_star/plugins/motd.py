@@ -55,7 +55,9 @@ class MOTD(BasePlugin):
             self.logger.info("Ported MotD file to new storage system.")
 
     @tasks.loop(time=discord.utils.utcnow().replace(hour=0, minute=0, second=0).timetz())
-    async def _display_motd(self, date: datetime.date):
+    async def _display_motd(self):
+        date = datetime.date.today()
+
         try:
             chan = self.channel_manager.get_channel("motd")
         except ChannelNotFoundError:
