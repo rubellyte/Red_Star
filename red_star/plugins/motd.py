@@ -19,11 +19,6 @@ class MOTD(BasePlugin):
     version = "1.4"
     author = "medeor413"
     description = "A plugin for flexibly displaying messages at date change."
-    default_config = {
-        "default": {
-            "motd_file": "motds.json"
-        }
-    }
     channel_types = {"motd"}
 
     valid_months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
